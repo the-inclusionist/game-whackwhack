@@ -25,7 +25,7 @@ export const pt: Catalog = {
   'hud.lives': 'Vidas restantes: {lives}',
   'hud.endless': 'Sem derrota',
   'hud.suddenDeath': 'Morte súbita',
-  'hud.collect': 'Colete: {what}', 'hud.help': 'Setas navegam · Enter martela · clique também',
+  'hud.collect': 'Colete: {what}', 'hud.help': 'Setas navegam · Enter martela · Shift+setas inclinam o tapete',
 
   'say.waveLit': 'Acenderam: {values}. Colete {what}.',
   'say.hit': 'Certo, {value}.',

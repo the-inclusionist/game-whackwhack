@@ -383,6 +383,56 @@ add "the round keeps running after it is over" \
     "      if (ended || dtMs <= 0) return out;" \
     "      if (dtMs <= 0) return out;"
 
+add "the pitch clamp that keeps the mat clickable is removed" \
+    "$RENDER/camera.ts" \
+    "  return Math.min(PITCH_SHALLOWEST, Math.max(PITCH_STEEPEST, pitch));" \
+    "  return pitch;"
+
+add "the mat may be tilted flat, where every tile projects to a line" \
+    "$RENDER/camera.ts" \
+    "export const PITCH_SHALLOWEST = -0.42;" \
+    "export const PITCH_SHALLOWEST = 0;"
+
+add "the lean becomes a full orbit" \
+    "$RENDER/camera.ts" \
+    "  return Math.min(YAW_LIMIT, Math.max(-YAW_LIMIT, yaw));" \
+    "  return yaw;"
+
+add "the lean limit passes the angle where a row reads as a column" \
+    "$RENDER/camera.ts" \
+    "export const YAW_LIMIT = NUDGE_YAW * 3;" \
+    "export const YAW_LIMIT = NUDGE_YAW * 9;"
+
+add "a nudge stops dividing a quarter turn" \
+    "$RENDER/camera.ts" \
+    "export const NUDGE_YAW = Math.PI / 24;" \
+    "export const NUDGE_YAW = Math.PI / 25;"
+
+add "left and right lean the same way" \
+    "$RENDER/camera.ts" \
+    "      else if (direction === 'right') yaw = clampYaw(yaw - NUDGE_YAW);" \
+    "      else if (direction === 'right') yaw = clampYaw(yaw + NUDGE_YAW);"
+
+add "up and down tip the same way" \
+    "$RENDER/camera.ts" \
+    "      else if (direction === 'up') pitch = clampPitch(pitch + NUDGE_PITCH);" \
+    "      else if (direction === 'up') pitch = clampPitch(pitch - NUDGE_PITCH);"
+
+add "reset leaves the lean where it was" \
+    "$RENDER/camera.ts" \
+    "      yaw = 0;" \
+    "      yaw = yaw;"
+
+add "the camera starts at a framing the stage does not use" \
+    "$RENDER/camera.ts" \
+    "export const PITCH_DEFAULT = -0.9;" \
+    "export const PITCH_DEFAULT = -1.2;"
+
+add "a bad starting state is trusted instead of clamped" \
+    "$RENDER/camera.ts" \
+    "  let pitch = clampPitch(initial.pitch);" \
+    "  let pitch = initial.pitch;"
+
 add "the new wave names only the CORRECT values" \
     "$UI/announce.ts" \
     "          values: event.wave.tiles.map((t) => t.value).join(', ')," \

@@ -22,6 +22,7 @@ import { createFrameTicker } from '../render/frame-ticker.ts';
 import { createMat } from '../render/mat.ts';
 import { stampGlyphs } from '../render/glyph-pass.ts';
 import { pickTopmost, toIllustrationSpace } from '../render/picking.ts';
+import { createCamera, type NudgeDirection } from '../render/camera.ts';
 import { createZdogStage } from '../render/zdog-stage.ts';
 import { createGridMirror } from '../ui/grid-mirror.ts';
 import { announcementFor } from '../ui/announce.ts';
@@ -150,7 +151,7 @@ function boot(): void {
   }
 
   // 5. THE POINTER. It ends in the same `onActivate` the keyboard does.
-  canvas.addEventListener('pointerdown', (event) => {
+  canvas.addEventListener('pointerdown', (event: PointerEvent) => {
     const rect = canvas.getBoundingClientRect();
     if (rect.width === 0) return;
     // Client pixels to CANVAS pixels: the canvas is displayed at a whole multiple of its
@@ -164,11 +165,37 @@ function boot(): void {
     if (cell !== null) handle(round.hit(cell));
   });
 
-  // 6. LAYOUT, and the resize that keeps the scale a whole number of physical pixels.
+  // 6. THE CAMERA. Shift and an arrow leans the mat; Shift+Home puts it back square-on.
+  //    ⚠️ Bound on the REGION, not on the window: a key pressed while the player is somewhere
+  //    else on the page is not aimed at this game. And Shift is what keeps it off the arrow keys
+  //    the grid mirror walks with — the mat and the cursor are different things to move.
+  const camera = createCamera();
+  const CAMERA_KEYS: Readonly<Record<string, NudgeDirection>> = {
+    ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down',
+  };
+  region.addEventListener('keydown', (event: KeyboardEvent) => {
+    if (!event.shiftKey) return;
+    if (event.code === 'Home') {
+      event.preventDefault();
+      applyCamera(camera.reset());
+      return;
+    }
+    const direction = CAMERA_KEYS[event.code];
+    if (!direction) return;
+    event.preventDefault();
+    applyCamera(camera.nudge(direction));
+  });
+
+  function applyCamera(state: { pitch: number; yaw: number }): void {
+    stage.setCamera(state.pitch, state.yaw);
+    invalidate();
+  }
+
+  // 7. LAYOUT, and the resize that keeps the scale a whole number of physical pixels.
   applyLayout({ doc, win: window });
   window.addEventListener('resize', () => { applyLayout({ doc, win: window }); invalidate(); });
 
-  // 7. THE LOOP.
+  // 8. THE LOOP.
   const ticker = createFrameTicker();
   startLoop(ticker, (dt: number) => {
     handle(round.advance(dt * FRAME_MS));
