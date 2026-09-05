@@ -319,6 +319,61 @@ add "the projected centre is read without the zoom" \
     "    x: point.x * viewport.zoom + viewport.width / 2," \
     "    x: point.x + viewport.width / 2,"
 
+add "letting a WRONG tile expire becomes a mistake" \
+    "$RULES/round.ts" \
+    "      if (!tile.resolved && tile.correct) {" \
+    "      if (!tile.resolved) {"
+
+add "letting a CORRECT tile expire stops costing anything" \
+    "$RULES/round.ts" \
+    "      if (!tile.resolved && tile.correct) {" \
+    "      if (false) {"
+
+add "a second hit on the same tile charges again" \
+    "$RULES/round.ts" \
+    "      const tile = tiles.find((t) => t.cell === cell && !t.resolved);" \
+    "      const tile = tiles.find((t) => t.cell === cell);"
+
+add "hitting a dark tile becomes a mistake" \
+    "$RULES/round.ts" \
+    "      if (!tile) return out;   // dark, or already answered. Neither is a mistake." \
+    "      if (!tile) { errors += 1; return out; }"
+
+add "the wave waits out the clock even when every tile is answered" \
+    "$RULES/round.ts" \
+    "      if (tiles.every((t) => t.resolved)) clearWave(out);" \
+    "      void 0;"
+
+add "the wave deadline shrinks every frame again" \
+    "$RULES/round.ts" \
+    "    wave = { tiles, deadlineMs };" \
+    "    wave = { tiles, get deadlineMs() { return timeLeft; } } as unknown as Wave;"
+
+add "the level stops being announced" \
+    "$RULES/round.ts" \
+    "        out.push({ kind: 'level-up', level });" \
+    "        void level;"
+
+add "the end of the round is announced on every later frame" \
+    "$RULES/round.ts" \
+    "    if (ended) return true;" \
+    "    if (false) return true;"
+
+add "a long frame swallows the wave that opened inside it" \
+    "$RULES/round.ts" \
+    "      while (remaining > 0 && !ended) {" \
+    "      if (remaining > 0 && !ended) {"
+
+add "the gap is not restarted after a wave clears" \
+    "$RULES/round.ts" \
+    "    gapLeft = waveGapMs(level);" \
+    "    void level;"
+
+add "the round keeps running after it is over" \
+    "$RULES/round.ts" \
+    "      if (ended || dtMs <= 0) return out;" \
+    "      if (dtMs <= 0) return out;"
+
 UI=app/js/ui
 
 add "the arrows wrap around the mat instead of clamping" \
