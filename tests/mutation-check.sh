@@ -124,6 +124,68 @@ add "a rules module names a browser global" \
     "  if (mode === 'sudden-death') return 0;" \
     "  if (mode === 'sudden-death') return document ? 0 : 0;"
 
+DECL=app/js/declaration
+
+add "a wrong tile becomes a goal, so the sonar aims at mistakes" \
+    "$DECL/whack-declaration.ts" \
+    "      return tile.correct ? 'goal' : 'hazard';" \
+    "      return 'goal';"
+
+add "a wrong tile stops being a hazard" \
+    "$DECL/whack-declaration.ts" \
+    "      return tile.correct ? 'goal' : 'hazard';" \
+    "      return tile.correct ? 'goal' : 'free';"
+
+add "the wrong tile falls silent for a screen reader" \
+    "$DECL/whack-declaration.ts" \
+    "      if (!tile) return null;" \
+    "      if (!tile || !tile.correct) return null;"
+
+add "the tick goes back to the player" \
+    "$DECL/whack-declaration.ts" \
+    "    tick: 'clock'," \
+    "    tick: 'player',"
+
+add "targetsOf hands back the wrong tiles too" \
+    "$DECL/whack-declaration.ts" \
+    "        .filter((t) => t.correct)" \
+    "        .filter(() => true)"
+
+add "the cursor claims a heading it cannot act on" \
+    "$DECL/whack-declaration.ts" \
+    "      return { id: 'cursor', at, heading: 'none' };" \
+    "      return { id: 'cursor', at, heading: 'n' };"
+
+add "the objective name stops going through the dictionary" \
+    "$DECL/whack-declaration.ts" \
+    "          text: deps.t(view.category.nameKey)," \
+    "          text: view.category.id,"
+
+add "the objective loses its denominator" \
+    "$DECL/whack-declaration.ts" \
+    "        need: ROUND_GOAL," \
+    "        need: 0,"
+
+add "targetsOf reads the grid column-major" \
+    "$DECL/whack-declaration.ts" \
+    "        .map((t) => ({ x: t.cell % MAT_COLS, y: Math.floor(t.cell / MAT_COLS) }));" \
+    "        .map((t) => ({ x: Math.floor(t.cell / MAT_COLS), y: t.cell % MAT_COLS }));"
+
+add "the grid loses its bounds check" \
+    "$RULES/grid.ts" \
+    "  return inBounds(at) ? at.y * MAT_COLS + at.x : -1;" \
+    "  return at.y * MAT_COLS + at.x;"
+
+add "the grid turns column-major" \
+    "$RULES/grid.ts" \
+    "  return { x: cell % MAT_COLS, y: Math.floor(cell / MAT_COLS) };" \
+    "  return { x: Math.floor(cell / MAT_COLS), y: cell % MAT_COLS };"
+
+add "the mat changes shape" \
+    "$RULES/grid.ts" \
+    "export const MAT_COLS = 5;" \
+    "export const MAT_COLS = 4;"
+
 TO_FILE="$(mktemp)"
 trap 'rm -f "$TO_FILE"' EXIT
 

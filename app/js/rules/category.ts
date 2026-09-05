@@ -24,6 +24,19 @@ export interface Category {
   readonly id: string;
   /** Translation key for the objective name. The frame translates; see the engine's pillar 3. */
   readonly nameKey: string;
+  /**
+   * Grammatical gender and number of the TRANSLATED name, for the engine's `Speakable`.
+   *
+   * ⚠️ Honestly, this is a pt-BR fact sitting in a language-neutral place, and it is here because
+   * that is where the engine can reach it: `Speakable.gender` exists so a frame can agree with its
+   * content ("o portão trancado" / "a porta trancada"), and only pt-BR and es need the agreement
+   * at all. Every category shipped so far is masculine plural in both ("os pares", "los pares"),
+   * and English ignores the field. A category whose name changed gender between pt and es would
+   * break this and would need the gender to move into the dictionaries — that has not happened
+   * yet, and inventing the machinery before it does would be guessing.
+   */
+  readonly nameGender: 'm' | 'f' | 'n';
+  readonly namePlural: boolean;
   /** Every value this category may put on a tile, correct and incorrect alike. */
   readonly pool: readonly number[];
   isCorrect(value: number): boolean;
@@ -44,6 +57,9 @@ function range(lo: number, hi: number): number[] {
 export interface CategoryOptions {
   readonly id: string;
   readonly nameKey: string;
+  /** Defaults to masculine plural, which every shipped category is. See `Category.nameGender`. */
+  readonly nameGender?: 'm' | 'f' | 'n';
+  readonly namePlural?: boolean;
   readonly pool?: readonly number[];
 }
 
@@ -67,7 +83,14 @@ export function multipleOf(factor: number, options: CategoryOptions): Category {
     );
   }
 
-  return { id: options.id, nameKey: options.nameKey, pool, isCorrect };
+  return {
+    id: options.id,
+    nameKey: options.nameKey,
+    nameGender: options.nameGender ?? 'm',
+    namePlural: options.namePlural ?? true,
+    pool,
+    isCorrect,
+  };
 }
 
 export const EVEN = multipleOf(2, { id: 'even', nameKey: 'obj.evens' });
