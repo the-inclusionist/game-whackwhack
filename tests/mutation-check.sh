@@ -319,6 +319,73 @@ add "the projected centre is read without the zoom" \
     "    x: point.x * viewport.zoom + viewport.width / 2," \
     "    x: point.x + viewport.width / 2,"
 
+UI=app/js/ui
+
+add "the arrows wrap around the mat instead of clamping" \
+    "$UI/grid-mirror.ts" \
+    "  x = Math.min(MAT_COLS - 1, Math.max(0, x));" \
+    "  x = (x + MAT_COLS) % MAT_COLS;"
+
+add "moving down off the last row wraps to the first" \
+    "$UI/grid-mirror.ts" \
+    "  y = Math.min(MAT_ROWS - 1, Math.max(0, y));" \
+    "  y = (y + MAT_ROWS) % MAT_ROWS;"
+
+add "every cell is put in the tab order" \
+    "$UI/grid-mirror.ts" \
+    "      button.tabIndex = cell === cursorCell ? 0 : -1;" \
+    "      button.tabIndex = 0;"
+
+add "the roving tabindex stops roving" \
+    "$UI/grid-mirror.ts" \
+    "    cells[cursorCell].tabIndex = -1;" \
+    "    void 0;"
+
+add "a click leaves the cursor where it was" \
+    "$UI/grid-mirror.ts" \
+    "        moveCursor(cell, { focus: false });" \
+    "        void cell;"
+
+add "the label stops asking the declaration" \
+    "$UI/grid-mirror.ts" \
+    "      content: name ? name.text : t('mat.empty')," \
+    "      content: t('mat.empty'),"
+
+add "the empty cell is named in one hardcoded language" \
+    "$UI/grid-mirror.ts" \
+    "      content: name ? name.text : t('mat.empty')," \
+    "      content: name ? name.text : 'vazia',"
+
+add "the dimmed state is inverted" \
+    "$UI/grid-mirror.ts" \
+    "      button.setAttribute('aria-disabled', role === 'free' ? 'true' : 'false');" \
+    "      button.setAttribute('aria-disabled', role === 'free' ? 'false' : 'true');"
+
+add "an unlit tile stops being focusable" \
+    "$UI/grid-mirror.ts" \
+    "      button.dataset.role = role;" \
+    "      button.dataset.role = role; button.disabled = role === 'free';"
+
+add "the role stops reaching the stylesheet" \
+    "$UI/grid-mirror.ts" \
+    "      button.dataset.role = role;" \
+    "      button.dataset.role = 'free';"
+
+add "the grid uses divs instead of buttons" \
+    "$UI/grid-mirror.ts" \
+    "      const button = doc.createElement('button');" \
+    "      const button = doc.createElement('div') as unknown as HTMLButtonElement;"
+
+add "a remapped key stops being honoured" \
+    "$UI/grid-mirror.ts" \
+    "    const mapped = deps.resolveAction?.(event.code);" \
+    "    const mapped = null;"
+
+add "every intent steers the cursor, including a platformer's jump" \
+    "$UI/grid-mirror.ts" \
+    "    if (!intent || !MOVES.has(intent)) return;" \
+    "    if (!intent) return;"
+
 TO_FILE="$(mktemp)"
 trap 'rm -f "$TO_FILE"' EXIT
 
