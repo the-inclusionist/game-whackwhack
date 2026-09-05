@@ -374,6 +374,60 @@ add "the round keeps running after it is over" \
     "      if (ended || dtMs <= 0) return out;" \
     "      if (dtMs <= 0) return out;"
 
+I18N=app/js/i18n
+
+add "a key goes missing from one language" \
+    "$I18N/es.ts" \
+    "  'mat.empty': 'vacía'," \
+    ""
+
+add "a translation is emptied, which the fallback cannot see" \
+    "$I18N/en.ts" \
+    "  'mat.empty': 'empty'," \
+    "  'mat.empty': '',"
+
+add "a phrase drops a placeholder in one language" \
+    "$I18N/es.ts" \
+    "  'say.hit': 'Correcto, {value}.'," \
+    "  'say.hit': 'Correcto.',"
+
+add "a numeral is translated along with the words around it" \
+    "$I18N/en.ts" \
+    "  'obj.multiplesOf3': 'multiples of 3'," \
+    "  'obj.multiplesOf3': 'multiples of three',"
+
+add "a missing key becomes silence instead of the key" \
+    "$I18N/index.ts" \
+    "      const template = CATALOGS[locale][key] ?? CATALOGS[FALLBACK][key] ?? key;" \
+    "      const template = CATALOGS[locale][key] ?? CATALOGS[FALLBACK][key] ?? '';"
+
+# Removed: "the fallback chain is removed" (locale -> pt -> key, dropping the middle term). It is
+# an EQUIVALENT MUTANT under this suite and saying so is more honest than inventing a test for it:
+# the completeness gate above proves all three catalogues carry the same key set, so the pt step
+# is unreachable while that gate holds. It stays in the code as developer-facing cover — someone
+# hand-editing es.ts and reloading the game before running the suite gets Portuguese rather than a
+# raw identifier — and that is a benefit CI can never observe.
+
+add "an unsupplied placeholder is blanked instead of left standing" \
+    "$I18N/index.ts" \
+    "    (Object.prototype.hasOwnProperty.call(params, key) ? String(params[key]) : whole));" \
+    "    (Object.prototype.hasOwnProperty.call(params, key) ? String(params[key]) : ''));"
+
+add "an unknown browser language falls back to English" \
+    "$I18N/index.ts" \
+    "const FALLBACK: LocaleCode = 'pt';" \
+    "const FALLBACK: LocaleCode = 'en';"
+
+add "pt loses the region its voice depends on" \
+    "$I18N/index.ts" \
+    "  pt: 'pt-BR'," \
+    "  pt: 'pt',"
+
+add "a category name stops matching its catalogue key" \
+    "$RULES/category.ts" \
+    "export const MULTIPLE_OF_4 = multipleOf(4, { id: 'multiple-of-4', nameKey: 'obj.multiplesOf4' });" \
+    "export const MULTIPLE_OF_4 = multipleOf(4, { id: 'multiple-of-4', nameKey: 'obj.multiplesOfFour' });"
+
 UI=app/js/ui
 
 add "the arrows wrap around the mat instead of clamping" \
