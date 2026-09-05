@@ -1,0 +1,428 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Spike 0 - symbol legibility at 640x360</title>
+<style>
+  body { margin:0; background:#0d1117; color:#c9d1d9;
+         font:13px/1.5 ui-monospace,Consolas,monospace; padding:16px; }
+  h1 { font-size:14px; font-weight:600; margin:0 0 4px; color:#e6edf3; }
+  h2 { font-size:13px; font-weight:600; margin:16px 0 6px; color:#e6edf3; }
+  p  { margin:0 0 12px; color:#8b949e; max-width:900px; }
+  canvas { image-rendering: pixelated; display:block; background:#101820;
+           border:1px solid #30363d; }
+  .half { width:640px; height:360px; }
+  .row { display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }
+  label { display:inline-block; margin-right:14px; }
+  small { color:#6e7681; display:block; margin-top:4px; }
+  b { color:#e6edf3; }
+  pre { background:#161b22; border:1px solid #30363d; padding:10px; overflow:auto;
+        max-width:1320px; color:#adbac7; }
+  button { font:inherit; background:#21262d; color:#c9d1d9; border:1px solid #30363d;
+           padding:4px 12px; cursor:pointer; }
+</style>
+
+<h1>Spike 0 &mdash; legibilidade do simbolo na laje, a 640&times;360</h1>
+<p>O Zdog projeta ORTOGRAFICAMENTE: laje distante nao fica menor, toda laje projeta o mesmo
+   paralelogramo. Logo o risco nao e distancia &mdash; e o ESCORCO do glifo deitado na face
+   inclinada, que perde <code>cos(pitch)</code> da altura. Por isso o candidato (a) se parte em dois.
+   Canvas real = 640&times;360 sempre; a exibicao aqui e 1:1.</p>
+
+<div class="row" style="margin-bottom:12px">
+  <label>traco <input id="sw" type="range" min="0.6" max="3" step="0.1" value="1.5"> <span id="swv">1.5</span></label>
+  <label>zoom <input id="zm" type="range" min="2" max="8" step="0.1" value="4.4"> <span id="zmv">4.4</span></label>
+  <label>pitch <input id="tx" type="range" min="-1.4" max="-0.4" step="0.02" value="-0.9"> <span id="txv">-0.90</span></label>
+  <label>altura do glifo <input id="gh" type="range" min="4" max="14" step="0.5" value="8"> <span id="ghv">8</span></label>
+  <label>subida da laje <input id="ri" type="range" min="0" max="10" step="0.5" value="5"> <span id="riv">5</span></label>
+  <label>numero <input id="nv" type="text" size="3" value="12"></label>
+</div>
+
+<div class="row">
+  <div>
+    <canvas id="a1" class="half" width="640" height="360"></canvas>
+    <small><b>(a1)</b> glifo DEITADO na face &mdash; escorcado por cos(pitch)</small>
+  </div>
+  <div>
+    <canvas id="a2" class="half" width="640" height="360"></canvas>
+    <small><b>(a2)</b> glifo EM PE, contra-rotacionado &mdash; altura cheia, dentro do Zdog</small>
+  </div>
+</div>
+<div class="row" style="margin-top:16px">
+  <div>
+    <canvas id="b" class="half" width="640" height="360"></canvas>
+    <small><b>(b)</b> sprite 2D no centro PROJETADO &mdash; o que um sprite Pixi faria</small>
+  </div>
+  <div>
+    <canvas id="sim" class="half" width="640" height="360"></canvas>
+    <small><b>simulacao</b> do candidato (a2) em <select id="simmode">
+      <option value="none">normal</option>
+      <option value="protan" selected>protanopia</option>
+      <option value="deuter">deuteranopia</option>
+      <option value="tritan">tritanopia</option>
+    </select></small>
+  </div>
+</div>
+
+<h2>Medicao</h2>
+<p>Varre a caixa projetada de UMA laje acesa e classifica cada pixel: tinta do glifo, cor da laje,
+   ou <b>parcial</b> (o borrao do antialias do Canvas2D, que nao se desliga). O metodo e o mesmo que
+   <code>render/palette.ts</code> do chess usou para travar <code>STROKE = 1.5</code>.</p>
+<button id="go">medir os tres</button>
+<pre id="out">(sem medicao ainda)</pre>
+
+<script src="zdog.min.js"></script>
+<script>
+const TAU = Zdog.TAU;
+
+/* ============================ RESOLUCAO E MUNDO ============================
+   640x360 = os 320 da engine vezes SOURCE_MULTIPLE 2. O motivo esta medido no
+   chess: cena projetada nao tem aresta alinhada ao eixo, e o degrau da escada
+   tem 1 pixel-fonte, logo CRESCE com o upscale.                              */
+const W = 640, H = 360;
+const TILE = 16;            // inalterado: e o TILE da engine
+const COLS = 5, ROWS = 4;   // as 20 lajes do original
+
+/* Paleta provisoria do spike. A definitiva sai de render/palette.ts, MEDIDA.
+   Escolhida com grande distancia de LUMINANCIA, que e a rede de seguranca real
+   para daltonismo: a laje acesa e clara, o glifo e quase preto. */
+const MAT    = { top:'#2E3B4E' };   // laje apagada
+const LIT    = { top:'#F2D479' };   // laje acesa
+const INK    = '#1A1206';           // o glifo
+const GROUND = '#101820';
+
+let STROKE = 1.5, ZOOM = 4.4, PITCH = -0.9, GLYPH_H = 8, RISE = 5, NUMBER = '12';
+
+/* ============================ O GLIFO ============================
+   Sete segmentos numa caixa 3 x 5 (y para BAIXO, como no Zdog). Sete segmentos
+   porque cada digito fica INEQUIVOCO: um 6 nunca vira 5 por falta de um pixel,
+   e digito ambiguo aqui e erro de curriculo, nao de estetica. */
+const P = { a:[0,0], b:[3,0], c:[0,2.5], d:[3,2.5], e:[0,5], f:[3,5] };
+const SEG = {
+  top:['a','b'], tl:['a','c'], tr:['b','d'], mid:['c','d'],
+  bl:['c','e'],  br:['d','f'], bot:['e','f'],
+};
+const DIGIT = {
+  '0':['top','tl','tr','bl','br','bot'],
+  '1':['tr','br'],
+  '2':['top','tr','mid','bl','bot'],
+  '3':['top','tr','mid','br','bot'],
+  '4':['tl','tr','mid','br'],
+  '5':['top','tl','mid','br','bot'],
+  '6':['top','tl','mid','bl','br','bot'],
+  '7':['top','tr','br'],
+  '8':['top','tl','tr','mid','bl','br','bot'],
+  '9':['top','tl','tr','mid','br','bot'],
+};
+
+/** Segmentos de um numero inteiro, em unidades de mundo, centrado na origem. */
+function glyphSegments(text, height) {
+  const s = height / 5;                 // a caixa do digito tem 5 de altura
+  const gw = 3 * s, gap = 1.1 * s;
+  const total = text.length * gw + (text.length - 1) * gap;
+  const out = [];
+  text.split('').forEach(function (ch, i) {
+    const names = DIGIT[ch];
+    if (!names) return;
+    const ox = -total / 2 + i * (gw + gap);
+    for (const n of names) {
+      const k0 = SEG[n][0], k1 = SEG[n][1];
+      out.push([
+        { x: ox + P[k0][0] * s, y: -height / 2 + P[k0][1] * s },
+        { x: ox + P[k1][0] * s, y: -height / 2 + P[k1][1] * s },
+      ]);
+    }
+  });
+  return out;
+}
+
+/* ============================ A CENA ============================ */
+function tileCentre(col, row) {
+  return {
+    x: (col - (COLS - 1) / 2) * TILE,
+    z: (row - (ROWS - 1) / 2) * TILE,
+  };
+}
+
+/** Quais lajes estao acesas nesta demo, e qual carrega o numero medido. */
+const LIT_SET = [[1,1],[3,0],[2,3],[0,2]];
+const MEASURED_COL = 1, MEASURED_ROW = 1;
+
+/**
+ * Monta a ilustracao. `mode` decide como o simbolo entra:
+ *   'a1'   glifo deitado na face da laje   (escorcado por cos(pitch))
+ *   'a2'   glifo em pe, contra-rotacionado (altura cheia)
+ *   'none' sem glifo no Zdog; quem desenha e o passe 2D (candidato b)
+ */
+function build(canvas, mode) {
+  const illo = new Zdog.Illustration({
+    element: canvas, zoom: ZOOM, centered: true, resize: false, dragRotate: false,
+  });
+  // As duas linhas do invariante. Sem elas o backing store sai grande demais,
+  // a pixel art evapora e NADA reporta erro.
+  illo.pixelRatio = 1;
+  illo.setSize(W, H);
+  illo.rotate.x = PITCH;
+  illo.rotate.y = 0;
+
+  const root = new Zdog.Anchor({ addTo: illo });
+  const tiles = [];
+
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      const lit = LIT_SET.some(function (p) { return p[0] === col && p[1] === row; });
+      const at = tileCentre(col, row);
+      // A laje ACESA SOBE. Altura e o canal nao-cromatico da WCAG 1.4.1 e e o
+      // gesto da toupeira saindo da toca. Piscar (o original) e risco 2.3.1.
+      const y = lit ? -RISE : 0;
+
+      const anchor = new Zdog.Anchor({ addTo: root, translate: { x: at.x, y: y, z: at.z } });
+      // O traco vai na PROPRIA cor de preenchimento: nao e linha de grade, e o
+      // que da borda dura a um fill antialiasado (medido no chess).
+      const face = new Zdog.Rect({
+        addTo: anchor, width: TILE - 1.5, height: TILE - 1.5,
+        rotate: { x: TAU / 4 },
+        stroke: STROKE, color: lit ? LIT.top : MAT.top, fill: true,
+      });
+      tiles.push({ col: col, row: row, lit: lit, rect: face });
+
+      if (!lit || mode === 'none') continue;
+
+      const segs = glyphSegments(NUMBER, GLYPH_H);
+      for (const seg of segs) {
+        const shape = new Zdog.Shape({
+          addTo: anchor, path: [seg[0], seg[1]], closed: false,
+          stroke: STROKE, color: INK,
+        });
+        if (mode === 'a1') {
+          // Deitado sobre a face: mesma rotacao da laje, 0.4 acima p/ nao z-fightar.
+          shape.rotate.x = TAU / 4;
+          shape.translate.y = -0.4;
+        } else {
+          // Em pe e contra-rotacionado: cancela o pitch da ilustracao, entao o
+          // glifo encara a camera e mantem a ALTURA CHEIA.
+          shape.rotate.x = -PITCH;
+          shape.translate.y = -TILE * 0.42;
+        }
+      }
+    }
+  }
+  return { illo: illo, tiles: tiles };
+}
+
+/* ============================ CANDIDATO (b) ============================
+   Sprite 2D no centro PROJETADO. O Zdog entrega os 4 cantos projetados de cada
+   Rect em pathCommands[i].endRenderPoint - os MESMOS pontos que o renderizador
+   vai desenhar -, que e como render/picking.ts do chess faz picking sem
+   raycaster. Ler dai nao custa nada e nao tem como divergir da tela.        */
+function projectedCorners(rect) {
+  return rect.pathCommands.map(function (c) { return c.endRenderPoint; });
+}
+function toScreen(p, zoom) {
+  // Inverso do que prerenderCanvas aplica; pixelRatio e 1 por invariante.
+  return { x: p.x * zoom + W / 2, y: p.y * zoom + H / 2 };
+}
+function projectedCentre(rect, zoom) {
+  const pts = projectedCorners(rect);
+  let x = 0, y = 0;
+  for (const p of pts) { x += p.x; y += p.y; }
+  return toScreen({ x: x / pts.length, y: y / pts.length }, zoom);
+}
+
+function drawSpriteGlyph(ctx, cx, cy, pxHeight) {
+  const segs = glyphSegments(NUMBER, pxHeight);
+  ctx.save();
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = Math.max(1, Math.round(pxHeight / 5));
+  ctx.lineCap = 'butt';
+  ctx.beginPath();
+  for (const seg of segs) {
+    ctx.moveTo(cx + seg[0].x, cy + seg[0].y);
+    ctx.lineTo(cx + seg[1].x, cy + seg[1].y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* ============================ RENDER DOS PAINEIS ============================ */
+const BUILT = { a1: null, a2: null, b: null };
+
+function paint() {
+  const panels = [['a1', 'a1'], ['a2', 'a2'], ['b', 'none']];
+  for (const pair of panels) {
+    const id = pair[0], mode = pair[1];
+    const cv = document.getElementById(id);
+    const built = build(cv, mode);
+    built.illo.updateRenderGraph();
+    BUILT[id] = built;
+
+    if (id === 'b') {
+      const ctx = cv.getContext('2d');
+      for (const t of built.tiles) {
+        if (!t.lit) continue;
+        const c = projectedCentre(t.rect, built.illo.zoom);
+        drawSpriteGlyph(ctx, c.x, c.y, GLYPH_H * built.illo.zoom);
+      }
+    }
+  }
+  paintSim();
+}
+
+const CVD = {
+  // Machado, Oliveira & Fernandes (2009), severidade 1.0 - as mesmas da engine.
+  protan: [0.152286, 1.052583, -0.204868, 0.114503, 0.786281, 0.099216, -0.003882, -0.048116, 1.051998],
+  deuter: [0.367322, 0.860646, -0.227968, 0.280085, 0.672501, 0.047413, -0.011820, 0.042940, 0.968881],
+  tritan: [1.255528, -0.076749, -0.178779, -0.078411, 0.930809, 0.147602, 0.004733, 0.691367, 0.303900],
+};
+function clamp8(v) { return v < 0 ? 0 : v > 255 ? 255 : v; }
+
+function paintSim() {
+  const src = document.getElementById('a2');
+  const dst = document.getElementById('sim');
+  const mode = document.getElementById('simmode').value;
+  const img = src.getContext('2d').getImageData(0, 0, W, H);
+  const d = img.data;
+  const m = CVD[mode];
+  if (m) {
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i], g = d[i + 1], b = d[i + 2];
+      d[i]     = clamp8(m[0] * r + m[1] * g + m[2] * b);
+      d[i + 1] = clamp8(m[3] * r + m[4] * g + m[5] * b);
+      d[i + 2] = clamp8(m[6] * r + m[7] * g + m[8] * b);
+    }
+  }
+  dst.getContext('2d').putImageData(img, 0, 0);
+}
+
+/* ============================ MEDICAO ============================ */
+function srgbLum(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(function (v) {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+}
+function contrast(h1, h2) {
+  const a = srgbLum(h1), b = srgbLum(h2);
+  const hi = Math.max(a, b), lo = Math.min(a, b);
+  return (hi + 0.05) / (lo + 0.05);
+}
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function near(data, i, rgb, eps) {
+  return Math.abs(data[i] - rgb[0]) <= eps
+      && Math.abs(data[i + 1] - rgb[1]) <= eps
+      && Math.abs(data[i + 2] - rgb[2]) <= eps;
+}
+
+/**
+ * Varre a caixa projetada da laje medida e classifica cada pixel.
+ * `parcial` = nem tinta nem laje nem fundo: e o borrao do antialias, que o
+ * Canvas2D aplica a todo path e nao deixa desligar.
+ */
+function measurePanel(id) {
+  const cv = document.getElementById(id);
+  const built = BUILT[id];
+  const target = built.tiles.find(function (t) {
+    return t.col === MEASURED_COL && t.row === MEASURED_ROW;
+  });
+  const zoom = built.illo.zoom;
+  const pts = projectedCorners(target.rect).map(function (p) { return toScreen(p, zoom); });
+  const xs = pts.map(function (p) { return p.x; });
+  const ys = pts.map(function (p) { return p.y; });
+
+  // Caixa generosa: o glifo em pe sobe ACIMA da laje, entao a caixa da laje
+  // sozinha o cortaria pela metade e a medicao mentiria para baixo.
+  const x0 = Math.max(0, Math.floor(Math.min.apply(null, xs) - 4));
+  const x1 = Math.min(W, Math.ceil(Math.max.apply(null, xs) + 4));
+  const y0 = Math.max(0, Math.floor(Math.min.apply(null, ys) - GLYPH_H * zoom - 8));
+  const y1 = Math.min(H, Math.ceil(Math.max.apply(null, ys) + 4));
+
+  const wpx = x1 - x0;
+  const d = cv.getContext('2d').getImageData(x0, y0, wpx, y1 - y0).data;
+  const ink = hexToRgb(INK), lit = hexToRgb(LIT.top), gr = hexToRgb(GROUND);
+
+  let nInk = 0, nLit = 0, nGround = 0, nOther = 0;
+  let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+  for (let i = 0; i < d.length; i += 4) {
+    const idx = i / 4;
+    const px = idx % wpx, py = Math.floor(idx / wpx);
+    if (near(d, i, ink, 12)) {
+      nInk++;
+      if (px < minX) minX = px;
+      if (px > maxX) maxX = px;
+      if (py < minY) minY = py;
+      if (py > maxY) maxY = py;
+    } else if (near(d, i, lit, 12)) nLit++;
+    else if (near(d, i, gr, 14)) nGround++;
+    else nOther++;
+  }
+  const inked = nInk + nOther;
+  return {
+    caixa: wpx + 'x' + (y1 - y0) + 'px',
+    alturaDaTinta_px: maxY >= minY ? (maxY - minY + 1) : 0,
+    larguraDaTinta_px: maxX >= minX ? (maxX - minX + 1) : 0,
+    pixeisDeTinta: nInk,
+    pixeisDeLaje: nLit,
+    pixeisParciais: nOther,
+    parcial_pct: inked ? +(100 * nOther / inked).toFixed(1) : 0,
+  };
+}
+
+document.getElementById('go').onclick = function () {
+  const r = {
+    parametros: {
+      zoom: ZOOM, pitch: PITCH, stroke: STROKE, glyphH: GLYPH_H, numero: NUMBER,
+      lajeProjetada_px: +(TILE * ZOOM).toFixed(1),
+      escorcoTeorico: +Math.cos(Math.abs(PITCH)).toFixed(3),
+    },
+    contraste_sRGB: {
+      glifo_contra_lajeAcesa: +contrast(INK, LIT.top).toFixed(2),
+      lajeAcesa_contra_lajeApagada: +contrast(LIT.top, MAT.top).toFixed(2),
+      lajeApagada_contra_fundo: +contrast(MAT.top, GROUND).toFixed(2),
+    },
+    a1_deitado: measurePanel('a1'),
+    a2_em_pe: measurePanel('a2'),
+    b_sprite: measurePanel('b'),
+  };
+  document.getElementById('out').textContent = JSON.stringify(r, null, 2);
+  window.__spike = r;
+  return r;
+};
+
+/* ============================ CONTROLES ============================ */
+function bind(id, labelId, set, fmt) {
+  const el = document.getElementById(id);
+  const out = labelId ? document.getElementById(labelId) : null;
+  const apply = function () {
+    set(el.type === 'text' ? el.value : parseFloat(el.value));
+    if (out) out.textContent = fmt ? fmt(el.value) : el.value;
+    paint();
+  };
+  el.addEventListener('input', apply);
+  apply();
+}
+bind('sw', 'swv', function (v) { STROKE = v; });
+bind('zm', 'zmv', function (v) { ZOOM = v; });
+bind('tx', 'txv', function (v) { PITCH = v; }, function (v) { return (+v).toFixed(2); });
+bind('gh', 'ghv', function (v) { GLYPH_H = v; });
+bind('ri', 'riv', function (v) { RISE = v; });
+bind('nv', null, function (v) { NUMBER = String(v).replace(/[^0-9]/g, '') || '1'; });
+document.getElementById('simmode').addEventListener('change', paintSim);
+paint();
+
+// Superficie de automacao: o spike e medido por script, nao por olho.
+window.__spike_api = {
+  paint: paint,
+  measure: function () { return document.getElementById('go').onclick(); },
+  set: function (o) {
+    if (o.zoom !== undefined) { ZOOM = o.zoom; document.getElementById('zm').value = o.zoom; }
+    if (o.pitch !== undefined) { PITCH = o.pitch; document.getElementById('tx').value = o.pitch; }
+    if (o.stroke !== undefined) { STROKE = o.stroke; document.getElementById('sw').value = o.stroke; }
+    if (o.glyphH !== undefined) { GLYPH_H = o.glyphH; document.getElementById('gh').value = o.glyphH; }
+    if (o.rise !== undefined) { RISE = o.rise; document.getElementById('ri').value = o.rise; }
+    if (o.number !== undefined) { NUMBER = String(o.number); document.getElementById('nv').value = o.number; }
+    paint();
+  },
+};
+</script>
