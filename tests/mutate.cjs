@@ -26,6 +26,17 @@ if (typeof to !== 'string') {
   process.exit(2);
 }
 
+// The truncation trap again, this time on the ANCHOR side. A multi-line `from` arrives cut at its
+// first newline, argv shifts under it, and `--to-file` lands in the wrong slot — which surfaces as
+// a usage error rather than as what it is. Say what it is.
+if (typeof from === 'string' && from.includes('\n')) {
+  process.stderr.write(
+    'refusing a multi-line anchor: it does not survive being passed as an argument on this\n' +
+    'platform. Use the Edit tool, or pass a single-line anchor.\n',
+  );
+  process.exit(5);
+}
+
 const src = fs.readFileSync(file, 'utf8');
 if (!src.includes(from)) {
   process.stderr.write('anchor not found in ' + file + ': ' + JSON.stringify(from) + '\n');

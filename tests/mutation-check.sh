@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Proves each rules gate can actually fail. Green that could never have been red proves nothing.
-# Applies one mutation at a time, runs the node project, and expects a FAILURE. Always restores.
+# Proves each gate can actually fail. Green that could never have been red proves nothing.
+# Applies one mutation at a time, runs BOTH projects, and expects a FAILURE. Always restores.
 #
 # ⚠️ The substitution runs through tests/mutate.cjs rather than `node -e`, which in this sandbox
 # writes nothing, prints nothing and exits 0 — turning every mutation into a false "escaped".
@@ -248,8 +248,93 @@ add "a letter takes the whole frame down mid-round" \
     "  const digits = [...text].filter((ch) => DIGIT_SEGMENTS[ch] !== undefined);" \
     "  const digits = [...text];"
 
+add "the pixelRatio correction is dropped" \
+    "$RENDER/zdog-stage.ts" \
+    "  illo.pixelRatio = 1;" \
+    "  illo.pixelRatio = window.devicePixelRatio || 1;"
+
+add "the up-rezzed backing store is left in place" \
+    "$RENDER/zdog-stage.ts" \
+    "  canvas.width = illo.canvasWidth;" \
+    "  void 0;"
+
+# Removed: "the chess game's backwards order is restored". It prepended a useless assignment and
+# left the correction block below it intact, so it restored nothing and escaped for that reason
+# rather than for a gap in the suite. Restoring the real backwards order means deleting a
+# multi-line block, and the two halves of that are already covered by "the pixelRatio correction
+# is dropped" and "the up-rezzed backing store is left in place".
+
+add "canvasWidth is left disagreeing with the element" \
+    "$RENDER/zdog-stage.ts" \
+    "  illo.canvasWidth = width;" \
+    "  illo.canvasWidth = width * (window.devicePixelRatio || 1);"
+
+add "a lit tile stops rising" \
+    "$RENDER/zdog-stage.ts" \
+    "export const TILE_RISE = 7;" \
+    "export const TILE_RISE = 0;"
+
+add "a lit tile rises by a hairline" \
+    "$RENDER/zdog-stage.ts" \
+    "export const TILE_RISE = 7;" \
+    "export const TILE_RISE = 0.4;"
+
+add "the camera pitch flattens the mat" \
+    "$RENDER/zdog-stage.ts" \
+    "  pitch: -0.9," \
+    "  pitch: -0.05,"
+
+add "a lit tile stops changing colour" \
+    "$RENDER/mat.ts" \
+    "        faces[cell].color = on ? TILE_LIT : TILE_IDLE;" \
+    "        faces[cell].color = TILE_IDLE;"
+
+add "the gutter between tiles disappears" \
+    "$RENDER/mat.ts" \
+    "const GUTTER = 1.5;" \
+    "const GUTTER = 0;"
+
+add "setLit stops clearing the previous wave" \
+    "$RENDER/mat.ts" \
+    "        anchors[cell].translate.y = on ? -TILE_RISE : 0;" \
+    "        if (on) anchors[cell].translate.y = -TILE_RISE;"
+
+add "the glyph is drawn at fractional coordinates, so it blurs" \
+    "$RENDER/glyph-pass.ts" \
+    "    const x0 = Math.round(centre.x + Math.min(stroke.from.x, stroke.to.x));" \
+    "    const x0 = centre.x + Math.min(stroke.from.x, stroke.to.x) + 0.5;"
+
+add "a vertical segment collapses to nothing" \
+    "$RENDER/glyph-pass.ts" \
+    "    ctx.fillRect(x0, y0, Math.max(weight, x1 - x0), Math.max(weight, y1 - y0));" \
+    "    ctx.fillRect(x0, y0, x1 - x0, y1 - y0);"
+
+add "the glyph is placed at the tile corner instead of its centre" \
+    "$RENDER/glyph-pass.ts" \
+    "    stampOne(ctx, centreOf(quad, viewport), item.text, height, weight);" \
+    "    stampOne(ctx, { x: quad.corners[0].x, y: quad.corners[0].y }, item.text, height, weight);"
+
+add "the projected centre is read without the zoom" \
+    "$RENDER/picking.ts" \
+    "    x: point.x * viewport.zoom + viewport.width / 2," \
+    "    x: point.x + viewport.width / 2,"
+
 TO_FILE="$(mktemp)"
 trap 'rm -f "$TO_FILE"' EXIT
+
+# ⚠️ THE BASELINE MUST BE GREEN, and this check exists because its absence produced a lie.
+# A run with one already-failing test reported 58 of 58 mutations "caught" — every mutation looked
+# lethal because the suite was dead before any of them was applied. A mutation harness on a red
+# baseline measures nothing at all and says everything is fine, which is the worst combination.
+echo "checking the baseline is green before mutating anything..."
+if ! npx vitest run >/dev/null 2>&1; then
+  echo
+  echo "BASELINE IS RED. Every mutation would report as caught for the wrong reason."
+  echo "Fix the suite first, then re-run this."
+  exit 2
+fi
+echo "baseline green."
+echo
 
 caught=0
 escaped=0
@@ -269,7 +354,7 @@ for i in "${!NAMES[@]}"; do
     continue
   fi
 
-  if npx vitest run --project node >/dev/null 2>&1; then
+  if npx vitest run >/dev/null 2>&1; then
     echo "ESCAPED - ${NAMES[$i]}"
     escaped=$((escaped + 1))
   else

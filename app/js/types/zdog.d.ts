@@ -163,12 +163,21 @@ declare module 'zdog' {
     height: number;
     zoom: number;
     /**
-     * ⚠️ Defaults to `devicePixelRatio`, and `setSize` measures the ELEMENT — which this game
-     * displays at an integer multiple of its resolution. Force this to 1 and call `setSize`
-     * explicitly, or the backing store silently comes out several times too large. See
-     * docs/spike-0-legibility.md.
+     * ⚠️ Defaults to `devicePixelRatio`, AND `setSize` re-reads `window.devicePixelRatio` and
+     * overwrites this — so assigning 1 before calling `setSize` accomplishes nothing. Call
+     * `setSize` first, then force this to 1 and repair `canvasWidth`/`canvasHeight` and the
+     * element's own attributes, or the backing store silently comes out several times too large
+     * on any HiDPI screen. See render/zdog-stage and tests/canvas.browser.test.ts.
      */
     pixelRatio: number;
+    /**
+     * The backing-store size Zdog computed, in device pixels. `prerenderCanvas` clears against
+     * these, so leaving them at `width * devicePixelRatio` while the element is 640 wide clears
+     * an area larger than the canvas — harmless, but it means these are part of the invariant
+     * and have to be repaired alongside `pixelRatio`.
+     */
+    canvasWidth: number;
+    canvasHeight: number;
     centered: boolean;
     setSize(width: number, height: number): void;
     updateRenderGraph(item?: Anchor): void;

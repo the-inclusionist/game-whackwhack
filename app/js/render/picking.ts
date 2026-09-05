@@ -106,15 +106,40 @@ export function pickTopmost(quads: readonly Quad[], p: Point2): number | null {
  *
  *     screen = point * (pixelRatio * zoom) + (width / 2, height / 2) * pixelRatio
  *
- * `pixelRatio` is 1 by invariant throughout this game (see render/resolution and the browser test
- * that guards it), so it drops out. Inverting once per click beats projecting 64 squares forward.
+ * `pixelRatio` is 1 by invariant throughout this game (see render/zdog-stage and the browser test
+ * that guards it), so it drops out. Inverting once per click beats projecting 20 tiles forward.
  *
- * `screen` must already be in CANVAS pixels — 320×180 — not CSS pixels. The canvas is displayed at
- * an integer multiple of its resolution, so the caller divides by that factor first.
+ * `screen` must already be in CANVAS pixels — 640×360 — not CSS pixels. The canvas is displayed at
+ * a whole multiple of its resolution, so the caller divides by that factor first.
  */
 export function toIllustrationSpace(screen: Point2, viewport: Viewport): Point2 {
   return {
     x: (screen.x - viewport.width / 2) / viewport.zoom,
     y: (screen.y - viewport.height / 2) / viewport.zoom,
   };
+}
+
+/** The forward direction: an illustration point to canvas pixels. */
+export function toCanvasSpace(point: Point2, viewport: Viewport): Point2 {
+  return {
+    x: point.x * viewport.zoom + viewport.width / 2,
+    y: point.y * viewport.zoom + viewport.height / 2,
+  };
+}
+
+/**
+ * Centre of a projected quad, in canvas pixels. Where the number goes.
+ *
+ * The mean of four corners rather than the midpoint of a diagonal: a projected square is a
+ * parallelogram, so the two agree, and the mean stays right if the projection ever stops being
+ * orthographic.
+ */
+export function centreOf(quad: Quad, viewport: Viewport): Point2 {
+  let x = 0;
+  let y = 0;
+  for (const c of quad.corners) {
+    x += c.x;
+    y += c.y;
+  }
+  return toCanvasSpace({ x: x / quad.corners.length, y: y / quad.corners.length }, viewport);
 }
