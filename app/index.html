@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Martelo Certo</title>
+<link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+
+<!-- MARCAÇÃO EXIGIDA by createGame: #game-region, #sr-status, #sr-alert.
+     Anything missing does not throw — it becomes an entry in engine.problems. -->
+<!-- ⚠️ NOTHING ELSE IN THE FLOW. Every pixel of height taken from #stage-wrap is height the
+     integer upscale cannot use, and at a 640x360 source the scale steps from 1x straight to 2x —
+     so a 34px strip of help text below the stage was costing a WHOLE step: 686/350 is 1.96 and
+     floors to 1. The keyboard help lives inside the HUD, which overlays the canvas and is free. -->
+<div id="stage-wrap">
+  <div id="game-region" tabindex="-1"></div>
+</div>
+
+<div id="sr-status" class="sr-only" role="status" aria-live="polite"></div>
+<div id="sr-alert"  class="sr-only" role="alert"  aria-live="assertive"></div>
+
+<!-- Empty host where installCvdFilters builds the six colour-vision filters at runtime. -->
+<svg id="cvd" class="sr-only" aria-hidden="true"></svg>
+
+<script type="module" src="./js/boot/main.ts"></script>
+</body>
+</html>

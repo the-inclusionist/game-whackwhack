@@ -1,0 +1,125 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* ⚠️ The colours here are the ones render/palette measured, repeated because CSS cannot import
+   TypeScript. tests/style-palette.node.test.ts compares the two files so they cannot drift —
+   which they otherwise would, the first time the palette moves and only half the game follows. */
+:root {
+  color-scheme: dark;
+  --ground: #0B0F14;
+  --tile-idle: #686878;
+  --tile-lit: #F2D479;
+  --ink: #1A1206;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: #C9D1D9;
+  font: 14px/1.5 system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* The engine's ui/layout measures THIS element and sizes #game-region from it, locking the scale
+   to whole PHYSICAL pixels so the art stays regular at any device pixel ratio. */
+#stage-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#game-region {
+  position: relative;
+  outline-offset: 4px;
+}
+#game-region:focus-visible { outline: 3px solid var(--tile-lit); }
+
+/* ⚠️ Width AND height together. Setting one without the other is what stretched the chess board:
+   a max-width clipped it to 721 px while the height stayed 720, giving 2.25× across and 4× down. */
+#board-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  touch-action: none;
+}
+
+/* ========================= THE HUD IS A BAND, NOT A COLUMN =========================
+   The chess game gives its HUD a side column because a 8×8 board is square and leaves width. This
+   mat is 5×4 — wider than it is deep — so what it leaves is HEIGHT. Same reasoning, opposite axis. */
+.hud {
+  position: absolute;
+  inset: auto 0 0 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--ui-fs, 16px) * 0.8);
+  padding: calc(var(--ui-fs, 16px) * 0.35);
+  font-size: var(--ui-fs, 16px);
+  line-height: 1.25;
+  color: #C9D1D9;
+  background: rgba(11, 15, 20, 0.82);
+  border-top: 1px solid #2B3A4A;
+}
+.hud p { margin: 0; }
+.hud-collect { font-weight: 600; color: var(--tile-lit); }
+
+/* ========================= THE GRID MIRROR =========================
+   Twenty real buttons, off-screen but not hidden: `display: none` and `visibility: hidden` both
+   take an element out of the accessibility tree, which would delete the board a screen reader
+   uses. This is the standard visually-hidden recipe, which does not. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ⚠️ …EXCEPT WHEN ONE OF ITS BUTTONS HAS FOCUS. A keyboard player moving across the mat would
+   otherwise have focus inside a 1-pixel box, and a sighted keyboard user would see nothing move.
+   The focused cell comes back to full size over the canvas, on top of the tile it stands for. */
+.grid-mirror button {
+  all: unset;
+  position: absolute;
+  cursor: pointer;
+}
+.grid-mirror button:focus-visible {
+  position: fixed;
+  width: auto;
+  height: auto;
+  clip: auto;
+  clip-path: none;
+  padding: 0.2em 0.5em;
+  background: var(--ground);
+  color: var(--tile-lit);
+  outline: 3px solid var(--tile-lit);
+  z-index: 2;
+}
+
+/* Keyboard help, inside the HUD band. It used to be a paragraph below the stage, and that strip
+   of height cost a whole step of the integer upscale — see the note in index.html. */
+.hud-help {
+  color: #8B949E;
+  font-size: 0.85em;
+  margin-left: auto;
+}
+
+/* ========================= REDUCED MOTION =========================
+   There is nothing here that pulses or blinks, and that is the point: the original game signals a
+   live slab by BLINKING it, with no guard at all, which is a photosensitivity risk under WCAG
+   2.3.1. This game signals it by raising the tile. The rule below is a backstop for anything a
+   future contributor adds without thinking about it. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

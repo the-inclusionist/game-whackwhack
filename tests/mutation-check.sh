@@ -8,7 +8,16 @@
 set -u
 cd "$(dirname "$0")/.."
 
+# Every source root, declared together. They used to be introduced one at a time next to the block
+# that first needed them, and a block inserted above its own declaration failed with `unbound
+# variable` — under `set -u`, which is the only reason it failed loudly rather than mutating the
+# file at path "/announce.ts" and reporting a skip.
 RULES=app/js/rules
+DECL=app/js/declaration
+RENDER=app/js/render
+UI=app/js/ui
+I18N=app/js/i18n
+
 NAMES=(); FILES=(); FROMS=(); TOS=()
 add() { NAMES+=("$1"); FILES+=("$2"); FROMS+=("$3"); TOS+=("$4"); }
 
@@ -373,6 +382,46 @@ add "the round keeps running after it is over" \
     "$RULES/round.ts" \
     "      if (ended || dtMs <= 0) return out;" \
     "      if (dtMs <= 0) return out;"
+
+add "the new wave names only the CORRECT values" \
+    "$UI/announce.ts" \
+    "          values: event.wave.tiles.map((t) => t.value).join(', ')," \
+    "          values: event.wave.tiles.filter((t) => t.correct).map((t) => t.value).join(', '),"
+
+add "the wave announcement drops what to collect" \
+    "$UI/announce.ts" \
+    "          what: context.collecting," \
+    "          what: ''," \
+
+add "a hit is announced without saying which tile" \
+    "$UI/announce.ts" \
+    "      return { text: i18n.t('say.hit', { value: event.value }), urgent: false };" \
+    "      return { text: i18n.t('say.hit', { value: '' }), urgent: false };"
+
+add "a wrong tile and a missed one read the same" \
+    "$UI/announce.ts" \
+    "        text: i18n.t(event.reason === 'missed' ? 'say.missed' : 'say.wrongTile', {" \
+    "        text: i18n.t('say.wrongTile', {"
+
+add "the end of the round stops interrupting" \
+    "$UI/announce.ts" \
+    "        urgent: true," \
+    "        urgent: false,"
+
+add "every announcement interrupts" \
+    "$UI/announce.ts" \
+    "      return { text: i18n.t('say.hit', { value: event.value }), urgent: false };" \
+    "      return { text: i18n.t('say.hit', { value: event.value }), urgent: true };"
+
+add "clearing a wave becomes an announcement" \
+    "$UI/announce.ts" \
+    "      return null;" \
+    "      return { text: 'wave cleared', urgent: false };"
+
+add "winning and losing read the same" \
+    "$UI/announce.ts" \
+    "        text: i18n.t(event.outcome === 'won' ? 'say.won' : 'say.lost', { have: context.hits })," \
+    "        text: i18n.t('say.won', { have: context.hits }),"
 
 I18N=app/js/i18n
 
