@@ -186,6 +186,68 @@ add "the mat changes shape" \
     "export const MAT_COLS = 5;" \
     "export const MAT_COLS = 4;"
 
+RENDER=app/js/render
+
+add "the unlit tile goes back to the colour spike 0 rejected" \
+    "$RENDER/palette.ts" \
+    "export const TILE_IDLE = '#686878';" \
+    "export const TILE_IDLE = '#2E3B4E';"
+
+add "the lit tile stops separating from the unlit one" \
+    "$RENDER/palette.ts" \
+    "export const TILE_LIT = '#F2D479';" \
+    "export const TILE_LIT = '#8A8A98';"
+
+add "the ink stops being readable on its tile" \
+    "$RENDER/palette.ts" \
+    "export const INK = '#1A1206';" \
+    "export const INK = '#6A5A30';"
+
+add "the palette separates by hue instead of luminance" \
+    "$RENDER/palette.ts" \
+    "export const TILE_IDLE = '#686878';" \
+    "export const TILE_IDLE = '#38784A';"
+
+add "the source resolution drops back to the engine's" \
+    "$RENDER/resolution.ts" \
+    "export const SOURCE_MULTIPLE = 2;" \
+    "export const SOURCE_MULTIPLE = 1;"
+
+add "the UI is measured against the doubled width" \
+    "$RENDER/resolution.ts" \
+    "export const UI_BASE_W = ENGINE_W;" \
+    "export const UI_BASE_W = ENGINE_W * SOURCE_MULTIPLE;"
+
+add "the aspect ratio stops being 16:9" \
+    "$RENDER/resolution.ts" \
+    "export const LOGICAL_H = ((ENGINE_W * 9) / 16) * SOURCE_MULTIPLE; // 360" \
+    "export const LOGICAL_H = ((ENGINE_W * 3) / 4) * SOURCE_MULTIPLE; // 360"
+
+add "the 1 goes back to hugging the right edge of its cell" \
+    "$RENDER/glyph.ts" \
+    "const DIGIT_NUDGE: Readonly<Record<string, number>> = { '1': -1.5 };" \
+    "const DIGIT_NUDGE: Readonly<Record<string, number>> = {};"
+
+add "a 6 draws the same shape as a 5" \
+    "$RENDER/glyph.ts" \
+    "  '6': ['top', 'topLeft', 'middle', 'bottomLeft', 'bottomRight', 'bottom']," \
+    "  '6': ['top', 'topLeft', 'middle', 'bottomRight', 'bottom'],"
+
+add "the glyph grows past the tile it sits on" \
+    "$RENDER/glyph.ts" \
+    "export const GLYPH_HEIGHT = 9;" \
+    "export const GLYPH_HEIGHT = 17;"
+
+add "the glyph stops being centred" \
+    "$RENDER/glyph.ts" \
+    "    const originX = -total / 2 + i * (boxW + gap) + (DIGIT_NUDGE[ch] ?? 0) * step;" \
+    "    const originX = i * (boxW + gap) + (DIGIT_NUDGE[ch] ?? 0) * step;"
+
+add "a letter takes the whole frame down mid-round" \
+    "$RENDER/glyph.ts" \
+    "  const digits = [...text].filter((ch) => DIGIT_SEGMENTS[ch] !== undefined);" \
+    "  const digits = [...text];"
+
 TO_FILE="$(mktemp)"
 trap 'rm -f "$TO_FILE"' EXIT
 
