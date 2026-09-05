@@ -142,7 +142,7 @@ function tileCentre(col, row) {
 }
 
 /** Quais lajes estao acesas nesta demo, e qual carrega o numero medido. */
-const LIT_SET = [[1,1],[3,0],[2,3],[0,2]];
+let LIT_SET = [[1,1],[3,0],[2,3],[0,2]];
 const MEASURED_COL = 1, MEASURED_ROW = 1;
 
 /**
@@ -226,18 +226,33 @@ function projectedCentre(rect, zoom) {
   return toScreen({ x: x / pts.length, y: y / pts.length }, zoom);
 }
 
-function drawSpriteGlyph(ctx, cx, cy, pxHeight) {
+/**
+ * ⚠️ A PIXEL-ART SPRITE HAS NO ANTIALIASING, so measuring this candidate with `ctx.stroke()`
+ * would have compared Zdog against a straw man: a stroked path blurs both of its edges, and a
+ * blitted bitmap blurs neither. The first version did exactly that and scored (b) ~10 points
+ * worse than it deserves.
+ *
+ * This draws the glyph the way a Pixi sprite with SCALE_MODES.NEAREST actually lands on screen:
+ * every segment is an axis-aligned FILLED RECT snapped to whole pixels, so a pixel is either ink
+ * or it is not. It is the honest best case for the approach.
+ */
+function drawSpriteGlyph(ctx, cx, cy, pxHeight, strokePx) {
   const segs = glyphSegments(NUMBER, pxHeight);
+  // ⚠️ THE SAME STROKE THE ZDOG CANDIDATES USE. This was `pxHeight / 5`, an independent weight
+  // that came out around 8 px where Zdog draws 6.6 — fat enough to close the counters of a 6, an
+  // 8 and a 9, which made (b) look mangled for a reason that had nothing to do with the approach.
+  // Two unfair comparisons in a row, in opposite directions: first (b) was penalised by an
+  // antialiased stroke, then it was penalised by a fatter one.
+  const w = Math.max(1, Math.round(strokePx));
   ctx.save();
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = Math.max(1, Math.round(pxHeight / 5));
-  ctx.lineCap = 'butt';
-  ctx.beginPath();
+  ctx.fillStyle = INK;
   for (const seg of segs) {
-    ctx.moveTo(cx + seg[0].x, cy + seg[0].y);
-    ctx.lineTo(cx + seg[1].x, cy + seg[1].y);
+    const x0 = Math.round(cx + Math.min(seg[0].x, seg[1].x));
+    const y0 = Math.round(cy + Math.min(seg[0].y, seg[1].y));
+    const x1 = Math.round(cx + Math.max(seg[0].x, seg[1].x));
+    const y1 = Math.round(cy + Math.max(seg[0].y, seg[1].y));
+    ctx.fillRect(x0, y0, Math.max(w, x1 - x0), Math.max(w, y1 - y0));
   }
-  ctx.stroke();
   ctx.restore();
 }
 
@@ -258,7 +273,7 @@ function paint() {
       for (const t of built.tiles) {
         if (!t.lit) continue;
         const c = projectedCentre(t.rect, built.illo.zoom);
-        drawSpriteGlyph(ctx, c.x, c.y, GLYPH_H * built.illo.zoom);
+        drawSpriteGlyph(ctx, c.x, c.y, GLYPH_H * built.illo.zoom, STROKE * built.illo.zoom);
       }
     }
   }
@@ -340,9 +355,29 @@ function measurePanel(id) {
 
   const wpx = x1 - x0;
   const d = cv.getContext('2d').getImageData(x0, y0, wpx, y1 - y0).data;
-  const ink = hexToRgb(INK), lit = hexToRgb(LIT.top), gr = hexToRgb(GROUND);
+  const ink = hexToRgb(INK), lit = hexToRgb(LIT.top);
 
-  let nInk = 0, nLit = 0, nGround = 0, nOther = 0;
+  // ⚠️ SMEAR LIES ON THE SEGMENT BETWEEN THE TWO COLOURS, NOT IN THE BOX AROUND THEM.
+  // Two wrong versions preceded this one, and both inflated the number to 70-88%:
+  //   1. "anything that is neither ink nor tile" swept in the background and the neighbouring
+  //      tiles, which is scenery rather than antialiasing;
+  //   2. "each channel lies between ink and tile" is a BOUNDING BOX in RGB, and the unlit tile
+  //      #2E3B4E sits inside it on all three channels — so unlit neighbours counted as smear.
+  // A Canvas2D edge blend is a linear mix, so it lands ON the ink-to-tile line. Measuring the
+  // perpendicular distance to that segment is what separates a blended edge from a third colour.
+  const dir = [lit[0] - ink[0], lit[1] - ink[1], lit[2] - ink[2]];
+  const len2 = dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2];
+  const OFF_LINE = 12;   // how far off the mix line a pixel may sit and still be a blend
+
+  function isBlend(data, i) {
+    const p = [data[i] - ink[0], data[i + 1] - ink[1], data[i + 2] - ink[2]];
+    let t = (p[0] * dir[0] + p[1] * dir[1] + p[2] * dir[2]) / len2;
+    if (t < 0 || t > 1) return false;
+    const dx = p[0] - t * dir[0], dy = p[1] - t * dir[1], dz = p[2] - t * dir[2];
+    return dx * dx + dy * dy + dz * dz <= OFF_LINE * OFF_LINE;
+  }
+
+  let nInk = 0, nLit = 0, nSmear = 0, nOther = 0;
   let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
   for (let i = 0; i < d.length; i += 4) {
     const idx = i / 4;
@@ -353,19 +388,26 @@ function measurePanel(id) {
       if (px > maxX) maxX = px;
       if (py < minY) minY = py;
       if (py > maxY) maxY = py;
-    } else if (near(d, i, lit, 12)) nLit++;
-    else if (near(d, i, gr, 14)) nGround++;
-    else nOther++;
+    } else if (near(d, i, lit, 12)) {
+      nLit++;
+    } else if (isBlend(d, i)) {
+      nSmear++;
+    } else {
+      nOther++;
+    }
   }
-  const inked = nInk + nOther;
+
+  const edged = nInk + nSmear;
   return {
     caixa: wpx + 'x' + (y1 - y0) + 'px',
     alturaDaTinta_px: maxY >= minY ? (maxY - minY + 1) : 0,
     larguraDaTinta_px: maxX >= minX ? (maxX - minX + 1) : 0,
     pixeisDeTinta: nInk,
     pixeisDeLaje: nLit,
-    pixeisParciais: nOther,
-    parcial_pct: inked ? +(100 * nOther / inked).toFixed(1) : 0,
+    pixeisDeBorrao: nSmear,
+    // What fraction of the glyph's own pixels are a half-tone rather than the ink colour.
+    borrao_pct: edged ? +((100 * nSmear) / edged).toFixed(1) : 0,
+    foraDoEixo: nOther,
   };
 }
 
@@ -422,6 +464,7 @@ window.__spike_api = {
     if (o.glyphH !== undefined) { GLYPH_H = o.glyphH; document.getElementById('gh').value = o.glyphH; }
     if (o.rise !== undefined) { RISE = o.rise; document.getElementById('ri').value = o.rise; }
     if (o.number !== undefined) { NUMBER = String(o.number); document.getElementById('nv').value = o.number; }
+    if (o.lit !== undefined) { LIT_SET = o.lit; }
     paint();
   },
 };
