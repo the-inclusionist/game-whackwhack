@@ -133,8 +133,18 @@ export function createRound(options: RoundOptions): Round {
    * whatever time happened to remain.
    */
   let timeLeft = 0;
-  /** Time until the next wave lights. Starts at a full gap, so a round opens on an empty mat. */
-  let gapLeft = waveGapMs(1);
+  /**
+   * Time until the next wave lights.
+   *
+   * ⚠️ ZERO at the start, so the FIRST wave is up on the first frame. It used to be a full gap —
+   * three seconds of empty mat after the player pressed Play, which reads as a game that did not
+   * hear the click. Between later waves the gap is the pause a player needs to read the mat; before
+   * the first one there is nothing to read and nothing to recover from, so the pause is only delay.
+   *
+   * Not lit in the constructor, though it could be: lighting it through `advance` is what makes it
+   * emit `wave-lit`, and that event is how a blind player learns the round has begun.
+   */
+  let gapLeft = 0;
   let ended = false;
 
   function outcome(): RoundOutcome {

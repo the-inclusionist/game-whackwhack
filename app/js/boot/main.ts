@@ -62,7 +62,10 @@ function boot(): void {
   // 1. LANGUAGE FIRST. Nothing that carries a word may be built before the locale is known.
   const i18n = createI18n(preferredLocale(navigator.language));
   doc.documentElement.lang = i18n.bcp47();
-  doc.title = i18n.t('game.title');
+  // ⚠️ The name carries a NEWLINE so the title screen can set it in two lines. A tab title wants
+  // it on one, and normalising here beats a second catalogue entry that could drift from the
+  // first — two spellings of a game's own name is exactly the kind of thing nobody notices.
+  doc.title = i18n.t('game.title').replace(/\s+/g, ' ');
 
   let choice: RoundChoice = { category: CATEGORIES[0], difficulty: 'medium', defeat: 'lives' };
   let round: Round | null = null;
@@ -164,6 +167,9 @@ function boot(): void {
     // ⚠️ `inert` on the region behind. Without it a reader tabs off the dialog into twenty mat
     // buttons that cannot be played, and the reading order says the game is still going.
     region.inert = true;
+    // The HUD belongs to a round in progress. Behind the title it reads as a game already going,
+    // and behind the result screen it repeats the score that screen exists to give.
+    hud.root.hidden = true;
     doc.body.appendChild(next.root);
     next.focus();
   }
@@ -172,6 +178,7 @@ function boot(): void {
     screen?.destroy();
     screen = null;
     region.inert = false;
+    hud.root.hidden = false;
   }
 
   function showTitle(): void {
@@ -207,6 +214,7 @@ function boot(): void {
       rnd,
     });
     fades.clear();
+    engine.cenas.replace({ nome: 'playing', enter: unmount });
     hud.setDefeat(next.defeat);
     mirror.refresh();
     hud.refresh();

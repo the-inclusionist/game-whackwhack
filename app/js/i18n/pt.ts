@@ -9,7 +9,7 @@
 import type { Catalog } from './types.ts';
 
 export const pt: Catalog = {
-  'game.title': 'Martelo Certo',
+  'game.title': 'WhackWhack\nSchoolution',
 
   'mat.label': 'Tapete do jogo',
   'mat.cell': 'coluna {col}, linha {row}, {content}',
@@ -36,7 +36,7 @@ export const pt: Catalog = {
   'say.lost': 'Fim de jogo. {have} acertos.',
   'say.crashed': 'O jogo parou por um erro. Recarregue a página.',
 
-  'title.start': 'Começar',
+  'title.play': 'Jogar', 'title.options': 'Opções',
   'title.lead': 'Martele só o que a rodada pede.',
 
   'result.won': 'Você conseguiu!',

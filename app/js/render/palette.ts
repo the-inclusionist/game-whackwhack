@@ -32,13 +32,54 @@
 // the mole leaving its hole, and it replaces the original's blink — which is a photosensitivity
 // risk under WCAG 2.3.1. The contrast below is the second channel, not the first.
 
-export const GROUND = '#0B0F14';
+/* ========================= THE DDR PALETTE, AND WHAT IT COST =========================
+ * The original is a Dance Dance Revolution parody and its colours are the parody: a near-black
+ * aubergine ground with hot magenta over it. Keeping that was a product decision, and it is not
+ * free — the numbers below are thinner than the blue-grey palette that preceded them, and saying
+ * so is the point of writing them down.
+ *
+ * ⚠️ TWO OF THE ORIGINAL'S OWN COLOURS DO NOT SURVIVE MEASUREMENT, and both were measured before
+ * being dropped rather than rejected on principle:
+ *
+ *   · `#0000ff`, the original's blue, is 1.27:1 against `#1C041B`. On that ground it is very
+ *     nearly invisible, for everyone.
+ *   · `#c933ff`, its signature magenta, is 3.69:1 against the ground — which is fine for a large
+ *     title and useless for a tile. As the LIT tile it leaves no room at all: a search over the
+ *     whole colour cube found ZERO idle-tile colours that clear 3:1 against both it and the
+ *     ground. And a number on it tops out at 3.92:1 in pure black, below even the 4.5 floor for
+ *     text, let alone the 7 this game holds itself to.
+ *
+ * So the magenta stays as the ACCENT — title, focus ring, HUD highlight, where it is large — and
+ * the lit tile is the bright end of the same family. Measured worst case across normal vision and
+ * all three colour-vision simulations:
+ *
+ *   number on a lit tile   10.53      (target 7, WCAG 1.4.6)
+ *   lit tile vs idle        3.38      (floor 3, WCAG 1.4.11)
+ *   idle tile vs ground     3.10      (floor 3, WCAG 1.4.11)
+ *
+ * The last two clear by a tenth where the previous palette cleared by half. That is the cost of
+ * the aesthetic, it is real, and a contributor tempted to nudge any of these should re-run
+ * tests/palette-search.cjs rather than guess.
+ */
+
+/** The original's own background, kept unchanged. */
+export const GROUND = '#1C041B';
 /** An unlit tile: on the mat, not in play. */
-export const TILE_IDLE = '#686878';
+export const TILE_IDLE = '#8A4AA6';
 /** A lit tile: in play, and risen. */
-export const TILE_LIT = '#F2D479';
-/** The number on a lit tile. */
-export const INK = '#1A1206';
+export const TILE_LIT = '#FAAAFA';
+/**
+ * The number on a lit tile — the GROUND colour, so the digit reads as a hole punched through the
+ * tile rather than as paint laid on it. It is also what buys the 10.53:1.
+ */
+export const INK = '#1C041B';
+/**
+ * The original's signature magenta, kept for large type and focus rings.
+ *
+ * ⚠️ 3.69:1 against the ground. That clears the 3:1 floor for LARGE text and for a focus
+ * indicator, and does NOT clear the 4.5:1 for body text. Nothing small is drawn in it.
+ */
+export const ACCENT = '#C933FF';
 
 /**
  * Stroke width in world units.

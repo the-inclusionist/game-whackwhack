@@ -5,10 +5,13 @@
    which they otherwise would, the first time the palette moves and only half the game follows. */
 :root {
   color-scheme: dark;
-  --ground: #0B0F14;
-  --tile-idle: #686878;
-  --tile-lit: #F2D479;
-  --ink: #1A1206;
+  --ground: #1C041B;
+  --tile-idle: #8A4AA6;
+  --tile-lit: #FAAAFA;
+  --ink: #1C041B;
+  /* The original's signature magenta. 3.69:1 on the ground: LARGE type and focus rings only,
+     never body text. Measured in render/palette. */
+  --accent: #C933FF;
 }
 
 body {
@@ -63,9 +66,13 @@ body {
   font-size: var(--ui-fs, 16px);
   line-height: 1.25;
   color: #FFFFFF;
-  background: rgba(11, 15, 20, 0.94);
-  border-top: 1px solid #2B3A4A;
+  background: rgba(28, 4, 27, 0.94);
+  border-top: 1px solid #6B2E80;
 }
+/* ⚠️ `hidden` sets `display: none` from the BROWSER's stylesheet, and an author rule beats it —
+   so `.hud { display: flex }` above kept the bar on screen behind the title with the attribute
+   set and nothing to show for it. Any element given `display` needs this partner rule. */
+.hud[hidden] { display: none; }
 .hud p { margin: 0; }
 .hud-collect { font-weight: 700; color: var(--tile-lit); }
 /* ⚠️ The score is the thing a player looks for to know the game is responding, so it is the
@@ -127,24 +134,85 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(11, 15, 20, 0.92);
+  background: rgba(28, 4, 27, 0.93);
   z-index: 10;
 }
 .screen-card {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 0.9em;
   min-width: min(90vw, 26em);
   padding: 1.6em;
-  background: #131A24;
-  border: 1px solid #2B3A4A;
+  background: rgba(28, 4, 27, 0.6);
+  border: 1px solid #6B2E80;
   border-radius: 4px;
 }
 .screen-title {
   margin: 0;
   font-size: 1.8em;
+  text-align: center;
   color: var(--tile-lit);
 }
+
+/* ========================= THE TITLE, AS THE ORIGINAL HAS IT =========================
+   The name, floating, over a mat that is already alive. `data-veil="thin"` is what lets the board
+   show through — the result screen wants the opposite and keeps its near-opaque one. */
+.screen--title { background: rgba(28, 4, 27, 0.55); }
+.screen--title .screen-card {
+  background: none;
+  border: 0;
+  gap: 1.2em;
+}
+.screen--title .screen-title {
+  font-size: clamp(2rem, 7vw, 4.2rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 0.95;
+  /* ⚠️ The name is TWO LINES and the break lives in the catalogue as a newline, not as markup.
+     A `<br>` would mean building the heading from HTML, and a title that arrives as a string is
+     the reason `t()` can stay a plain string lookup. `pre-line` is what renders it. */
+  white-space: pre-line;
+  color: var(--tile-lit);
+  /* Two shadows in the original's own magenta and cyan: the DDR chromatic-aberration look, and
+     the reason the accent may be used here — this is large type. */
+  text-shadow: 0.05em 0.05em 0 var(--accent), -0.03em -0.03em 0 #35E7F0;
+  animation: title-float 3.2s ease-in-out infinite;
+}
+@keyframes title-float {
+  0%, 100% { transform: translateY(-0.06em); }
+  50%      { transform: translateY(0.06em); }
+}
+
+.title-play {
+  font-size: clamp(1.2rem, 3vw, 2rem);
+  font-weight: 800;
+  letter-spacing: 0.25em;
+  padding: 0.5em 1.6em;
+  color: var(--ground);
+  background: var(--tile-lit);
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  animation: play-pulse 1.6s ease-in-out infinite;
+}
+/* ⚠️ A pulse in SIZE, never in brightness, and never a blink. The original blinks its slabs with
+   no guard at all, which is a photosensitivity risk under WCAG 2.3.1; a slow scale is the same
+   invitation without the flash. The reduced-motion block at the bottom stops even this. */
+@keyframes play-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.06); }
+}
+
+.title-options { width: 100%; max-width: 22em; }
+.title-options > summary {
+  cursor: pointer;
+  padding: 0.5em;
+  text-align: center;
+  color: #E7C9F0;
+}
+.title-options > summary:focus-visible { outline: 3px solid var(--tile-lit); }
+.title-options[open] > summary { margin-bottom: 0.6em; }
 /* The heading takes focus so a reader announces WHAT this screen is before what can be done on
    it. It is not interactive, so it gets a focus ring and nothing else. */
 .screen-title:focus-visible { outline: 3px solid var(--tile-lit); outline-offset: 4px; }
@@ -165,13 +233,13 @@ body {
 }
 .screen select {
   color: #C9D1D9;
-  background: #0B0F14;
+  background: var(--ground);
   border: 1px solid #2B3A4A;
 }
 .screen-action {
   margin-top: 0.4em;
   font-weight: 600;
-  color: #0B0F14;
+  color: var(--ground);
   background: var(--tile-lit);
   border: 1px solid var(--tile-lit);
   cursor: pointer;

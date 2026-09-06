@@ -2,7 +2,7 @@
 import type { Catalog } from './types.ts';
 
 export const en: Catalog = {
-  'game.title': 'Whack the Pattern',
+  'game.title': 'WhackWhack\nSchoolution',
 
   'mat.label': 'Game mat',
   'mat.cell': 'column {col}, row {row}, {content}',
@@ -29,7 +29,7 @@ export const en: Catalog = {
   'say.lost': 'Game over. {have} hits.',
   'say.crashed': 'The game stopped on an error. Reload the page.',
 
-  'title.start': 'Start',
+  'title.play': 'Play', 'title.options': 'Options',
   'title.lead': 'Whack only what the round asks for.',
 
   'result.won': 'You did it!',

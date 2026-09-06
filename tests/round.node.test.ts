@@ -35,13 +35,24 @@ function round(over: Partial<Parameters<typeof createRound>[0]> = {}) {
 
 const kinds = (events: readonly RoundEvent[]): string[] => events.map((e) => e.kind);
 
-describe('[Zero] a round starts with nothing lit', () => {
-  it('has no wave before the first gap elapses', () => {
+describe('[Zero] a round opens ready to be played', () => {
+  it('has nothing lit before the first frame', () => {
     const r = round();
     expect(r.wave()).toBeNull();
     expect(r.hits()).toBe(0);
     expect(r.errors()).toBe(0);
     expect(r.outcome()).toBe('playing');
+  });
+
+  it('lights its FIRST wave on that first frame, with no gap at all', () => {
+    // ⚠️ CHANGED DELIBERATELY. This used to wait a full gap — three seconds of empty mat after the
+    // player pressed Play, which reads as a game that did not hear the click. Between later waves
+    // the gap is the pause a player needs to read the mat; before the first one there is nothing
+    // to read and nothing to recover from, so the pause is only delay.
+    const r = round();
+    const events = r.advance(17);   // one frame at 60 fps
+    expect(kinds(events)).toContain('wave-lit');
+    expect(r.wave()).not.toBeNull();
   });
 
   it('is at level one immediately', () => {
@@ -58,16 +69,16 @@ describe('[Zero] a round starts with nothing lit', () => {
 });
 
 describe('[Right] a wave lights after the gap and carries the difficulty', () => {
-  it('lights nothing one millisecond early', () => {
-    const r = round();
-    r.advance(waveGapMs(1) - 1);
+  it('lights the SECOND wave only after the gap, not one millisecond early', () => {
+    // The gap is a property of waves that FOLLOW one, not of the first — see the [Zero] block.
+    // This is the assertion that was doing the work, restated where it still applies.
+    const r = round({ difficulty: 'easy' });
+    r.advance(1);
+    for (const tile of [...r.wave()!.tiles]) r.hit(tile.cell);
     expect(r.wave()).toBeNull();
-  });
-
-  it('lights exactly at the gap', () => {
-    const r = round();
-    const events = r.advance(waveGapMs(1));
-    expect(kinds(events)).toContain('wave-lit');
+    r.advance(waveGapMs(r.level()) - 1);
+    expect(r.wave()).toBeNull();
+    r.advance(1);
     expect(r.wave()).not.toBeNull();
   });
 
@@ -206,9 +217,11 @@ describe('[Right] a wave ends when it is finished OR when it expires', () => {
   });
 
   it('clears on expiry too', () => {
+    // Exactly the deadline and not a millisecond more: overshooting would run into the next gap
+    // and light a fresh wave, so the assertion would be about the wave AFTER the one under test.
     const r = round({ difficulty: 'easy' });
-    r.advance(waveGapMs(1));
-    const events = r.advance(waveDeadlineMs(1));
+    r.advance(1);
+    const events = r.advance(waveDeadlineMs(1) - 1);
     expect(kinds(events)).toContain('wave-cleared');
     expect(r.wave()).toBeNull();
   });

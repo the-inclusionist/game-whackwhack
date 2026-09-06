@@ -37,6 +37,21 @@ if (typeof from === 'string' && from.includes('\n')) {
   process.exit(5);
 }
 
+// ⚠️ AND THE SAME ON THE REPLACEMENT SIDE, which cost more than the anchor did. A multi-line `to`
+// passed as an argument arrives cut at its first newline. When that surviving line is a valid
+// substitution the edit SUCCEEDS and does the wrong thing — an insertion becomes a replacement,
+// silently. That is how `engine.cenas.replace(...)` was deleted from the composition root by an
+// edit meant to add a line above it, and the game stopped leaving its title screen.
+//
+// `--to-file` exists for exactly this and is not refused.
+if (third !== '--to-file' && typeof third === 'string' && third.includes('\n')) {
+  process.stderr.write(
+    'refusing a multi-line replacement passed as an argument: it arrives truncated at the first\n' +
+    'newline, which turns an insertion into a silent deletion. Use --to-file, or the Edit tool.\n',
+  );
+  process.exit(6);
+}
+
 const src = fs.readFileSync(file, 'utf8');
 if (!src.includes(from)) {
   process.stderr.write('anchor not found in ' + file + ': ' + JSON.stringify(from) + '\n');

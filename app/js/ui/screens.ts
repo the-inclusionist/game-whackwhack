@@ -110,14 +110,45 @@ export interface TitleScreenDeps {
   onStart(choice: RoundChoice): void;
 }
 
+/**
+ * ========================= THE TITLE IS AN INVITATION, NOT A FORM =========================
+ * ⚠️ This was a settings dialog with three dropdowns in front of the game, and that was the single
+ * change that made this stop feeling like whackwhack. The original opens on its name and the word
+ * PLAY, over a mat that is already alive; you click anywhere and you are playing. Putting a form
+ * there turns an arcade game into a configurable app, and nobody asked for that — a decision about
+ * RULES ("let the player pick the defeat mode") got read as licence over FORM.
+ *
+ * So: the name, floating; PLAY; the mat visible behind. The three choices are still here, behind a
+ * secondary control, for the teacher who wants to set the exercise before handing the machine over.
+ */
 export function createTitleScreen(deps: TitleScreenDeps): Screen {
   const { doc, i18n } = deps;
   const { root, card, heading } = shell({ doc, i18n, labelKey: 'game.title' });
+  root.classList.add('screen--title');
+  // The mat behind is the point of the screen, so the veil is thin where the result screen's is
+  // nearly opaque.
+  root.dataset.veil = 'thin';
 
-  const lead = doc.createElement('p');
-  lead.className = 'screen-lead';
-  lead.textContent = i18n.t('title.lead');
-  card.appendChild(lead);
+  const play = doc.createElement('button');
+  play.type = 'button';
+  play.className = 'title-play';
+  play.textContent = i18n.t('title.play');
+  play.addEventListener('click', () => deps.onStart(currentChoice()));
+
+  /**
+   * ⚠️ CLICKING ANYWHERE STARTS, which is what the original does — but the button exists and is
+   * focusable, because "click the screen" is not reachable by keyboard or by a screen reader. The
+   * backdrop is a shortcut ON TOP of a real control, never instead of one.
+   */
+  root.addEventListener('click', (event) => {
+    if (event.target === root) deps.onStart(currentChoice());
+  });
+
+  const options = doc.createElement('details');
+  options.className = 'title-options';
+  const summary = doc.createElement('summary');
+  summary.textContent = i18n.t('title.options');
+  options.appendChild(summary);
 
   const category = labelledSelect(
     doc,
@@ -141,20 +172,16 @@ export function createTitleScreen(deps: TitleScreenDeps): Screen {
     ],
     deps.initial.defeat,
   );
-  card.append(category.row, difficulty.row, defeat.row);
+  options.append(category.row, difficulty.row, defeat.row);
+  card.append(play, options);
 
-  const start = doc.createElement('button');
-  start.type = 'button';
-  start.className = 'screen-action';
-  start.textContent = i18n.t('title.start');
-  start.addEventListener('click', () => {
-    deps.onStart({
+  function currentChoice(): RoundChoice {
+    return {
       category: deps.categories.find((c) => c.id === category.select.value) ?? deps.categories[0],
       difficulty: difficulty.select.value as Difficulty,
       defeat: defeat.select.value as DefeatMode,
-    });
-  });
-  card.appendChild(start);
+    };
+  }
 
   return {
     root,

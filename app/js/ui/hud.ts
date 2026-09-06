@@ -55,7 +55,7 @@ export function createHud(deps: HudDeps): Hud {
   // ⚠️ NOT a live region. See the note above: this is state, and the engine's `srSay` carries
   // the events. A HUD that announced itself would talk over every wave.
   root.setAttribute('role', 'group');
-  root.setAttribute('aria-label', i18n.t('game.title'));
+  root.setAttribute('aria-label', i18n.t('game.title').replace(/\s+/g, ' '));
 
   const collect = doc.createElement('p');
   collect.className = 'hud-collect';
