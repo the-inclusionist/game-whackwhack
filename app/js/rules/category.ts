@@ -42,8 +42,18 @@ export interface Category {
   isCorrect(value: number): boolean;
 }
 
-/** The default universe: 1 to 20. Two digits at most, and small enough to reason about out loud. */
+/** The smallest universe any category uses: 1 to 20. See `poolMaxFor` for why it can grow. */
 export const POOL_MAX = 20;
+
+/**
+ * The largest value a tile may carry, ever.
+ *
+ * ⚠️ NOT an arbitrary ceiling: the value is drawn on the tile as segment strokes inside the
+ * projected face, and three digits do not fit at this resolution. A hundred in front of a child
+ * would be an unreadable smear, so the bound is stated where the pool is built rather than
+ * discovered later. Measured in docs/spike-0-symbol-legibility.md.
+ */
+export const VALUE_MAX = 99;
 
 /** A wave at the hardest setting could ask for this many of one kind, so a pool must hold them. */
 const MIN_PER_SIDE = LIT_PER_WAVE.hard;
@@ -64,6 +74,30 @@ export interface CategoryOptions {
 }
 
 /**
+ * How far a category's universe has to reach to hold enough correct values.
+ *
+ * ⚠️ THIS IS WHY THE POOL IS NOT A CONSTANT ANY MORE. Multiples of nine inside 1..20 are 9 and 18
+ * — two values, where the hardest setting can want four lit at once and no value may appear twice
+ * on the mat. So the universe grows WITH the factor, to exactly the point where the fourth
+ * multiple appears, and no further: 1..20 for factors two to five, then 24, 28, 32, 36.
+ *
+ * The alternative was one wide pool for everyone, and it is worse in both directions — it makes
+ * "multiples of two" a game of forty numbers when twenty is plenty, and it still has to be
+ * derived from the largest factor, so the derivation happens either way.
+ */
+export function poolMaxFor(factor: number): number {
+  const needed = MIN_PER_SIDE * factor;
+  const max = Math.max(POOL_MAX, needed);
+  if (max > VALUE_MAX) {
+    throw new Error(
+      `category: multiples of ${factor} need values up to ${max}, and a tile holds two digits ` +
+      `(max ${VALUE_MAX}). Nothing above ${Math.floor(VALUE_MAX / MIN_PER_SIDE)} can be a factor.`,
+    );
+  }
+  return max;
+}
+
+/**
  * Builds the "multiples of N" family, which is every category this version ships.
  *
  * `even` is spelled as a multiple of two rather than as its own predicate because that is what it
@@ -71,7 +105,7 @@ export interface CategoryOptions {
  * the number two.
  */
 export function multipleOf(factor: number, options: CategoryOptions): Category {
-  const pool = options.pool ?? range(1, POOL_MAX);
+  const pool = options.pool ?? range(1, poolMaxFor(factor));
   const isCorrect = (value: number): boolean => value % factor === 0;
 
   const right = pool.filter(isCorrect).length;
@@ -93,9 +127,26 @@ export function multipleOf(factor: number, options: CategoryOptions): Category {
   };
 }
 
-export const EVEN = multipleOf(2, { id: 'even', nameKey: 'obj.evens' });
-export const MULTIPLE_OF_3 = multipleOf(3, { id: 'multiple-of-3', nameKey: 'obj.multiplesOf3' });
-export const MULTIPLE_OF_4 = multipleOf(4, { id: 'multiple-of-4', nameKey: 'obj.multiplesOf4' });
+/**
+ * ========================= TWO THROUGH NINE =========================
+ * The Dev's spec for the option row: "toque para Coletar multiplos de: 2 3 4 5 6 7 8 9". It was
+ * three hand-written categories before, and the family is regular enough that hand-writing eight
+ * of them would be eight chances to mistype a factor.
+ *
+ * ⚠️ The id of the first is `even`, not `multiple-of-2`, and it is deliberately NOT regular. `id`
+ * is the stable identity a saved preference would name, it was already `even` before this change,
+ * and regularising it now would cost more than it buys. The name it SHOWS is its own too —
+ * "números pares" rather than "múltiplos de 2" — because a child learning parity is not learning
+ * about the number two.
+ */
+export const FACTORS: readonly number[] = [2, 3, 4, 5, 6, 7, 8, 9];
 
-/** Everything a player can pick, in the order the menu offers it: easiest concept first. */
-export const CATEGORIES: readonly Category[] = [EVEN, MULTIPLE_OF_3, MULTIPLE_OF_4];
+/** Everything a player can pick, in the order the option row offers it: smallest factor first. */
+export const CATEGORIES: readonly Category[] = FACTORS.map((factor) => multipleOf(factor, {
+  id: factor === 2 ? 'even' : `multiple-of-${factor}`,
+  nameKey: `obj.multiplesOf${factor}`,
+}));
+
+export const EVEN = CATEGORIES[0];
+export const MULTIPLE_OF_3 = CATEGORIES[1];
+export const MULTIPLE_OF_4 = CATEGORIES[2];

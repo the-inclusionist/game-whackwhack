@@ -2,15 +2,20 @@
 import type { Catalog } from './types.ts';
 
 export const en: Catalog = {
-  'game.title': 'WhackWhack Schoolution', 'title.mark': 'Whack\nWhack', 'title.school': 'Schoolution',
+  'game.title': 'WhackWhack Schoolution', 'title.mark': 'WHACK\nWHACK', 'title.school': 'Schoolution',
 
   'mat.label': 'Game mat',
   'mat.cell': 'column {col}, row {row}, {content}',
   'mat.empty': 'empty',
 
-  'obj.evens': 'even numbers',
+  'obj.multiplesOf2': 'even numbers',
   'obj.multiplesOf3': 'multiples of 3',
   'obj.multiplesOf4': 'multiples of 4',
+  'obj.multiplesOf5': 'multiples of 5',
+  'obj.multiplesOf6': 'multiples of 6',
+  'obj.multiplesOf7': 'multiples of 7',
+  'obj.multiplesOf8': 'multiples of 8',
+  'obj.multiplesOf9': 'multiples of 9',
 
   'hud.score': 'Hits',
   'hud.of': '{have} of {need}',
@@ -29,7 +34,7 @@ export const en: Catalog = {
   'say.lost': 'Game over. {have} hits.',
   'say.crashed': 'The game stopped on an error. Reload the page.',
 
-  'title.play': 'Play', 'title.options': 'Options',
+  'title.play': 'Play',
   'title.lead': 'Whack only what the round asks for.',
 
   'result.won': 'You did it!',
@@ -39,14 +44,17 @@ export const en: Catalog = {
   'result.again': 'Play again',
   'result.change': 'Change options',
 
-  'opt.suddenDeath': 'Sudden death — one mistake ends it',
-  'opt.lives': 'Lives — three mistakes end it',
-  'opt.endless': 'No defeat — ends only on a win',
-
+  'opt.group': 'Round options',
+  'opt.collect': 'Tap to collect multiples of:',
+  'opt.collectOne': 'multiples of {n}',
   'opt.difficulty': 'Difficulty',
   'opt.easy': 'Easy',
   'opt.medium': 'Medium',
   'opt.hard': 'Hard',
   'opt.defeat': 'How you lose',
-  'opt.category': 'What to collect',
+  'opt.suddenDeath': 'Sudden death',
+  'opt.lives': 'Hearts',
+  'opt.endless': 'Invincible',
+  'opt.cycle': 'tap to change',
+  'opt.now': '{label}: {value}',
 };

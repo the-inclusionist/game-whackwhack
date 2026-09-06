@@ -8,20 +8,16 @@
 // are the tests that ask.
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CATEGORIES, EVEN, MULTIPLE_OF_3 } from '../app/js/rules/category.ts';
 import { ROUND_GOAL } from '../app/js/rules/difficulty.ts';
 import { createI18n } from '../app/js/i18n/index.ts';
-import { createResultScreen, createTitleScreen, type RoundChoice } from '../app/js/ui/screens.ts';
+import { createResultScreen, createTitleScreen } from '../app/js/ui/screens.ts';
 
 const made: { destroy(): void }[] = [];
 const i18n = createI18n('pt');
-const INITIAL: RoundChoice = { category: EVEN, difficulty: 'medium', defeat: 'lives' };
 
 function title(over: Partial<Parameters<typeof createTitleScreen>[0]> = {}) {
   const onStart = vi.fn();
-  const screen = createTitleScreen({
-    doc: document, i18n, categories: CATEGORIES, initial: INITIAL, onStart, ...over,
-  });
+  const screen = createTitleScreen({ doc: document, i18n, onStart, ...over });
   document.body.appendChild(screen.root);
   made.push(screen);
   return { screen, onStart };
@@ -39,7 +35,6 @@ function result(over: Partial<Parameters<typeof createResultScreen>[0]> = {}) {
   return { screen, onAgain, onChange };
 }
 
-const selects = () => [...document.querySelectorAll('.screen select')] as HTMLSelectElement[];
 const buttons = () => [...document.querySelectorAll('.screen button')] as HTMLButtonElement[];
 
 afterEach(() => {
@@ -49,12 +44,25 @@ afterEach(() => {
 });
 
 describe('[Interface] both screens are honest dialogs', () => {
-  it.each([['title', title], ['result', result]] as const)('%s is a modal dialog', (_name, make) => {
+  it.each([['title', title], ['result', result]] as const)('%s is a labelled dialog', (_n, make) => {
     make();
     const root = document.querySelector('.screen')!;
     expect(root.getAttribute('role')).toBe('dialog');
-    expect(root.getAttribute('aria-modal')).toBe('true');
     expect(root.getAttribute('aria-labelledby')).toBe('screen-heading');
+  });
+
+  it('makes the RESULT modal, because there is a dead board behind it', () => {
+    expect(result().screen.modal).toBe(true);
+    expect(document.querySelector('.screen')!.getAttribute('aria-modal')).toBe('true');
+  });
+
+  it('does NOT make the title modal, because the options live outside it', () => {
+    // ⚠️ THE ASSERTION THAT PROTECTS THE OPTION PANEL. `aria-modal="true"` removes everything
+    // outside the dialog from the accessibility tree, and everything outside the title dialog
+    // includes the three controls the player is there to use. It went back to modal once, and
+    // the symptom was a HUD a screen reader could not find while a sighted player could.
+    expect(title().screen.modal).toBe(false);
+    expect(document.querySelector('.screen')!.hasAttribute('aria-modal')).toBe(false);
   });
 
   it.each([['title', title], ['result', result]] as const)('%s puts focus on the HEADING', (_n, make) => {
@@ -76,74 +84,32 @@ describe('[Interface] both screens are honest dialogs', () => {
   });
 });
 
-describe('[Right] the title offers every choice the rules support', () => {
-  it('offers all three categories', () => {
+describe('[Right] the title is the name and the way in, and nothing else', () => {
+  it('offers exactly one control: the word that starts the game', () => {
+    // ⚠️ The count is the point. Three `<select>`s stood here, then a `<details>` holding the
+    // same three, and both were rejected as a form in front of an arcade game. The choices are
+    // in the HUD now (tests/options.browser.test.ts), so anything that reappears here is a
+    // regression towards the arrangement that was turned down twice.
     title();
-    const options = [...selects()[0].options].map((o) => o.value);
-    expect(options).toEqual(CATEGORIES.map((c) => c.id));
+    expect(buttons()).toHaveLength(1);
+    expect(document.querySelectorAll('.screen select, .screen details, .screen input')).toHaveLength(0);
   });
 
-  it('offers all three difficulties and all three defeat modes', () => {
-    title();
-    expect([...selects()[1].options].map((o) => o.value)).toEqual(['easy', 'medium', 'hard']);
-    expect([...selects()[2].options].map((o) => o.value).sort())
-      .toEqual(['endless', 'lives', 'sudden-death']);
-  });
-
-  it('names every option through the catalogue, never as a raw id', () => {
-    title();
-    for (const select of selects()) {
-      for (const option of select.options) {
-        expect(option.textContent!.trim()).not.toBe('');
-        expect(option.textContent).not.toBe(option.value);
-        expect(option.textContent).not.toMatch(/^(opt|obj)\./);
-      }
-    }
-  });
-
-  it('labels each select with a real <label for>', () => {
-    // Also makes the words a click target, which is a bigger one than the select on a touchscreen.
-    title();
-    for (const select of selects()) {
-      const label = document.querySelector(`label[for="${select.id}"]`);
-      expect(label, select.id).not.toBeNull();
-      expect(label!.textContent!.trim()).not.toBe('');
-    }
-  });
-
-  it('opens on the choice it was handed', () => {
-    title({ initial: { category: MULTIPLE_OF_3, difficulty: 'hard', defeat: 'endless' } });
-    expect(selects()[0].value).toBe(MULTIPLE_OF_3.id);
-    expect(selects()[1].value).toBe('hard');
-    expect(selects()[2].value).toBe('endless');
-  });
-});
-
-describe('[Right] starting hands back exactly what was chosen', () => {
-  it('reports the picked category, difficulty and mode', () => {
-    const { onStart } = title();
-    selects()[0].value = MULTIPLE_OF_3.id;
-    selects()[1].value = 'hard';
-    selects()[2].value = 'sudden-death';
-    buttons()[0].click();
-    expect(onStart).toHaveBeenCalledWith({
-      category: MULTIPLE_OF_3, difficulty: 'hard', defeat: 'sudden-death',
-    });
-  });
-
-  it('hands back a real Category object, not its id', () => {
-    // The round needs the predicate and the pool; an id would have to be resolved somewhere else,
-    // and that somewhere would be a second place that knows the catalogue.
+  it('starts on the word, with no argument to carry a choice', () => {
     const { onStart } = title();
     buttons()[0].click();
-    const choice = onStart.mock.calls[0][0] as RoundChoice;
-    expect(typeof choice.category.isCorrect).toBe('function');
-    expect(choice.category.pool.length).toBeGreaterThan(0);
+    expect(onStart).toHaveBeenCalledWith();
   });
 
-  it('does not start until the button is pressed', () => {
+  it('starts on a click of the backdrop, which is what the original does', () => {
     const { onStart } = title();
-    selects()[1].value = 'hard';
+    (document.querySelector('.screen') as HTMLElement).click();
+    expect(onStart).toHaveBeenCalled();
+  });
+
+  it('does NOT start on a click inside the card, which would eat every other control', () => {
+    const { onStart } = title();
+    (document.querySelector('.screen-card') as HTMLElement).click();
     expect(onStart).not.toHaveBeenCalled();
   });
 });
@@ -197,9 +163,7 @@ describe('[Zero] a screen cleans up after itself', () => {
 describe('[Interface] every word on both screens is translated', () => {
   it.each(['pt', 'en', 'es'] as const)('has no raw key anywhere in %s', (locale) => {
     const local = createI18n(locale);
-    const t = createTitleScreen({
-      doc: document, i18n: local, categories: CATEGORIES, initial: INITIAL, onStart: vi.fn(),
-    });
+    const t = createTitleScreen({ doc: document, i18n: local, onStart: vi.fn() });
     const r = createResultScreen({
       doc: document, i18n: local, outcome: 'won', hits: 20, need: ROUND_GOAL, level: 4,
       onAgain: vi.fn(), onChange: vi.fn(),

@@ -15,11 +15,23 @@
 //
 // The colour change is the second channel, held to 3:1 by render/palette. Neither is alone.
 //
-// ========================= THE GAP IS NOT DECORATION =========================
-// Tiles are drawn 1.5 units smaller than TILE, which leaves a gutter between them. Without it the
-// mat is one continuous surface and a player — especially one reading a projected parallelogram
-// at an angle — cannot tell where one tile ends and the next begins. It is also what keeps a
-// risen tile from touching the one behind it on screen.
+// ========================= THE GAP IS NOT DECORATION, AND IT WAS NOT THERE =========================
+// ⚠️ THE GUTTER WAS EXACTLY CANCELLED BY THE STROKE, and the arithmetic is worth writing out
+// because nothing about the code looked wrong. The face was built `TILE - GUTTER` wide with
+// `stroke: STROKE`, and a Zdog stroke extends STROKE/2 beyond the path on EVERY side — so the
+// drawn width was `(TILE - GUTTER) + STROKE`. With GUTTER and STROKE both 1.5 that is exactly
+// TILE, the tiles met edge to edge, and the mat rendered as one continuous purple slab. The Dev
+// reported it as "os tiles estão sem borda nenhuma entre eles"; the comment here had been
+// asserting the opposite for as long as the constant had existed.
+//
+// So the gap is stated as the thing that has to be true on screen — `TILE_GAP` world units of
+// ground visible between two tiles — and the gutter is DERIVED from it and the stroke. Change
+// either and the other follows.
+//
+// It matters for three reasons. A player reading a projected parallelogram at an angle cannot
+// tell where one tile ends and the next begins without it. A risen tile would otherwise touch the
+// one behind it on screen. And the twenty cells are the grid a keyboard player is navigating —
+// invisible boundaries make the mirror's positions unverifiable by eye.
 
 import Zdog, { type Anchor, type Rect } from 'zdog';
 import { MAT_CELLS, MAT_COLS, MAT_ROWS } from '../rules/grid.ts';
@@ -28,8 +40,22 @@ import { TILE } from './resolution.ts';
 import { TILE_RISE } from './zdog-stage.ts';
 import type { Quad } from './picking.ts';
 
-/** How much smaller than its cell a tile is drawn. See the note above. */
-const GUTTER = 1.5;
+/**
+ * Ground left visible between two neighbouring tiles, in world units.
+ *
+ * 1.5 of TILE's 16 — a little under a tenth of a tile, which at the camera's zoom of 5 is 7.5
+ * source pixels and 15 CSS pixels at the k=2 floor. Measured on screen rather than chosen: at 1.0
+ * the seam is a hairline that the antialiasing of a rotated edge swallows.
+ */
+export const TILE_GAP = 1.5;
+
+/**
+ * How much smaller than its cell a tile's PATH is drawn.
+ *
+ * ⚠️ The stroke is added back on both sides — see the note above — so this is the gap PLUS the
+ * stroke, not the gap. Writing `TILE_GAP` here directly is the bug this file shipped with.
+ */
+const GUTTER = TILE_GAP + STROKE;
 
 export interface MatView {
   /** Lights exactly the cells given, leaving every other tile idle. */

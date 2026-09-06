@@ -1,8 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 
 /* ⚠️ The colours here are the ones render/palette measured, repeated because CSS cannot import
-   TypeScript. tests/style-palette.node.test.ts compares the two files so they cannot drift —
-   which they otherwise would, the first time the palette moves and only half the game follows. */
+   TypeScript.
+
+   THERE IS NO TEST HOLDING THE TWO COPIES TOGETHER. This comment claimed there was, naming
+   `tests/style-palette.node.test.ts`, a file that has never existed — which is worse than saying
+   nothing, because it invites the next reader to move a colour and trust a gate that is not
+   there. They WILL drift the first time the palette moves and only half the game follows. */
 :root {
   color-scheme: dark;
   --ground: #1C041B;
@@ -12,6 +16,25 @@
   /* The original's signature magenta. 3.69:1 on the ground: LARGE type and focus rings only,
      never body text. Measured in render/palette. */
   --accent: #C933FF;
+  /* The Dev asked for "pink bem brilhante" on "Schoolution".
+
+     MEASURED, like every other colour here: 7.21:1 on the ground, which clears the palette's
+     ENHANCED text target of 7 (WCAG 1.4.6) rather than merely the 4.5 a display size this large
+     would be allowed. It is the most saturated pink that does -- #FF4FD8 is one step more vivid
+     and falls to 6.80, and every brighter option (#FFA6E9 at 10.98) buys the ratio by washing the
+     colour out. Brilliance up to the point where it starts costing legibility. */
+  --title-pink: #FF5FD1;
+
+  /* ========================= THE ONE PLACE THE COLUMN'S WIDTH IS WRITTEN =========================
+     The HUD owns this share of the region, and the title screen has to leave exactly that much
+     room on the right or its logo runs under the column. Two files needed the number and they
+     were two literals; this is the one. */
+  --hud-fraction: 0.275;
+  /* Fallbacks only. `ui/layout` overwrites both on the root every time it measures — before the
+     first frame, and on every resize. They exist so the page is not broken between parse and
+     boot, which is a real interval on school hardware. */
+  --region-w: 100vw;
+  --region-h: 100vh;
 }
 
 body {
@@ -61,7 +84,7 @@ body {
 .hud {
   position: absolute;
   inset: 0 0 0 auto;
-  width: 27.5%;
+  width: calc(var(--hud-fraction) * 100%);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -77,11 +100,21 @@ body {
      chess game learned this by losing a settings switch off the bottom. */
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* ⚠️ ABOVE `.screen`, WHICH IS 10. Not decoration: the title screen is `position: fixed; inset: 0`
+     and covers the whole viewport, so at any lower value the three option controls would be
+     underneath it and unclickable — visible, apparently live, and inert to every tap. The title is
+     deliberately not `aria-modal` for the same reason (see ui/screens), and this is that decision's
+     other half: without both, the panel is unreachable by one input method or the other. */
+  z-index: 11;
 }
 /* ⚠️ `hidden` sets `display: none` from the BROWSER's stylesheet, and an author rule beats it —
    so `.hud { display: flex }` above kept the bar on screen behind the title with the attribute
-   set and nothing to show for it. Any element given `display` needs this partner rule. */
-.hud[hidden] { display: none; }
+   set and nothing to show for it. Any element given `display` needs this partner rule, which is
+   why each of the three below has one. */
+.hud[hidden],
+.hud-live[hidden],
+.hud-options[hidden] { display: none; }
+.hud-live { display: flex; flex-direction: column; gap: inherit; }
 .hud p { margin: 0; }
 .hud-collect { font-weight: 700; color: var(--tile-lit); }
 /* ⚠️ The score is the thing a player looks for to know the game is responding, so it is the
@@ -89,6 +122,85 @@ body {
    caption is easy to mistake for decoration when nothing seems to be happening. */
 .hud-score { font-weight: 700; font-size: 1.15em; }
 .hud-lives { color: var(--tile-lit); }
+
+/* ========================= THE OPTIONS, IN THE HUD =========================
+   They were three <select>s on the title card, then the same three folded into a <details>, and
+   both were rejected as a form standing in front of an arcade game. They are here now, in the
+   column, on screen while the title is: "no próprio HUD antes de começar".
+
+   The system font stays. Press Start 2P is the arcade face and it belongs on the logo and the
+   words that start and end a round, but "Morte súbita" set in a pixel face in a 350 px column is
+   a puzzle, and these are the controls a teacher reads carefully once. */
+.hud-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+  width: 100%;
+}
+
+/* One button that walks its values and wraps. The mark and the word share the face; the mark
+   carries no meaning a reader gets, which is why the accessible name is built in code. */
+.opt-cycle {
+  min-height: 44px;          /* WCAG 2.5.5, and these sit outside #game-region where --tap lives */
+  font: inherit;
+  text-align: left;
+  padding: 0.5em 0.7em;
+  color: #FFFFFF;
+  background: rgba(201, 51, 255, 0.12);
+  border: 1px solid #6B2E80;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.opt-cycle:hover { background: rgba(201, 51, 255, 0.24); }
+.opt-cycle:focus-visible { outline: 3px solid var(--tile-lit); outline-offset: 2px; }
+
+.opt-collect {
+  margin: 0;
+  padding: 0.4em 0;
+  border: 0;
+  border-top: 1px solid #6B2E80;
+  /* The eight sit in a grid rather than a wrapping row so the columns line up between renders —
+     a row that reflows puts "7" in a different place depending on the width of "Morte súbita". */
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.3em;
+}
+.opt-collect > legend {
+  padding: 0 0 0.4em;
+  color: #E7C9F0;
+  font-size: 0.9em;
+}
+
+/* ⚠️ The <input> is visually hidden but NOT display:none — that would take it out of the tab
+   order and out of the accessibility tree, which is the whole reason it is a radio. The visible
+   chip is its sibling <span>, and every state the input has is drawn on that sibling. */
+.opt-factor {
+  display: block;
+  cursor: pointer;
+}
+.opt-factor-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  font-size: 1.3em;
+  border: 1px solid #6B2E80;
+  border-radius: 3px;
+  background: rgba(201, 51, 255, 0.08);
+}
+.opt-factor:hover .opt-factor-face { background: rgba(201, 51, 255, 0.24); }
+/* ⚠️ SELECTION IS NOT CARRIED BY COLOUR ALONE (WCAG 1.4.1). The chosen factor gets a filled
+   ground AND a heavier border AND a raise — the emoji keycap already comes in whatever colours
+   the platform's emoji font chose, so tinting it is not even available as a channel. */
+.opt-factor input:checked + .opt-factor-face {
+  background: var(--tile-lit);
+  border: 2px solid var(--tile-lit);
+  transform: translateY(-2px);
+}
+.opt-factor input:focus-visible + .opt-factor-face {
+  outline: 3px solid var(--tile-lit);
+  outline-offset: 2px;
+}
 
 /* ========================= THE GRID MIRROR =========================
    Twenty real buttons, off-screen but not hidden: `display: none` and `visibility: hidden` both
@@ -176,7 +288,23 @@ body {
 /* ========================= THE TITLE, AS THE ORIGINAL HAS IT =========================
    The name, floating, over a mat that is already alive. `data-veil="thin"` is what lets the board
    show through — the result screen wants the opposite and keeps its near-opaque one. */
-.screen--title { background: rgba(28, 4, 27, 0.55); }
+/* ========================= THE LOGO GETS THE ROOM THE HUD DOES NOT WANT =========================
+   ⚠️ The card is centred in the region MINUS the HUD column, not in the viewport. It was centred
+   in the viewport, and with the options now living in the column the last two letters of "Whack"
+   were rendered underneath it — present, measured, invisible.
+
+   The padding is the letterboxing beside the region on the left, and the same plus the column on
+   the right. Everything is derived from `--region-w`, which `ui/layout` writes on the root, so the
+   logo tracks the board rather than the window: a 1920 window showing a 1280 region gives the
+   letters the 1280, which is what they are the title of. */
+.screen--title {
+  box-sizing: border-box;
+  background: rgba(28, 4, 27, 0.55);
+  padding-left: calc((100vw - var(--region-w)) / 2);
+  padding-right: calc((100vw - var(--region-w)) / 2 + var(--region-w) * var(--hud-fraction));
+}
+/* The track the five letters of "Whack" are sized against. */
+.screen--title .screen-card { --logo-track: calc(var(--region-w) * (1 - var(--hud-fraction))); }
 .screen--title .screen-card {
   background: none;
   border: 0;
@@ -221,10 +349,14 @@ body {
 .title-mark {
   font-family: 'Press Start 2P', monospace;
   /* ⚠️ 15vw BECAUSE "Whack" IS FIVE CHARACTERS AND THIS FACE IS MONOSPACED at 1em of advance.
-     Five characters at 15vw is 75vw — the logo width the Dev asked for, derived rather than
-     dialled in. The original does the same thing a different way: `width: 80rem; max-width: 100%`
-     on an SVG logo, which is "as wide as it is allowed to be". */
-  font-size: 15vw;
+     "Whack" occupies 75% of the track — the proportion the Dev asked for — and one FIFTH of that
+     is one character, which is where the 0.15 comes from. Derived, not dialled in. The original
+     does the same thing a different way: `width: 80rem; max-width: 100%` on an SVG logo, which is
+     "as wide as it is allowed to be".
+
+     ⚠️ It was `15vw`, against the WINDOW. That was right while the whole window was the logo's to
+     use, and became wrong the moment the option column moved into the picture. */
+  font-size: calc(var(--logo-track) * 0.15);
   line-height: 1.15;
   text-align: center;
   white-space: pre-line;
@@ -241,12 +373,17 @@ body {
    from the wall to the blackboard. */
 .title-school {
   font-family: 'Playwrite BR', cursive;
-  /* Half of one "Whack", as asked — 15vw ÷ 2. Written as the division so the relationship survives
-     a change to the line above instead of becoming two numbers that used to agree. */
-  font-size: calc(15vw / 2);
+  /* Half of one "Whack", as asked. Written as the same expression divided by two, so the
+     relationship survives a change to the line above instead of becoming two numbers that used
+     to agree. */
+  font-size: calc(var(--logo-track) * 0.15 / 2);
   line-height: 1.1;
-  color: #FFFFFF;
-  text-shadow: 0.04em 0.04em 0 var(--accent);
+  /* The Dev's call, and it is the better half of the joke: the arcade word stays cold blue and
+     the schoolroom word is the one carrying the colour. */
+  color: var(--title-pink);
+  /* The GROUND's own colour, so the shadow reads as an edge rather than as a second hue. It was
+     the accent purple, which behind white was decoration; behind pink it would be mud. */
+  text-shadow: 0.035em 0.035em 0 var(--ground);
 }
 /* The original's own wobble, read from its `@keyframes hover`: a fixed rotateX with rotateY
    swinging ±3° and a ±3% vertical drift. It is a 3D sway, not a bob, and that is what makes the

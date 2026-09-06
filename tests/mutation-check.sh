@@ -644,6 +644,82 @@ add "every intent steers the cursor, including a platformer's jump" \
     "    if (!intent || !MOVES.has(intent)) return;" \
     "    if (!intent) return;"
 
+# ========================= THE OPTION PANEL, THE HUD PHASE, AND THE FAMILY OF EIGHT =========
+# ⚠️ NOT LISTED HERE: the vendored typefaces. tests/fonts.browser.test.ts is gated on the CONTENT
+# of a woff2, and a text substitution cannot reach inside one. It was proven able to fail by hand
+# instead: putting the cyrillic-ext subset back -- the file that actually shipped -- breaks three
+# of its four assertions and names the characters, while `document.fonts.check` still answers true.
+
+add "the difficulty cycler clamps instead of wrapping" \
+    "$UI/options.ts" \
+    "      const next = values[(values.indexOf(read()) + 1) % values.length];" \
+    "      const next = values[Math.min(values.indexOf(read()) + 1, values.length - 1)];"
+
+add "a cycler shows its mark without the word" \
+    "$UI/options.ts" \
+    "      button.textContent = \`\${markOf(value)} \${word}\`;" \
+    "      button.textContent = markOf(value);"
+
+add "the eight factors stop being one control" \
+    "$UI/options.ts" \
+    "    input.name = 'opt-collect';" \
+    "    input.name = \`opt-collect-\${factor}\`;"
+
+add "the panel opens on no category at all" \
+    "$UI/options.ts" \
+    "    input.checked = option.id === category.id;" \
+    "    input.checked = false;"
+
+add "a chip is named by its keycap instead of in words" \
+    "$UI/options.ts" \
+    "    input.setAttribute('aria-label', i18n.t('opt.collectOne', { n: factor }));" \
+    "    input.setAttribute('aria-label', keycap(factor));"
+
+add "picking a factor is announced on top of what the radio already says" \
+    "$UI/options.ts" \
+    "      category = option;" \
+    "      category = option; announce('opt.collect', i18n.t(option.nameKey));"
+
+add "the panel stops telling its owner anything changed" \
+    "$UI/options.ts" \
+    "    deps.onChange?.(current());" \
+    "    void deps.onChange;"
+
+add "the family of factors shrinks back to three" \
+    "$RULES/category.ts" \
+    "export const FACTORS: readonly number[] = [2, 3, 4, 5, 6, 7, 8, 9];" \
+    "export const FACTORS: readonly number[] = [2, 3, 4];"
+
+add "the pool stops growing with the factor" \
+    "$RULES/category.ts" \
+    "  const pool = options.pool ?? range(1, poolMaxFor(factor));" \
+    "  const pool = options.pool ?? range(1, POOL_MAX);"
+
+add "the title goes back to being modal, hiding the options from a reader" \
+    "$UI/screens.ts" \
+    "  root.removeAttribute('aria-modal');" \
+    "  root.setAttribute('aria-modal', 'true');"
+
+add "the title claims to be modal, so the composition root deadens the whole region" \
+    "$UI/screens.ts" \
+    "    modal: false," \
+    "    modal: true,"
+
+add "the options stay up once the round starts" \
+    "$UI/hud.ts" \
+    "      deps.options.hidden = !choosing;" \
+    "      deps.options.hidden = false;"
+
+add "the score sits under the settings, showing both halves at once" \
+    "$UI/hud.ts" \
+    "      live.hidden = choosing;" \
+    "      live.hidden = false;"
+
+add "the keyboard help offers the mat while there is no mat" \
+    "$UI/hud.ts" \
+    "      help.hidden = choosing;" \
+    "      help.hidden = false;"
+
 TO_FILE="$(mktemp)"
 trap 'rm -f "$TO_FILE"' EXIT
 

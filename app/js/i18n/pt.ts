@@ -9,15 +9,20 @@
 import type { Catalog } from './types.ts';
 
 export const pt: Catalog = {
-  'game.title': 'WhackWhack Schoolution', 'title.mark': 'Whack\nWhack', 'title.school': 'Schoolution',
+  'game.title': 'WhackWhack Schoolution', 'title.mark': 'WHACK\nWHACK', 'title.school': 'Schoolution',
 
   'mat.label': 'Tapete do jogo',
   'mat.cell': 'coluna {col}, linha {row}, {content}',
   'mat.empty': 'vazia',
 
-  'obj.evens': 'números pares',
+  'obj.multiplesOf2': 'números pares',
   'obj.multiplesOf3': 'múltiplos de 3',
   'obj.multiplesOf4': 'múltiplos de 4',
+  'obj.multiplesOf5': 'múltiplos de 5',
+  'obj.multiplesOf6': 'múltiplos de 6',
+  'obj.multiplesOf7': 'múltiplos de 7',
+  'obj.multiplesOf8': 'múltiplos de 8',
+  'obj.multiplesOf9': 'múltiplos de 9',
 
   'hud.score': 'Acertos',
   'hud.of': '{have} de {need}',
@@ -36,7 +41,7 @@ export const pt: Catalog = {
   'say.lost': 'Fim de jogo. {have} acertos.',
   'say.crashed': 'O jogo parou por um erro. Recarregue a página.',
 
-  'title.play': 'Jogar', 'title.options': 'Opções',
+  'title.play': 'Jogar',
   'title.lead': 'Martele só o que a rodada pede.',
 
   'result.won': 'Você conseguiu!',
@@ -46,14 +51,17 @@ export const pt: Catalog = {
   'result.again': 'Jogar de novo',
   'result.change': 'Mudar opções',
 
-  'opt.suddenDeath': 'Morte súbita — um erro encerra',
-  'opt.lives': 'Vidas — três erros encerram',
-  'opt.endless': 'Sem derrota — só termina ao vencer',
-
+  'opt.group': 'Opções da rodada',
+  'opt.collect': 'Toque para coletar múltiplos de:',
+  'opt.collectOne': 'múltiplos de {n}',
   'opt.difficulty': 'Dificuldade',
   'opt.easy': 'Fácil',
   'opt.medium': 'Médio',
   'opt.hard': 'Difícil',
-  'opt.defeat': 'Como se perde',
-  'opt.category': 'O que coletar',
+  'opt.defeat': 'Como perder',
+  'opt.suddenDeath': 'Morte súbita',
+  'opt.lives': 'Corações',
+  'opt.endless': 'Invencível',
+  'opt.cycle': 'toque para mudar',
+  'opt.now': '{label}: {value}',
 };

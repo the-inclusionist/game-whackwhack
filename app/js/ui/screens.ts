@@ -11,29 +11,34 @@
 //
 // ========================= DOM, LIKE THE HUD AND FOR THE SAME REASONS =========================
 // At the size this game rasterises, canvas text is illegible, does not scale with the reader's own
-// type setting, and is invisible to a screen reader. So these are real headings, real `<select>`s
-// and real `<button>`s, which also means arrow keys, Tab, Enter and Space work because the platform
-// makes them work.
+// type setting, and is invisible to a screen reader. So these are real headings and real
+// `<button>`s, which also means Tab, Enter and Space work because the platform makes them work.
 //
-// ========================= AND THEY ARE MODAL, HONESTLY =========================
-// `role="dialog"` with `aria-modal`, focus moved onto the heading when shown, and `inert` on the
-// region behind. Without the last one a screen reader user tabs straight off the dialog into
-// twenty mat buttons that are not playable — the reading order would say the game is still there
-// when it is over.
+// ========================= ONE OF THEM IS MODAL, AND ONLY ONE =========================
+// The RESULT screen is: `aria-modal`, focus on the heading, `inert` on the region behind. Without
+// the last one a reader tabs straight off the dialog into twenty mat buttons that are not
+// playable, and the reading order says the game is still there when it is over.
+//
+// The TITLE screen is not, and `Screen.modal` below says why at length. In short: there is no
+// round behind it to be protected from, and treating it as modal is what pushed the round's three
+// choices onto the card — which is the arrangement the Dev rejected twice.
 
-import type { Category } from '../rules/category.ts';
-import type { Difficulty } from '../rules/difficulty.ts';
-import type { DefeatMode } from '../rules/defeat.ts';
 import type { I18n } from '../i18n/index.ts';
-
-export interface RoundChoice {
-  readonly category: Category;
-  readonly difficulty: Difficulty;
-  readonly defeat: DefeatMode;
-}
 
 export interface Screen {
   readonly root: HTMLElement;
+  /**
+   * Whether the region behind is dead while this is up.
+   *
+   * ⚠️ THE TITLE IS NOT MODAL AND THE RESULT IS, and that difference is what lets the options
+   * live in the HUD. Modality exists to stop a reader wandering into a board that cannot be
+   * played; on the RESULT screen there is exactly such a board behind, and on the title there is
+   * no round at all — the page is the title plus the choices that will start one. Making the
+   * title modal is precisely what forced the choices onto the card, which is the arrangement the
+   * Dev rejected. What is inert behind the title is the mat and its mirror, which really are
+   * inoperable; the HUD column is not, because it is the control panel.
+   */
+  readonly modal: boolean;
   /** Moves focus in. Called after the screen is in the document, never before. */
   focus(): void;
   destroy(): void;
@@ -71,43 +76,11 @@ function shell(deps: ShellDeps): { root: HTMLElement; card: HTMLElement; heading
   return { root, card, heading };
 }
 
-function labelledSelect(
-  doc: Document,
-  labelText: string,
-  options: readonly { value: string; label: string }[],
-  initial: string,
-): { row: HTMLElement; select: HTMLSelectElement } {
-  const row = doc.createElement('p');
-  row.className = 'screen-row';
-
-  const label = doc.createElement('label');
-  label.textContent = labelText;
-
-  const select = doc.createElement('select');
-  for (const option of options) {
-    const el = doc.createElement('option');
-    el.value = option.value;
-    el.textContent = option.label;
-    select.appendChild(el);
-  }
-  select.value = initial;
-
-  // A real <label for> rather than aria-label: it also makes the words a click target, which is
-  // a bigger one than the select itself on a touch screen.
-  const id = `opt-${labelText.replace(/\W+/g, '-').toLowerCase()}`;
-  select.id = id;
-  label.htmlFor = id;
-
-  row.append(label, select);
-  return { row, select };
-}
-
 export interface TitleScreenDeps {
   readonly doc: Document;
   readonly i18n: I18n;
-  readonly categories: readonly Category[];
-  readonly initial: RoundChoice;
-  onStart(choice: RoundChoice): void;
+  /** No argument: the choices are read from the HUD's own controls, which never left the page. */
+  onStart(): void;
 }
 
 /**
@@ -118,13 +91,21 @@ export interface TitleScreenDeps {
  * there turns an arcade game into a configurable app, and nobody asked for that — a decision about
  * RULES ("let the player pick the defeat mode") got read as licence over FORM.
  *
- * So: the name, floating; PLAY; the mat visible behind. The three choices are still here, behind a
- * secondary control, for the teacher who wants to set the exercise before handing the machine over.
+ * ⚠️ AND THE SECOND TRY WAS STILL WRONG. Folding the same three dropdowns into a `<details>`
+ * moved the form without answering the objection — a menu is still a menu when it is closed. The
+ * choices now live in the HUD column (`ui/options`), which is on screen while this is, so this
+ * file is down to what the original actually shows: the name, floating, and the word to start.
  */
 export function createTitleScreen(deps: TitleScreenDeps): Screen {
   const { doc, i18n } = deps;
   const { root, card, heading } = shell({ doc, i18n, labelKey: 'game.title' });
   root.classList.add('screen--title');
+  // ⚠️ NOT `aria-modal`. `shell` sets it because the result screen needs it; the title takes it
+  // back off, because `aria-modal="true"` removes everything outside this element from the
+  // accessibility tree — and everything outside this element includes the option controls the
+  // player is here to use. It stays a `dialog`, which is what it is: a thing on top with a
+  // heading and a button.
+  root.removeAttribute('aria-modal');
   // The mat behind is the point of the screen, so the veil is thin where the result screen's is
   // nearly opaque.
   root.dataset.veil = 'thin';
@@ -163,7 +144,7 @@ export function createTitleScreen(deps: TitleScreenDeps): Screen {
   play.type = 'button';
   play.className = 'title-play';
   play.textContent = i18n.t('title.play');
-  play.addEventListener('click', () => deps.onStart(currentChoice()));
+  play.addEventListener('click', () => deps.onStart());
 
   /**
    * ⚠️ CLICKING ANYWHERE STARTS, which is what the original does — but the button exists and is
@@ -171,50 +152,14 @@ export function createTitleScreen(deps: TitleScreenDeps): Screen {
    * backdrop is a shortcut ON TOP of a real control, never instead of one.
    */
   root.addEventListener('click', (event) => {
-    if (event.target === root) deps.onStart(currentChoice());
+    if (event.target === root) deps.onStart();
   });
 
-  const options = doc.createElement('details');
-  options.className = 'title-options';
-  const summary = doc.createElement('summary');
-  summary.textContent = i18n.t('title.options');
-  options.appendChild(summary);
-
-  const category = labelledSelect(
-    doc,
-    i18n.t('opt.category'),
-    deps.categories.map((c) => ({ value: c.id, label: i18n.t(c.nameKey) })),
-    deps.initial.category.id,
-  );
-  const difficulty = labelledSelect(
-    doc,
-    i18n.t('opt.difficulty'),
-    (['easy', 'medium', 'hard'] as const).map((d) => ({ value: d, label: i18n.t(`opt.${d}`) })),
-    deps.initial.difficulty,
-  );
-  const defeat = labelledSelect(
-    doc,
-    i18n.t('opt.defeat'),
-    [
-      { value: 'lives', label: i18n.t('opt.lives') },
-      { value: 'sudden-death', label: i18n.t('opt.suddenDeath') },
-      { value: 'endless', label: i18n.t('opt.endless') },
-    ],
-    deps.initial.defeat,
-  );
-  options.append(category.row, difficulty.row, defeat.row);
-  card.append(play, options);
-
-  function currentChoice(): RoundChoice {
-    return {
-      category: deps.categories.find((c) => c.id === category.select.value) ?? deps.categories[0],
-      difficulty: difficulty.select.value as Difficulty,
-      defeat: defeat.select.value as DefeatMode,
-    };
-  }
+  card.appendChild(play);
 
   return {
     root,
+    modal: false,
     focus() { heading.focus(); },
     destroy() { root.remove(); },
   };
@@ -262,6 +207,7 @@ export function createResultScreen(deps: ResultScreenDeps): Screen {
 
   return {
     root,
+    modal: true,
     focus() { heading.focus(); },
     destroy() { root.remove(); },
   };

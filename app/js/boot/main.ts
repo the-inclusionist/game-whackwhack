@@ -39,7 +39,8 @@ import { createGridMirror } from '../ui/grid-mirror.ts';
 import { announcementFor } from '../ui/announce.ts';
 import { createHud } from '../ui/hud.ts';
 import { applyLayout } from '../ui/layout.ts';
-import { createResultScreen, createTitleScreen, type RoundChoice, type Screen } from '../ui/screens.ts';
+import { createOptions, type RoundChoice } from '../ui/options.ts';
+import { createResultScreen, createTitleScreen, type Screen } from '../ui/screens.ts';
 import { createI18n, preferredLocale } from '../i18n/index.ts';
 
 /**
@@ -110,9 +111,26 @@ function boot(): void {
   });
   region.insertBefore(mirror.root, canvas);
 
+  /**
+   * ⚠️ THE CHOICES ARE PART OF THE HUD, NOT PART OF THE TITLE. They were three `<select>`s on the
+   * title card, then the same three folded into a `<details>`, and both were rejected: "nada de
+   * menu desta forma, mas sim no próprio HUD antes de começar". The panel is built once here and
+   * lives in the column for the whole session, which is also why `startRound` reads it rather
+   * than being handed a choice — there is no moment when the current choice is anywhere else.
+   */
+  const options = createOptions({
+    doc,
+    i18n,
+    initial: choice,
+    // Kept in `choice` as it changes rather than only at start, so the HUD's own readouts (which
+    // are drawn from the DECLARATION, which reads `choice`) show the category being picked.
+    onChange: (next) => { choice = next; hud.setDefeat(next.defeat); hud.refresh(); },
+  });
+
   const hud = createHud({
     doc,
     declaration,
+    options: options.root,
     i18n,
     defeat: choice.defeat,
     livesLeft: () => (choice.defeat === 'lives' ? Math.max(0, LIVES - (round?.errors() ?? 0)) : null),
@@ -166,10 +184,18 @@ function boot(): void {
     screen = next;
     // ⚠️ `inert` on the region behind. Without it a reader tabs off the dialog into twenty mat
     // buttons that cannot be played, and the reading order says the game is still going.
-    region.inert = true;
-    // The HUD belongs to a round in progress. Behind the title it reads as a game already going,
-    // and behind the result screen it repeats the score that screen exists to give.
-    hud.root.hidden = true;
+    // ⚠️ WHAT GOES INERT DEPENDS ON THE SCREEN, and that is the whole reason the options can be
+    // in the HUD at all. The result screen kills the region: there is a finished board behind it
+    // and nothing there is playable. The title kills only the MAT and its mirror — genuinely
+    // inoperable, because no round exists — and leaves the HUD column live, because the column is
+    // where the round is configured. `region.inert` would have taken the controls with it.
+    region.inert = next.modal;
+    mirror.root.inert = true;
+    canvas.inert = true;
+    // Behind the RESULT screen the HUD repeats the score that screen exists to give. Behind the
+    // title it shows the choices, which is the point.
+    hud.root.hidden = next.modal;
+    hud.setPhase('choosing');
     doc.body.appendChild(next.root);
     next.focus();
   }
@@ -178,14 +204,17 @@ function boot(): void {
     screen?.destroy();
     screen = null;
     region.inert = false;
+    mirror.root.inert = false;
+    canvas.inert = false;
     hud.root.hidden = false;
+    hud.setPhase('playing');
   }
 
   function showTitle(): void {
     engine.cenas.replace({
       nome: 'title',
       enter: () => mount(createTitleScreen({
-        doc, i18n, categories: CATEGORIES, initial: choice, onStart: startRound,
+        doc, i18n, onStart: () => startRound(options.choice()),
       })),
       exit: unmount,
     });
@@ -198,7 +227,7 @@ function boot(): void {
       nome: 'result',
       enter: () => mount(createResultScreen({
         doc, i18n, outcome, hits, level, need: ROUND_GOAL,
-        onAgain: () => startRound(choice),
+        onAgain: () => startRound(options.choice()),
         onChange: showTitle,
       })),
       exit: unmount,
@@ -351,7 +380,9 @@ function boot(): void {
     // every mouse move, which on school hardware is the difference between smooth and not.
     ball.style.transform = `translate(${event.clientX}px, ${event.clientY}px)`;
 
-    if (screen) return;   // the mat is not the subject while a screen is up
+    // The mat is not the subject while the RESULT screen is up. Behind the title it is — the
+    // original's board leans under the logo, and that lean is half of what the title screen is.
+    if (screen?.modal) return;
     const rect = canvas.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
     // −1 … 1 across the canvas, clamped: a pointer outside it should lean no further than its edge.
@@ -392,7 +423,7 @@ function boot(): void {
     (window as unknown as Record<string, unknown>).__whack = {
       get round() { return round; },
       get screen() { return screen; },
-      mat, stage, mirror, hud, i18n, engine, camera,
+      mat, stage, mirror, hud, options, i18n, engine, camera,
       start: (over: Partial<RoundChoice> = {}) => startRound({ ...choice, ...over }),
       step: (dt = 1) => ticker.step(dt),
     };

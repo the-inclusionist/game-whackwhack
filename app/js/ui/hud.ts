@@ -30,10 +30,28 @@ export interface HudDeps {
   readonly declaration: HudDeclaration;
   readonly i18n: I18n;
   readonly defeat: DefeatMode;
+  /**
+   * The option controls, built by `ui/options` and OWNED by the caller.
+   *
+   * ⚠️ Passed in rather than built here, and the reason is the same one that keeps this file from
+   * importing rules/round: the HUD does not get to know what a round is configured with. It is a
+   * host for the controls and a reader of the contract, and those two jobs do not meet.
+   */
+  readonly options: HTMLElement;
   /** Lives left, or `null` where the mode has none. */
   livesLeft(): number | null;
   level(): number;
 }
+
+/**
+ * Which half of the HUD is showing.
+ *
+ * ⚠️ THE HUD IS NO LONGER HIDDEN BEHIND THE TITLE. It used to be, and the reasoning was sound
+ * while it held nothing but a score: a score behind the title reads as a game already going. Now
+ * it also holds the three choices, which are to be made BEFORE starting — "no próprio HUD antes
+ * de começar" — so the column stays up and swaps its contents instead of vanishing.
+ */
+export type HudPhase = 'choosing' | 'playing';
 
 export interface Hud {
   readonly root: HTMLElement;
@@ -41,6 +59,8 @@ export interface Hud {
   refresh(): void;
   /** The mode can change between rounds, and the lives line reads differently for each. */
   setDefeat(mode: DefeatMode): void;
+  /** Swaps the options for the readouts, or back. */
+  setPhase(phase: HudPhase): void;
   destroy(): void;
 }
 
@@ -80,7 +100,19 @@ export function createHud(deps: HudDeps): Hud {
   help.className = 'hud-help';
   help.textContent = i18n.t('hud.help');
 
-  root.append(collect, score, level, lives, help);
+  /**
+   * The readouts, boxed so the phase switch has ONE element to toggle rather than four.
+   *
+   * ⚠️ `hidden` needs a partner rule in the stylesheet wherever an author rule sets `display`.
+   * `.hud { display: flex }` beat the browser's `display: none` once already and left the bar on
+   * screen with the attribute set and nothing to show for it; `.hud-live[hidden]` is that lesson
+   * applied before it can happen again.
+   */
+  const live = doc.createElement('div');
+  live.className = 'hud-live';
+  live.append(collect, score, level, lives);
+
+  root.append(deps.options, live, help);
 
   function refresh(): void {
     const objective = deps.declaration.objectiveOf(0);
@@ -109,6 +141,15 @@ export function createHud(deps: HudDeps): Hud {
     root,
     refresh,
     setDefeat(mode) { defeat = mode; refresh(); },
+    setPhase(phase) {
+      const choosing = phase === 'choosing';
+      deps.options.hidden = !choosing;
+      live.hidden = choosing;
+      // The keyboard help describes playing the mat, which is not what is on offer while the
+      // choices are up — and a line about hammering under a row of settings is an instruction
+      // for a control that is not there.
+      help.hidden = choosing;
+    },
     destroy() { root.remove(); },
   };
 }

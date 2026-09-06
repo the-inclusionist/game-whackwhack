@@ -130,9 +130,15 @@ describe('[Right] mathematics is not a language subject', () => {
     // The engine's rule, spelled out: `2 + 3` is language-independent, so the words AROUND a
     // number translate entirely. Only the numeral itself crosses untouched, and a numeral is not
     // in this catalogue at all.
-    const names = ['obj.evens', 'obj.multiplesOf3', 'obj.multiplesOf4'];
-    for (const key of names) {
-      expect(pt[key]).not.toBe(en[key]);
+    //
+    // ⚠️ Read off CATEGORIES rather than typed out. The list was three literal keys, and when the
+    // family grew to eight the keys it named stopped existing — so `pt[key]` and `en[key]` were
+    // both `undefined` and "they differ" was asserted about nothing. The `toBeTypeOf` line below
+    // is what makes that impossible to repeat: a missing key now fails as a missing key.
+    for (const { nameKey } of CATEGORIES) {
+      expect(pt[nameKey], nameKey).toBeTypeOf('string');
+      expect(en[nameKey], nameKey).toBeTypeOf('string');
+      expect(pt[nameKey], nameKey).not.toBe(en[nameKey]);
     }
   });
 
