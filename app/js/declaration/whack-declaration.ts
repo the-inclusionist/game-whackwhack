@@ -24,7 +24,7 @@
 // minutes ago, and nothing would report it — the engine would simply narrate the wrong board.
 
 import type {
-  Focus, GameDeclaration, Objective, Role, Speakable, Spot, Topology,
+  Focus, GameDeclaration, Objective, Role, Speakable, Spot, Topology, WorldScope,
 } from '@the-inclusionist/engine/core/contract.js';
 import type { Category } from '../rules/category.ts';
 import type { RoundTile } from '../rules/round.ts';
@@ -60,6 +60,22 @@ export interface DeclarationDeps {
 
 const TOPOLOGY: Topology = { kind: 'grid', cols: MAT_COLS, rows: MAT_ROWS };
 
+/**
+ * ⚠️ WHICH ELEMENT IS THE WORLD, and it is `#game-region` rather than the canvas.
+ *
+ * The engine applies what belongs to the world there and only there — the colour-vision
+ * simulation among it. The canvas alone would be the tempting answer, since the mat is what the
+ * child plays on, and it would be wrong twice: the grid mirror (the twenty real buttons a screen
+ * reader navigates) is a sibling of the canvas and is just as much the board, and a player who
+ * needs a deuteranopia simulation needs it over the SCORE as well as over the tiles. The region
+ * is the smallest element that contains all three.
+ *
+ * `none` was not an option here and the contract is explicit that it must not be a default: a
+ * game of pure DOM is not a game where empathy makes no sense — blindfold chess is the proof —
+ * it is one where it asks more of whoever writes it.
+ */
+const WORLD: WorldScope = { kind: 'element', selector: '#game-region' };
+
 export function createWhackDeclaration(deps: DeclarationDeps): GameDeclaration {
   /**
    * The tile at `at`, or undefined. Off-mat spots resolve to cell -1 and match nothing.
@@ -77,7 +93,20 @@ export function createWhackDeclaration(deps: DeclarationDeps): GameDeclaration {
   }
 
   return {
-    topology: TOPOLOGY,
+    /**
+     * ⚠️ A FUNCTION SINCE ADR-0084, and it was a value. Five of the six declaration fields were
+     * already functions; the sixth was the one that broke, on the 15-puzzle, whose board is 3x3,
+     * 4x4 or 5x5 chosen while the game runs. It satisfied `readonly topology: Topology` with a
+     * getter — which type-checks, answers live, and is a coincidence of TypeScript rather than a
+     * contract: nothing told the next author it was expected and `conformanceProblems` read it
+     * once, so a consumer that cached the topology went stale in silence.
+     *
+     * This mat never resizes, so the function returns a constant. That is one line of ceremony
+     * for the common case, which is the cost the ADR weighed and accepted.
+     */
+    topology(): Topology { return TOPOLOGY; },
+
+    world(): WorldScope { return WORLD; },
 
     // The clock owns the tick: a tile expires whether or not anyone acts.
     tick: 'clock',

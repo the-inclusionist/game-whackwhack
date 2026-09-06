@@ -72,6 +72,21 @@ add "the wrong tile falls silent for a screen reader" \
     "      if (!tile) return null;" \
     "      if (!tile || !tile.correct) return null;"
 
+add "the world is declared as the canvas, leaving the mirror and the HUD outside it" \
+    "$DECL/whack-declaration.ts" \
+    "const WORLD: WorldScope = { kind: 'element', selector: '#game-region' };" \
+    "const WORLD: WorldScope = { kind: 'element', selector: '#board-canvas' };"
+
+add "the game declares it has no world at all" \
+    "$DECL/whack-declaration.ts" \
+    "const WORLD: WorldScope = { kind: 'element', selector: '#game-region' };" \
+    "const WORLD: WorldScope = { kind: 'none' };"
+
+add "the topology is answered once and cached, so a resize would go stale" \
+    "$DECL/whack-declaration.ts" \
+    "    topology(): Topology { return TOPOLOGY; }," \
+    "    topology(): Topology { return { kind: 'grid', cols: 1, rows: 1 }; },"
+
 add "the tick goes back to the player" \
     "$DECL/whack-declaration.ts" \
     "    tick: 'clock'," \

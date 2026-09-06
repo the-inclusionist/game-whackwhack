@@ -61,7 +61,31 @@ describe('[Interface] the declaration is well formed', () => {
   });
 
   it('declares the mat as a grid of the right size', () => {
-    expect(declOf().decl.topology).toEqual({ kind: 'grid', cols: MAT_COLS, rows: MAT_ROWS });
+    // ⚠️ CALLED, not read. `topology` became a function in ADR-0084 — the engine's contract
+    // changed under this game mid-session, on the day the 15-puzzle's three board sizes proved a
+    // value could not express a board that resizes. This mat does not resize, so it answers a
+    // constant; the shape of the answer is the engine's business, not the mat's.
+    expect(declOf().decl.topology()).toEqual({ kind: 'grid', cols: MAT_COLS, rows: MAT_ROWS });
+  });
+
+  it('answers the same topology every time it is asked', () => {
+    // The reason a fixed board can hold a function without ceremony being a lie: it IS constant,
+    // and saying so twice has to give the same answer.
+    const { decl } = declOf();
+    expect(decl.topology()).toEqual(decl.topology());
+  });
+
+  it('names the REGION as the world, not the canvas', () => {
+    // ⚠️ The canvas is the tempting answer and is wrong twice: the grid mirror a screen reader
+    // navigates is a sibling of it, and a player who needs a colour-vision simulation needs it
+    // over the score as well as over the tiles.
+    expect(declOf().decl.world()).toEqual({ kind: 'element', selector: '#game-region' });
+  });
+
+  it('does not answer `none`, which the contract refuses to treat as a default', () => {
+    // "Um jogo de DOM puro não é um jogo onde empatia não faz sentido" — blindfold chess is the
+    // proof. `none` is for an activity with no space at all, declared on purpose.
+    expect(declOf().decl.world().kind).not.toBe('none');
   });
 
   it('declares the CLOCK as the owner of the tick', () => {
