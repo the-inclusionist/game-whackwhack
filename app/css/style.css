@@ -418,6 +418,25 @@ body {
   font-weight: 400;
   font-display: swap;
 }
+/* ========================= THE FACE THE NUMBERS ARE SET IN =========================
+   Atkinson Hyperlegible, by the Braille Institute. It is the one typeface here chosen for a
+   REASON rather than for a look: it was drawn to disambiguate the characters low vision confuses,
+   and the pairs it separates are exactly the ones a tile can carry — 6 against 9, 1 against l
+   against I, 0 against O. Spike 0 rejected "a proportional face" and picked seven-segment strokes
+   because a proportional face loses its thin strokes into the antialiasing at this size; that
+   finding was about faces in general, and this one is the counter-example it did not test.
+
+   ⚠️ THE LATIN SUBSET, and the emphasis is earned. Google serves this family as two files and the
+   FIRST one in the stylesheet is latin-ext. Taking the first `src:` is precisely how Press Start 2P
+   shipped here as the cyrillic-ext subset — a valid, correctly declared, correctly loaded woff2
+   with not one Latin letter in it — while `document.fonts.check` answered true for four commits.
+   tests/fonts.browser.test.ts measures the glyphs now, and this face is in it. */
+@font-face {
+  font-family: 'Atkinson Hyperlegible';
+  src: url('./fonts/atkinson-hyperlegible-400.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
 @font-face {
   font-family: 'Playwrite BR';
   src: url('./fonts/playwrite-br-400.woff2') format('woff2');
@@ -515,6 +534,29 @@ body {
   30%  { transform: rotateX(6deg) rotateY(2deg)  translateY(-3%); }
   70%  { transform: rotateX(6deg) rotateY(5deg)  translateY(2%); }
   100% { transform: rotateX(6deg) rotateY(-4deg) translateY(2%); }
+}
+
+/* ========================= THE BYLINE =========================
+   Bottom right of the title screen, inside the area the logo occupies and therefore just left of
+   the edge where the HUD column begins — which is the line the Dev pointed at. It is positioned
+   against `.screen--title`, whose right padding already reserves that column, so the two cannot
+   drift apart: move the column and the byline moves with it.
+
+   Small, quiet and NOT `aria-hidden`: an author credit is content, and a child using a screen
+   reader is as entitled to know who made the thing as anyone else. It sits after the card in the
+   DOM so it is read last, which is where a credit belongs. */
+.title-by {
+  position: absolute;
+  right: calc((100vw - var(--region-w)) / 2 + var(--region-w) * var(--hud-fraction));
+  bottom: 0;
+  margin: 0;
+  padding: 0.6em 0.9em;
+  font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
+  font-size: calc(var(--region-w) * 0.018);
+  color: #E7C9F0;
+  letter-spacing: 0.02em;
+  /* It must never eat a click meant for the backdrop, which starts the game. */
+  pointer-events: none;
 }
 
 /* ⚠️ A WORD, NOT A BUTTON — in appearance only. It is still a `<button>`, so Enter, Space, the

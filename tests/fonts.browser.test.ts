@@ -78,6 +78,7 @@ beforeAll(async () => {
   await Promise.all([
     document.fonts.load(`${SIZE}px 'Press Start 2P'`, arcadeCharacters().join('')),
     document.fonts.load(`${SIZE}px 'Playwrite BR'`, 'Schoolution'),
+    document.fonts.load(`${SIZE}px 'Atkinson Hyperlegible'`, '0123456789'),
   ]);
   await document.fonts.ready;
   const ctx = document.createElement('canvas').getContext('2d');
@@ -114,6 +115,30 @@ describe('[Right] the vendored Press Start 2P can draw the words the game shows'
     // only true while the advance is 1em, so the stylesheet's comment and this measurement are
     // the same claim and have to be checked together.
     expect(measure(`${SIZE}px 'Press Start 2P', serif`, 'Whack')).toBe(SIZE * 5);
+  });
+});
+
+describe('[Right] the vendored Atkinson Hyperlegible can draw the tile numbers', () => {
+  // ⚠️ THE THIRD FACE, AND THE ONE WITH THE SAME TRAP. Google serves this family as two files and
+  // the FIRST in the stylesheet is latin-ext. Taking the first `src:` is exactly how Press Start
+  // 2P arrived here as the cyrillic-ext subset, so this face is measured the same way.
+  it('is loaded', () => {
+    expect(document.fonts.check(`${SIZE}px "Atkinson Hyperlegible"`)).toBe(true);
+  });
+
+  it('draws every digit, and none of them from the fallback', () => {
+    for (const digit of '0123456789') {
+      expect(measure(`${SIZE}px 'Atkinson Hyperlegible', serif`, digit), digit)
+        .not.toBe(measure(`${SIZE}px serif`, digit));
+    }
+  });
+
+  it('is PROPORTIONAL, which is what the tile sizing assumes', () => {
+    // A monospaced face would draw "11" as wide as "88" and the widest-value measurement in
+    // tests/glyph.browser.test.ts would be checking the wrong number.
+    const widths = [...'0123456789']
+      .map((d) => measure(`${SIZE}px 'Atkinson Hyperlegible', serif`, d));
+    expect(new Set(widths).size).toBeGreaterThan(1);
   });
 });
 

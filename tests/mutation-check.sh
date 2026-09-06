@@ -18,6 +18,7 @@ RENDER=app/js/render
 UI=app/js/ui
 I18N=app/js/i18n
 INPUT=app/js/input
+BOOT=app/js/boot
 STORE=app/js/store
 # The stylesheet is source too: tests/feedback.browser.test.ts asserts on a computed animation
 # name, and nothing else in this file could break that assertion.
@@ -191,31 +192,6 @@ add "the aspect ratio stops being 16:9" \
     "export const LOGICAL_H = ((ENGINE_W * 9) / 16) * SOURCE_MULTIPLE; // 360" \
     "export const LOGICAL_H = ((ENGINE_W * 3) / 4) * SOURCE_MULTIPLE; // 360"
 
-add "the 1 goes back to hugging the right edge of its cell" \
-    "$RENDER/glyph.ts" \
-    "const DIGIT_NUDGE: Readonly<Record<string, number>> = { '1': -1.5 };" \
-    "const DIGIT_NUDGE: Readonly<Record<string, number>> = {};"
-
-add "a 6 draws the same shape as a 5" \
-    "$RENDER/glyph.ts" \
-    "  '6': ['top', 'topLeft', 'middle', 'bottomLeft', 'bottomRight', 'bottom']," \
-    "  '6': ['top', 'topLeft', 'middle', 'bottomRight', 'bottom'],"
-
-add "the glyph grows past the tile it sits on" \
-    "$RENDER/glyph.ts" \
-    "export const GLYPH_HEIGHT = 9;" \
-    "export const GLYPH_HEIGHT = 17;"
-
-add "the glyph stops being centred" \
-    "$RENDER/glyph.ts" \
-    "    const originX = -total / 2 + i * (boxW + gap) + (DIGIT_NUDGE[ch] ?? 0) * step;" \
-    "    const originX = i * (boxW + gap) + (DIGIT_NUDGE[ch] ?? 0) * step;"
-
-add "a letter takes the whole frame down mid-round" \
-    "$RENDER/glyph.ts" \
-    "  const digits = [...text].filter((ch) => DIGIT_SEGMENTS[ch] !== undefined);" \
-    "  const digits = [...text];"
-
 add "the pixelRatio correction is dropped" \
     "$RENDER/zdog-stage.ts" \
     "  illo.pixelRatio = 1;" \
@@ -289,21 +265,6 @@ add "the gutter between tiles disappears" \
     "$RENDER/mat.ts" \
     "export const TILE_GAP = 1.5;" \
     "export const TILE_GAP = 0;"
-
-add "the glyph is drawn at fractional coordinates, so it blurs" \
-    "$RENDER/glyph-pass.ts" \
-    "    const x0 = Math.round(centre.x + Math.min(stroke.from.x, stroke.to.x));" \
-    "    const x0 = centre.x + Math.min(stroke.from.x, stroke.to.x) + 0.5;"
-
-add "a vertical segment collapses to nothing" \
-    "$RENDER/glyph-pass.ts" \
-    "    ctx.fillRect(x0, y0, Math.max(weight, x1 - x0), Math.max(weight, y1 - y0));" \
-    "    ctx.fillRect(x0, y0, x1 - x0, y1 - y0);"
-
-add "the glyph is placed at the tile corner instead of its centre" \
-    "$RENDER/glyph-pass.ts" \
-    "    stampOne(ctx, centreOf(quad, viewport), item.text, height, weight);" \
-    "    stampOne(ctx, { x: quad.corners[0].x, y: quad.corners[0].y }, item.text, height, weight);"
 
 add "the projected centre is read without the zoom" \
     "$RENDER/picking.ts" \
@@ -920,7 +881,7 @@ add "the result screen claims a record on every round" \
 
 # ========================= THE AUDITED MARKUP =========================
 add "the canvas stops hiding itself from a screen reader" \
-    "$UI/../boot/main.ts" \
+    "$BOOT/main.ts" \
     "  canvas.setAttribute('aria-hidden', 'true');" \
     "  canvas.setAttribute('aria-hidden', 'false');"
 
@@ -968,6 +929,68 @@ add "the hammer fires twice on Enter, once from the key and once from the click"
     "$UI/grid-mirror.ts" \
     "    if (intent === HAMMER && !NATIVE_ACTIVATION.has(event.code)) {" \
     "    if (intent === HAMMER) {"
+
+# ========================= THE NUMBERS, NOW THAT THEY ARE TEXT =========================
+# ⚠️ EIGHT MUTATIONS WERE RETIRED HERE and are not a loss: every one of them pointed at the
+# seven-segment layout -- the digit-to-segments table, the nudge that stopped a lone "1" hugging
+# its cell edge, the whole-pixel `fillRect`. That code is gone, the numbers are set in Atkinson
+# Hyperlegible, and the questions those mutations asked are asked of the FACE instead, in
+# tests/glyph.browser.test.ts, by measuring it. They had all been reporting SKIP.
+
+add "the numbers go back to the size the segments drew" \
+    "$RENDER/glyph.ts" \
+    "export const GLYPH_HEIGHT = 8;" \
+    "export const GLYPH_HEIGHT = 9;"
+
+add "the numbers shrink until their strokes are thinner than a pixel" \
+    "$RENDER/glyph.ts" \
+    "export const GLYPH_HEIGHT = 8;" \
+    "export const GLYPH_HEIGHT = 2;"
+
+add "the numbers overflow their tile" \
+    "$RENDER/glyph.ts" \
+    "export const GLYPH_HEIGHT = 8;" \
+    "export const GLYPH_HEIGHT = 18;"
+
+# ⚠️ The one that would be INVISIBLE without a measurement. A digit fills 0.70 of the em box in
+# this face, so treating the font size AS the height draws every number 30% small -- which looks
+# deliberate on screen and is not.
+add "the font size is used as the digit height, drawing every number 30% small" \
+    "$RENDER/glyph.ts" \
+    "export const DIGIT_HEIGHT_RATIO = 0.70;" \
+    "export const DIGIT_HEIGHT_RATIO = 1;"
+
+add "the numbers fall back to a face that was not chosen for them" \
+    "$RENDER/glyph.ts" \
+    "export const GLYPH_FAMILY = 'Atkinson Hyperlegible';" \
+    "export const GLYPH_FAMILY = 'Verdana';"
+
+add "the number is drawn at fractional coordinates, so it shimmers as the mat leans" \
+    "$RENDER/glyph-pass.ts" \
+    "  ctx.fillText(text, Math.round(centre.x), Math.round(centre.y + baseline));" \
+    "  ctx.fillText(text, centre.x + 9, centre.y + baseline);"
+
+add "the number stops being centred on its tile" \
+    "$RENDER/glyph-pass.ts" \
+    "  ctx.textAlign = 'center';" \
+    "  ctx.textAlign = 'left';"
+
+# ⚠️ NO MUTATION ON `ctx.textBaseline`, AND THE ESCAPE IS WHY. Swapping 'alphabetic' back to
+# 'middle' was tried and changed nothing measurable -- correctly: `measureText` reports its
+# bounding box relative to the CURRENT baseline, so the offset below self-corrects and both
+# settings land the ink in the same place. An equivalent mutant, recorded instead of gated.
+#
+# What is NOT equivalent is dropping the offset, which is the mutation that remains: it puts
+# every number 4.6 px low on an 80 px tile, resting on the bottom edge rather than centred.
+add "the measured baseline offset is dropped" \
+    "$RENDER/glyph-pass.ts" \
+    "  const baseline = (metrics.actualBoundingBoxAscent - metrics.actualBoundingBoxDescent) / 2;" \
+    "  const baseline = 0;"
+
+add "the glyph pass forgets the zoom, so the numbers stay source-sized" \
+    "$RENDER/glyph-pass.ts" \
+    "  ctx.font = fontFor(GLYPH_HEIGHT * viewport.zoom);" \
+    "  ctx.font = fontFor(GLYPH_HEIGHT);"
 
 TO_FILE="$(mktemp)"
 

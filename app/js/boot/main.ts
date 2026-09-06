@@ -35,7 +35,8 @@ import { stampGlyphs } from '../render/glyph-pass.ts';
 import { pickTopmost, toIllustrationSpace } from '../render/picking.ts';
 import { createCamera, type NudgeDirection } from '../render/camera.ts';
 import { createFades } from '../render/fade.ts';
-import { createZdogStage } from '../render/zdog-stage.ts';
+import { CAMERA, createZdogStage } from '../render/zdog-stage.ts';
+import { GLYPH_FAMILY, GLYPH_HEIGHT, fontSizeFor } from '../render/glyph.ts';
 import { createGridMirror } from '../ui/grid-mirror.ts';
 import { announcementFor } from '../ui/announce.ts';
 import { createFeedback } from '../ui/feedback.ts';
@@ -432,6 +433,20 @@ function boot(): void {
     const ny = Math.max(-1, Math.min(1, ((event.clientY - rect.top) / rect.height) * 2 - 1));
     applyCamera(camera.point(-nx, -ny));
   });
+
+  /**
+   * ⚠️ THE NUMBERS NEED THEIR FACE BEFORE THEY ARE ANY GOOD, and `@font-face` is LAZY: a declared
+   * face is not fetched until something asks to draw with it, and a Canvas2D `fillText` does not
+   * count as asking. Without this the first frames stamp their digits in the sans-serif fallback
+   * -- at a different width, so a two-digit number can overhang its tile -- and then silently
+   * switch when something else on the page happens to want the font.
+   *
+   * The redraw is the point of the `then`: the frames already drawn are wrong and nothing else
+   * would ever invalidate them.
+   */
+  doc.fonts.load(`${fontSizeFor(GLYPH_HEIGHT * CAMERA.zoom)}px '${GLYPH_FAMILY}'`, '0123456789')
+    .then(invalidate)
+    .catch(() => { /* a browser that refuses fonts still gets the fallback, which is legible */ });
 
   // 8. LAYOUT, and the resize that keeps the scale a whole number of physical pixels.
   applyLayout({ doc, win: window });

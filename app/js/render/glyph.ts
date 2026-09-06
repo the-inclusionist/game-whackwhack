@@ -1,108 +1,71 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// render/glyph — a number as seven-segment strokes, in a unit box.
+// render/glyph — how big a number on a tile is, and in what.
 //
-// ========================= WHY SEVEN SEGMENTS =========================
-// Not nostalgia. At the size a tile affords, a proportional face loses its thin strokes into the
-// antialiasing and a 6 starts looking like a 5. A segment layout has no thin strokes and no
-// optional parts: each digit is a SET, present or absent, so the failure mode is a missing bar
-// rather than a blurred curve. An ambiguous digit here is a curriculum error, not a style choice.
+// ========================= THIS FILE USED TO BE SEVEN SEGMENTS =========================
+// ⚠️ It held a segment layout — a digit as a set of bars in a unit box — and the reasoning was
+// sound at the time it was written. Spike 0 measured that "at the size a tile affords, a
+// PROPORTIONAL FACE loses its thin strokes into the antialiasing and a 6 starts looking like a 5",
+// and a segment has no thin strokes and no optional parts, so the failure mode was a missing bar
+// rather than a blurred curve.
 //
-// ========================= DATA, WITH NO RENDERER IN SIGHT =========================
-// This module knows nothing about Zdog, Pixi or a canvas. It answers "where are the strokes" in a
-// unit box, and the caller scales and places them. That is what lets the layout be tested in the
-// node project — including the one property that matters and is invisible on screen: that two
-// different numbers never produce the same set of segments.
+// That finding was about proportional faces IN GENERAL, and it did not test the one face drawn to
+// answer it. The Dev's call: Atkinson Hyperlegible, by the Braille Institute, whose entire design
+// brief is disambiguating the characters low vision confuses — and the pairs it separates are the
+// ones a tile can carry: 6 against 9, 1 against l against I, 0 against O. A segment display makes
+// every digit out of the same seven bars, which is robust against blur and does nothing at all
+// about confusion; this face is the other way round. For a mat of numbers a child has to READ, the
+// second trade is the better one.
 //
-// Measured in docs/spike-0-symbol-legibility.md, which locked the height at 9 world units on a
-// 16-unit tile and the stroke at 1.5.
-
-/** Corners and midpoints of the digit box: 3 wide, 5 tall, y increasing DOWNWARD as Zdog does. */
-const P: Readonly<Record<string, readonly [number, number]>> = {
-  a: [0, 0], b: [3, 0],
-  c: [0, 2.5], d: [3, 2.5],
-  e: [0, 5], f: [3, 5],
-};
-
-const SEGMENT: Readonly<Record<string, readonly [string, string]>> = {
-  top: ['a', 'b'],
-  topLeft: ['a', 'c'],
-  topRight: ['b', 'd'],
-  middle: ['c', 'd'],
-  bottomLeft: ['c', 'e'],
-  bottomRight: ['d', 'f'],
-  bottom: ['e', 'f'],
-};
-
-/** Which segments each digit lights. */
-export const DIGIT_SEGMENTS: Readonly<Record<string, readonly string[]>> = {
-  '0': ['top', 'topLeft', 'topRight', 'bottomLeft', 'bottomRight', 'bottom'],
-  '1': ['topRight', 'bottomRight'],
-  '2': ['top', 'topRight', 'middle', 'bottomLeft', 'bottom'],
-  '3': ['top', 'topRight', 'middle', 'bottomRight', 'bottom'],
-  '4': ['topLeft', 'topRight', 'middle', 'bottomRight'],
-  '5': ['top', 'topLeft', 'middle', 'bottomRight', 'bottom'],
-  '6': ['top', 'topLeft', 'middle', 'bottomLeft', 'bottomRight', 'bottom'],
-  '7': ['top', 'topRight', 'bottomRight'],
-  '8': ['top', 'topLeft', 'topRight', 'middle', 'bottomLeft', 'bottomRight', 'bottom'],
-  '9': ['top', 'topLeft', 'topRight', 'middle', 'bottomRight', 'bottom'],
-};
+// So the seven-segment data, `strokesFor` and `widthOf` are gone with the thing that used them,
+// and what is left is the sizing — which is now the only decision this module owns.
+//
+// ========================= THE NUMBERS BELOW ARE MEASURED =========================
+// Every one of them was read off the face in a browser, not taken from a specimen.
 
 /**
- * Per-digit horizontal nudge, in grid steps.
+ * The height of a digit, in world units, on a 16-unit tile.
  *
- * ⚠️ Only the 1 needs one, and it needs it badly. A seven-segment 1 is the RIGHT-HAND BAR ALONE,
- * so it hugs the right edge of its cell and ends up nearly touching the next digit: "12" reads as
- * one crowded mark rather than two digits. Tabular figures solve this by centring the 1 in its
- * own advance, and that is what this does — it moves the bar half a box to the left, which puts
- * it in the middle of the cell it owns.
+ * ⚠️ EIGHT, down from nine. "Os números devem ser um pouco menores" — and smaller is affordable
+ * here in a way it was not before: a segment digit needs its bars far enough apart to stay
+ * separate, while this face keeps its counters open by design. At the camera's zoom of 5 that is
+ * 40 canvas pixels of digit, against the 45 the segments drew.
  */
-const DIGIT_NUDGE: Readonly<Record<string, number>> = { '1': -1.5 };
-
-/** The glyph's height on a 16-unit tile. Locked by spike 0. */
-export const GLYPH_HEIGHT = 9;
-
-/** Gap between digits, as a fraction of one grid step. */
-const DIGIT_GAP = 1.1;
-const DIGIT_BOX_W = 3;
-const DIGIT_BOX_H = 5;
-
-export interface Point2 { readonly x: number; readonly y: number }
-export interface Stroke { readonly from: Point2; readonly to: Point2 }
+export const GLYPH_HEIGHT = 8;
 
 /**
- * The strokes for `text`, centred on the origin, `height` units tall.
+ * A digit's height as a fraction of the font size, for Atkinson Hyperlegible.
  *
- * Characters with no segment table are skipped rather than throwing: the caller renders whatever
- * the category put on the tile, and a category that produced a letter is a bug in the category,
- * caught by its own tests, not a reason to take the frame down mid-round.
+ * ⚠️ MEASURED, and it has to be: `font-size` is the em box, and how much of it a digit fills is a
+ * property of the face. At 100 px this one reports `actualBoundingBoxAscent` 69 and
+ * `actualBoundingBoxDescent` 1 for "0" — 70 px of digit, so 0.70. Setting the font size to the
+ * height directly would draw digits 30% smaller than asked for, which is exactly the kind of
+ * quiet miss the tile has no room for. tests/glyph.browser.test.ts re-measures it against the
+ * real face, so a font update that changes the ratio fails rather than shrinks the numbers.
  */
-export function strokesFor(text: string, height: number = GLYPH_HEIGHT): Stroke[] {
-  const step = height / DIGIT_BOX_H;
-  const boxW = DIGIT_BOX_W * step;
-  const gap = DIGIT_GAP * step;
-  const digits = [...text].filter((ch) => DIGIT_SEGMENTS[ch] !== undefined);
-  if (digits.length === 0) return [];
+export const DIGIT_HEIGHT_RATIO = 0.70;
 
-  const total = digits.length * boxW + (digits.length - 1) * gap;
-  const out: Stroke[] = [];
+/** The family, once, so the stylesheet and the canvas cannot name it differently. */
+export const GLYPH_FAMILY = 'Atkinson Hyperlegible';
 
-  digits.forEach((ch, i) => {
-    const originX = -total / 2 + i * (boxW + gap) + (DIGIT_NUDGE[ch] ?? 0) * step;
-    for (const name of DIGIT_SEGMENTS[ch]) {
-      const [k0, k1] = SEGMENT[name];
-      out.push({
-        from: { x: originX + P[k0][0] * step, y: -height / 2 + P[k0][1] * step },
-        to: { x: originX + P[k1][0] * step, y: -height / 2 + P[k1][1] * step },
-      });
-    }
-  });
-  return out;
+/**
+ * The fallback, and it is `sans-serif` rather than `monospace` on purpose: if the face has not
+ * loaded, a proportional fallback at least keeps a two-digit number inside its tile, where a
+ * monospaced one at the same size would push it over the edge.
+ */
+export const GLYPH_FALLBACK = 'sans-serif';
+
+/** The font size that draws a digit `height` tall. */
+export function fontSizeFor(height: number): number {
+  return height / DIGIT_HEIGHT_RATIO;
 }
 
-/** How wide `text` will be, in the same units as `height`. Needed to check it fits a tile. */
-export function widthOf(text: string, height: number = GLYPH_HEIGHT): number {
-  const step = height / DIGIT_BOX_H;
-  const digits = [...text].filter((ch) => DIGIT_SEGMENTS[ch] !== undefined).length;
-  if (digits === 0) return 0;
-  return digits * DIGIT_BOX_W * step + (digits - 1) * DIGIT_GAP * step;
+/**
+ * The Canvas2D `font` string for a digit of `height` CANVAS pixels.
+ *
+ * ⚠️ Canvas pixels, not world units — the caller multiplies by the viewport zoom first. Putting
+ * the zoom in here would make this module know about the camera, which is the boundary that keeps
+ * it testable without a stage.
+ */
+export function fontFor(heightPx: number): string {
+  return `${fontSizeFor(heightPx)}px '${GLYPH_FAMILY}', ${GLYPH_FALLBACK}`;
 }

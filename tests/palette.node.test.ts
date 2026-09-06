@@ -8,7 +8,7 @@ import {
   CONTRAST_FLOOR, GROUND, INK, STROKE, TEXT_CONTRAST_TARGET, TILE_IDLE, TILE_LIT,
   contrastRatio, relativeLuminance, rgbOf, type Rgb,
 } from '../app/js/render/palette.ts';
-import { GLYPH_HEIGHT, strokesFor, widthOf } from '../app/js/render/glyph.ts';
+import { GLYPH_HEIGHT } from '../app/js/render/glyph.ts';
 import { LOGICAL_H, LOGICAL_W, SOURCE_MULTIPLE, TILE, UI_BASE_W } from '../app/js/render/resolution.ts';
 
 /** Machado, Oliveira & Fernandes (2009) at severity 1.0 — the same matrices the engine installs. */
@@ -120,90 +120,13 @@ describe('[Right] the resolution is double the engine, and the world is not', ()
   });
 });
 
-describe('[Right] the glyph fits the tile it has to sit on', () => {
-  it.each(['1', '7', '12', '18', '20'])('keeps "%s" inside a 16-unit tile', (text) => {
-    // Spike 0 locked a 9-unit glyph on a 16-unit tile. A number that overflowed would spill onto
-    // the neighbouring tile and be read as belonging to it.
-    expect(widthOf(text)).toBeLessThan(TILE);
-    expect(GLYPH_HEIGHT).toBeLessThan(TILE);
-  });
+// ⚠️ THREE DESCRIBES WERE REMOVED HERE, and they were the seven-segment layout's: that a glyph
+// fitted its tile, that no two digits drew the same set of bars, and what happened to a character
+// the segments could not draw. The segments are gone -- the numbers are set in Atkinson
+// Hyperlegible now -- and every one of those questions still matters, so they moved rather than
+// died: tests/glyph.browser.test.ts asks the same three of the real face, by MEASURING it, which
+// is the only way to ask them of a font.
 
-  it('leaves real margin, not a hairline', () => {
-    expect(TILE - widthOf('18')).toBeGreaterThan(2);
-  });
-
-  it('centres a number whose digits fill their boxes', () => {
-    // Measured on 88 rather than 18 on purpose: a seven-segment 1 does not fill its box, so ink
-    // symmetry is the wrong question for it. See the 1-specific test below.
-    const xs = strokesFor('88').flatMap((s) => [s.from.x, s.to.x]);
-    expect((Math.min(...xs) + Math.max(...xs)) / 2).toBeCloseTo(0, 6);
-  });
-
-  it('centres a lone 1 instead of hanging it off the right edge', () => {
-    // A seven-segment 1 is the right-hand bar alone. Left where the layout puts it, it hugs the
-    // edge of its cell and nearly touches the next digit — "12" reads as one crowded mark. This
-    // is the assertion behind DIGIT_NUDGE.
-    const xs = strokesFor('1').flatMap((s) => [s.from.x, s.to.x]);
-    expect(Math.min(...xs)).toBeCloseTo(0, 6);
-    expect(Math.max(...xs)).toBeCloseTo(0, 6);
-  });
-
-  it('keeps a real gap between the 1 and the digit after it', () => {
-    // The failure this prevents: two digits close enough to read as one number of a shape the
-    // child was never shown.
-    const step = GLYPH_HEIGHT / 5;
-    const strokes = strokesFor('12');
-    const oneRight = Math.max(...strokes.slice(0, 2).flatMap((s) => [s.from.x, s.to.x]));
-    const twoLeft = Math.min(...strokes.slice(2).flatMap((s) => [s.from.x, s.to.x]));
-    expect(twoLeft - oneRight).toBeGreaterThan(step);
-  });
-
-  it('is exactly `height` tall', () => {
-    const strokes = strokesFor('8', 9);
-    const ys = strokes.flatMap((s) => [s.from.y, s.to.y]);
-    expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(9, 6);
-  });
-});
-
-describe('[Unique] no two numbers draw the same shape', () => {
-  it('gives every digit a distinct set of segments', () => {
-    // The property that makes seven segments worth choosing, and the one that is invisible on
-    // screen until a child reads a 6 as a 5.
-    const seen = new Map<string, string>();
-    for (let d = 0; d <= 9; d++) {
-      const key = JSON.stringify(strokesFor(String(d)));
-      expect(seen.has(key), `${d} draws the same as ${seen.get(key)}`).toBe(false);
-      seen.set(key, String(d));
-    }
-  });
-
-  it('gives every value in the shipped pools a distinct shape', () => {
-    const seen = new Map<string, number>();
-    for (let n = 1; n <= 20; n++) {
-      const key = JSON.stringify(strokesFor(String(n)));
-      expect(seen.has(key), `${n} draws the same as ${seen.get(key)}`).toBe(false);
-      seen.set(key, n);
-    }
-  });
-});
-
-describe('[Zero] the glyph handles what it cannot draw', () => {
-  it('returns nothing for an empty string', () => {
-    expect(strokesFor('')).toEqual([]);
-    expect(widthOf('')).toBe(0);
-  });
-
-  it('skips a character it has no segments for instead of throwing', () => {
-    // A letter here would be a bug in a category, caught by that category's own tests. Taking
-    // the frame down mid-round is a worse answer than drawing the digits that are there.
-    expect(strokesFor('1a2')).toEqual(strokesFor('12'));
-  });
-
-  it('draws a two-digit number as two digits', () => {
-    expect(strokesFor('18').length)
-      .toBe(strokesFor('1').length + strokesFor('8').length);
-  });
-});
 
 describe('[Interface] the stroke weight is the chess game\'s measured knee', () => {
   it('is 1.5 world units', () => {

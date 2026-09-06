@@ -55,6 +55,7 @@ export const es: Catalog = {
   'say.crashed': 'El juego se detuvo por un error. Recarga la página.',
 
   'title.play': 'Jugar',
+  'title.by': 'by Prof. José Rocha',
   'title.lead': 'Martilla solo lo que la ronda pide.',
 
   'result.won': '¡Lo lograste!',

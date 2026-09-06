@@ -55,6 +55,7 @@ export const en: Catalog = {
   'say.crashed': 'The game stopped on an error. Reload the page.',
 
   'title.play': 'Play',
+  'title.by': 'by Prof. José Rocha',
   'title.lead': 'Whack only what the round asks for.',
 
   'result.won': 'You did it!',

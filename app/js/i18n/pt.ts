@@ -62,6 +62,7 @@ export const pt: Catalog = {
   'say.crashed': 'O jogo parou por um erro. Recarregue a página.',
 
   'title.play': 'Jogar',
+  'title.by': 'by Prof. José Rocha',
   'title.lead': 'Martele só o que a rodada pede.',
 
   'result.won': 'Você conseguiu!',

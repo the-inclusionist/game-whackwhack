@@ -12,11 +12,21 @@
 //                          correctly, which is the problem: a correctly hidden number is hidden.
 //   · this one           — 40-47 px, 2.6-10.7% smear, inside its own tile, upright at any camera.
 //
-// ========================= WHOLE PIXELS, WHICH IS THE ENTIRE TRICK =========================
-// ⚠️ Every rectangle is snapped to integer coordinates and filled — never stroked. A stroked path
-// antialiases BOTH of its edges and no Canvas2D setting turns that off; a filled rect on integer
-// bounds is either ink or it is not. That single difference is worth about 15 points of smear, and
-// it is why this candidate reads crisply where the geometry ones read soft.
+// ========================= IT IS TEXT NOW, AND THAT REPLACED THE WHOLE-PIXEL TRICK =========
+// ⚠️ This pass drew seven-segment BARS, snapped to integer coordinates and filled rather than
+// stroked, because a filled rect on integer bounds is either ink or it is not — worth about 15
+// points of edge smear against a stroked path, and the reason spike 0's candidate (b) beat the
+// geometry ones.
+//
+// It draws `fillText` in Atkinson Hyperlegible now, on the Dev's call, and that trades the trick
+// away knowingly. Text antialiases; there is no integer-bounds version of a curve. What is bought
+// is the thing the segments never addressed: this face was drawn by the Braille Institute to
+// separate the characters low vision confuses, which on a mat of numbers is 6 against 9 and 1
+// against 7. Crisp-but-confusable was the worse trade for a child who has to READ the tile.
+//
+// What survives of the old discipline is the ORIGIN: the centre is still rounded to a whole pixel
+// before the text is placed, so the glyph's own rasterisation grid does not shift from frame to
+// frame as the mat leans. That is cheap and it is the half that still applies.
 //
 // ========================= AND IT CANNOT BE OCCLUDED, WHICH IS FINE HERE =========================
 // Drawing after Zdog means nothing can cover these marks. Spike 0 tested whether anything ought
@@ -25,8 +35,8 @@
 // rises, so whatever could cover one either rose by the same amount or is unlit and therefore
 // lower. If the mat ever gains tiles at different heights, this assumption is the one to re-check.
 
-import { GLYPH_HEIGHT, strokesFor } from './glyph.ts';
-import { INK, STROKE } from './palette.ts';
+import { GLYPH_HEIGHT, fontFor } from './glyph.ts';
+import { INK } from './palette.ts';
 import { centreOf, type Point2, type Quad, type Viewport } from './picking.ts';
 
 /** A number to stamp, and the tile it belongs to. */
@@ -53,7 +63,11 @@ export interface GlyphItem {
 export interface Stamper {
   fillStyle: string | CanvasGradient | CanvasPattern;
   globalAlpha: number;
-  fillRect(x: number, y: number, w: number, h: number): void;
+  font: string;
+  textAlign: CanvasTextAlign;
+  textBaseline: CanvasTextBaseline;
+  fillText(text: string, x: number, y: number): void;
+  measureText(text: string): TextMetrics;
 }
 
 /**
@@ -70,8 +84,32 @@ export function stampGlyphs(
   viewport: Viewport,
 ): void {
   ctx.fillStyle = INK;
-  const height = GLYPH_HEIGHT * viewport.zoom;
-  const weight = Math.max(1, Math.round(STROKE * viewport.zoom));
+  // ⚠️ WORLD UNITS TIMES ZOOM. `GLYPH_HEIGHT` is 8 units on a 16-unit tile; the zoom turns that
+  // into canvas pixels, and `fontFor` turns a digit HEIGHT into the font size that draws it —
+  // which is not the same number, because a digit fills 0.70 of the em box in this face.
+  ctx.font = fontFor(GLYPH_HEIGHT * viewport.zoom);
+  ctx.textAlign = 'center';
+  /**
+   * ⚠️ `textBaseline: 'middle'` IS NOT THE MIDDLE OF A DIGIT. It centres the EM BOX, which
+   * reserves room for descenders digits do not have, so every number sat low on its tile.
+   * Measured: the centre of mass of "18" was 4.6 px below the tile centre on an 80 px tile —
+   * a twentieth of the tile, which reads as a number resting on the bottom edge.
+   *
+   * The fix is to place the ink's own midpoint on the centre, and `(ascent - descent) / 2` is
+   * that offset. It is MEASURED FROM THE FACE rather than tuned, so a font update moves it on
+   * its own.
+   *
+   * ⚠️ AND IT IS MEASURED AGAINST WHATEVER BASELINE IS SET, which makes the line below almost
+   * decorative: `measureText` reports its bounding box relative to the current `textBaseline`, so
+   * the offset self-corrects and 'middle' would land in the same place. That was found by a
+   * mutation that ESCAPED — swapping this line back to 'middle' changed nothing measurable, which
+   * is the correct answer and not a hole. 'alphabetic' stays because it is the baseline the
+   * offset is easiest to reason about, and the comment now says so instead of claiming the
+   * placement depends on it.
+   */
+  ctx.textBaseline = 'alphabetic';
+  const metrics = ctx.measureText('0');
+  const baseline = (metrics.actualBoundingBoxAscent - metrics.actualBoundingBoxDescent) / 2;
 
   const entry = ctx.globalAlpha;
   for (const item of items) {
@@ -80,23 +118,17 @@ export function stampGlyphs(
     const alpha = item.alpha ?? 1;
     if (alpha <= 0) continue;
     ctx.globalAlpha = entry * alpha;
-    stampOne(ctx, centreOf(quad, viewport), item.text, height, weight);
+    stampOne(ctx, centreOf(quad, viewport), item.text, baseline);
   }
   // Restored rather than set to 1: this pass does not own the context, and leaving it altered
   // would silently tint whatever the caller draws next.
   ctx.globalAlpha = entry;
 }
 
-function stampOne(
-  ctx: Stamper, centre: Point2, text: string, height: number, weight: number,
-): void {
-  for (const stroke of strokesFor(text, height)) {
-    const x0 = Math.round(centre.x + Math.min(stroke.from.x, stroke.to.x));
-    const y0 = Math.round(centre.y + Math.min(stroke.from.y, stroke.to.y));
-    const x1 = Math.round(centre.x + Math.max(stroke.from.x, stroke.to.x));
-    const y1 = Math.round(centre.y + Math.max(stroke.from.y, stroke.to.y));
-    // A segment is one unit thin in its short axis, so `max` gives it the stroke weight there and
-    // its real length along the other. Writing `x1 - x0` alone would draw nothing for a vertical.
-    ctx.fillRect(x0, y0, Math.max(weight, x1 - x0), Math.max(weight, y1 - y0));
-  }
+function stampOne(ctx: Stamper, centre: Point2, text: string, baseline: number): void {
+  // ⚠️ ROUNDED. The mat leans continuously under the pointer, so an unrounded origin lands on a
+  // different sub-pixel every frame and the same digit re-rasterises slightly differently each
+  // time — which reads as the number shimmering rather than the mat moving. It is the surviving
+  // half of the whole-pixel discipline the segments were built around.
+  ctx.fillText(text, Math.round(centre.x), Math.round(centre.y + baseline));
 }

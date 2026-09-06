@@ -157,6 +157,17 @@ export function createTitleScreen(deps: TitleScreenDeps): Screen {
 
   card.appendChild(play);
 
+  /**
+   * ⚠️ CONTENT, NOT DECORATION. An author credit is not `aria-hidden`: a child using a screen
+   * reader is as entitled to know who made the thing as anyone else. It goes AFTER the card in
+   * the DOM so it is read last, which is where a credit belongs, and it takes no pointer events
+   * so it cannot eat a click on the backdrop -- which is what starts the game.
+   */
+  const by = doc.createElement('p');
+  by.className = 'title-by';
+  by.textContent = i18n.t('title.by');
+  root.appendChild(by);
+
   return {
     root,
     modal: false,

@@ -263,6 +263,41 @@ describe('[Right] the number lands inside the tile it belongs to', () => {
     expect(ink).toBeGreaterThan(100);
   });
 
+  it('centres that ink ON the tile centre, not merely near it', () => {
+    /**
+     * ⚠️ THREE MUTATIONS ESCAPED WITHOUT THIS. "Puts ink on the tile" and "leaves the neighbours
+     * clean" both hold for a number nudged nine pixels sideways, left-aligned instead of centred,
+     * or sitting on its baseline instead of its middle -- an 80 px tile has room to be wrong in
+     * and still be inside. What was missing is a measurement of WHERE, and the centre of mass of
+     * the ink is that measurement: it moves with every one of the three.
+     *
+     * The tolerance is 3 px on an 80 px tile. It is not zero because "18" is not symmetric --
+     * a 1 carries less ink than an 8, so the mass sits slightly right of the geometric centre --
+     * and because the glyph origin is rounded to a whole pixel on purpose.
+     */
+    const { stage, mat, ctx } = scene([7]);
+    const v = stage.viewport();
+    const quads = mat.quads();
+    stampGlyphs(ctx, [{ cell: 7, text: '18' }], quads, v);
+
+    const centre = centreOf(quads[7], v);
+    let sumX = 0;
+    let sumY = 0;
+    let ink = 0;
+    for (let dx = -30; dx <= 30; dx++) {
+      for (let dy = -30; dy <= 30; dy++) {
+        if (!near(pixelAt(ctx, centre.x + dx, centre.y + dy), rgbOf(INK), 14)) continue;
+        sumX += dx;
+        sumY += dy;
+        ink++;
+      }
+    }
+    expect(ink).toBeGreaterThan(100);
+    // Measured: 1.98 px right of centre for "18", which is the asymmetry of the pair itself.
+    expect(Math.abs(sumX / ink), 'off-centre horizontally').toBeLessThan(3);
+    expect(Math.abs(sumY / ink), 'off-centre vertically').toBeLessThan(3);
+  });
+
   it('leaves the neighbouring tiles clean', () => {
     // A number that spilled would be read as belonging to the tile it spilled onto — a wrong
     // answer the child could not have avoided.
@@ -283,9 +318,27 @@ describe('[Right] the number lands inside the tile it belongs to', () => {
     }
   });
 
-  it('draws crisply: almost every glyph pixel is ink, not a half-tone', () => {
-    // Spike 0's whole reason for choosing this candidate. Whole-pixel fills mean a pixel is either
-    // ink or it is not; a stroked path would blur both edges of every segment.
+  it('has a solid core, with the edge smear a real face costs', () => {
+    /**
+     * ⚠️ THIS THRESHOLD MOVED FROM 0.12 TO 0.40, AND THE MOVE IS THE TRADE, NOT A CLIMBDOWN.
+     *
+     * Spike 0 chose seven-segment bars precisely to win this number: whole-pixel fills mean a
+     * pixel is either ink or it is not, and the measured smear was 2.6-10.7%. The numbers are set
+     * in Atkinson Hyperlegible now, on the Dev's call, and text antialiases -- there is no
+     * integer-bounds version of a curve. Measured after the change: 32.2%.
+     *
+     * What was bought is the thing the segments never addressed. A segment display builds every
+     * digit from the same seven bars, which is robust against blur and does nothing about
+     * CONFUSION; this face was drawn by the Braille Institute to separate exactly the characters
+     * low vision confuses, and tests/glyph.browser.test.ts asserts that 6/9, 1/7, 0/8 and 3/8
+     * rasterise differently. Crisp-but-confusable is the worse trade for a child who has to read
+     * the tile.
+     *
+     * 0.40 rather than "whatever it measures": a glyph that had lost its solid core entirely --
+     * drawn at a size where the strokes are thinner than a pixel, which is what would happen if
+     * GLYPH_HEIGHT were cut again -- goes well past it. `exact > 0` below is the other half, and
+     * it is the assertion that a number was drawn at all.
+     */
     const { stage, mat, ctx } = scene([7]);
     const v = stage.viewport();
     const quads = mat.quads();
@@ -304,7 +357,9 @@ describe('[Right] the number lands inside the tile it belongs to', () => {
       }
     }
     expect(exact).toBeGreaterThan(0);
-    expect(blend / (exact + blend)).toBeLessThan(0.12);
+    expect(blend / (exact + blend)).toBeLessThan(0.40);
+    // And the core is a real majority of the ink, so "solid core" is a measurement and not a hope.
+    expect(exact).toBeGreaterThan(blend);
   });
 
   it('draws nothing for a tile it was given no quad for', () => {
