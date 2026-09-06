@@ -839,6 +839,19 @@ add "the footer is read out, on top of the announcement that already exists" \
     "  root.setAttribute('aria-hidden', 'true');" \
     "  root.setAttribute('aria-hidden', 'false');"
 
+# The two copies of the palette, held together by tests/style-palette.node.test.ts. Mutating
+# the CSS side is the only way to prove that gate bites: the TypeScript side is measured by
+# tests/palette.node.test.ts, which would fail first for a different reason.
+add "the stylesheet ground drifts from the measured one" \
+    "$CSS/style.css" \
+    "  --ground: #1C041B;" \
+    "  --ground: #21062A;"
+
+add "the stylesheet accent drifts from the measured one" \
+    "$CSS/style.css" \
+    "  --accent: #C933FF;" \
+    "  --accent: #D040FF;"
+
 add "the footer blinks, as the original's does" \
     "$CSS/style.css" \
     "  animation: feedback-fade 5s ease both;" \

@@ -117,6 +117,17 @@ sonar a "how many of how many".
 the timing is). One is a curricular dial, the other a motor accommodation. Folding them together would offer
 accessibility as though it were a baby mode.
 
+### The board behind the title is STATIC, in both games
+
+Checked rather than assumed, because it looked like a gap. In the original the gamepad is rendered
+from the first frame but `startMoleTimer` runs only on start, and `_gamepad.scss` gives the paused
+state nothing but `transform: scale(0.9)`. So the board is visible, tilts with the mouse, and holds
+still — which is exactly what this game does.
+
+⚠️ The one thing NOT copied is that `scale(0.9)`. This game rasterises at 640x360 and upscales by a
+whole number of physical pixels (ADR-0001); a 0.9 factor is the one thing the renderer refuses,
+and a shrunken board behind the title is not worth making an exception for.
+
 ### The lit tile rises
 
 The original signals a lit slab with colour and a blink. Here the primary channel is **height** —

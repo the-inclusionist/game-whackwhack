@@ -1,12 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 
-/* ⚠️ The colours here are the ones render/palette measured, repeated because CSS cannot import
-   TypeScript.
+/* ⚠️ The colours here are the ones render/palette MEASURED — the contrast floors, the
+   colour-vision simulations, the search that picked each one — repeated because CSS cannot import
+   TypeScript. One of the two copies has to be a copy, and it is this one.
 
-   THERE IS NO TEST HOLDING THE TWO COPIES TOGETHER. This comment claimed there was, naming
-   `tests/style-palette.node.test.ts`, a file that has never existed — which is worse than saying
-   nothing, because it invites the next reader to move a colour and trust a gate that is not
-   there. They WILL drift the first time the palette moves and only half the game follows. */
+   `tests/style-palette.node.test.ts` compares them, so they cannot drift.
+
+   That sentence was here before the file was, for several commits: the comment named that exact
+   path and nothing of the kind had been written. A cited gate that does not exist is worse than
+   no gate, because it invites the next reader to move a colour and trust it. The file exists now,
+   it reads THIS stylesheet off disk, and two mutations prove it can fail. */
 :root {
   color-scheme: dark;
   --ground: #1C041B;
