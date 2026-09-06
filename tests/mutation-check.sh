@@ -23,6 +23,9 @@ STORE=app/js/store
 # The stylesheet is source too: tests/feedback.browser.test.ts asserts on a computed animation
 # name, and nothing else in this file could break that assertion.
 CSS=app/css
+# The documents are source too: tests/docs.node.test.ts holds the numbers they state to the
+# numbers the code uses, which is the half of prose that can be checked at all.
+DOCS=docs
 # The shipped page. tests/a11y.browser.test.ts reads it with `?raw` rather than imitating it, so
 # the markup createGame requires is gated where it actually lives.
 APP=app
@@ -991,6 +994,21 @@ add "the glyph pass forgets the zoom, so the numbers stay source-sized" \
     "$RENDER/glyph-pass.ts" \
     "  ctx.font = fontFor(GLYPH_HEIGHT * viewport.zoom);" \
     "  ctx.font = fontFor(GLYPH_HEIGHT);"
+
+add "spike 0 stops saying that its conclusions were superseded" \
+    "$DOCS/spike-0-symbol-legibility.md" \
+    "> ## ⚠️ FIVE OF THIS DOCUMENT'S CONCLUSIONS NO LONGER HOLD" \
+    "> ## Notes"
+
+add "the old decision table is presented as current again" \
+    "$DOCS/spike-0-symbol-legibility.md" \
+    "| Decision (2026-09-05) | Value as decided then |" \
+    "| Decision | Value |"
+
+add "GAME-RULES forgets that the segment layout was replaced" \
+    "$DOCS/GAME-RULES.md" \
+    "### The number is set in Atkinson Hyperlegible" \
+    "### The number is set in a typeface"
 
 TO_FILE="$(mktemp)"
 

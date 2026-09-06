@@ -117,6 +117,20 @@ sonar a "how many of how many".
 the timing is). One is a curricular dial, the other a motor accommodation. Folding them together would offer
 accessibility as though it were a baby mode.
 
+### The number is set in Atkinson Hyperlegible
+
+The original's slabs carry no content at all, so this has no counterpart there — it belongs to the
+educational layer this reimplementation adds. The face is the Braille Institute's, chosen because
+its design brief is disambiguating the characters low vision confuses, and the pairs it separates
+are the ones a tile can carry: 6 against 9, 1 against 7, 0 against O.
+
+⚠️ It replaced a seven-segment layout that `docs/spike-0-symbol-legibility.md` had chosen on a
+measurement — and that measurement was not wrong. The spike optimised for CRISPNESS, which a
+segment display wins outright (10.7% edge smear against 32.2%), and never measured
+CONFUSABILITY, on which a segment display is silent: every digit is built from the same seven
+bars. Crisp-but-confusable is the worse trade for a number a child has to read. Both numbers are
+gated, in `tests/mat.browser.test.ts` and `tests/glyph.browser.test.ts`.
+
 ### The board behind the title is STATIC, in both games
 
 Checked rather than assumed, because it looked like a gap. In the original the gamepad is rendered

@@ -1,5 +1,52 @@
 # Spike 0 — symbol legibility on a tile, at 640×360
 
+> ## ⚠️ FIVE OF THIS DOCUMENT'S CONCLUSIONS NO LONGER HOLD
+>
+> **Read the measurements; do not read the decision table as current.** Everything below was
+> measured on 2026-09-05 and every number in it is still an accurate record of what was measured
+> that day. What has moved is what the game DOES with those numbers, and a record that keeps
+> asserting a dead position argues against the next reader — so the changes are listed here, at the
+> top, rather than left to be discovered in the table at the bottom.
+>
+> | This document says | The game does | Where it was decided |
+> |---|---|---|
+> | Digit shape: **seven segments** | **Atkinson Hyperlegible** | See "the verdict that was reversed", below |
+> | Glyph height **9** world units | **8** | `render/glyph.ts`, and the Dev's "um pouco menores" |
+> | Stroke **1.5** for the glyph | not used — text has no stroke | `render/glyph-pass.ts` |
+> | Camera zoom **4.4** | **5.0** | `render/zdog-stage.ts`, twice corrected |
+> | The glyph is a sprite **in the Pixi pass** | a Canvas2D pass; **PixiJS was removed** | measured at 465 KB raw for one canvas drawn into another |
+>
+> ### The verdict that was reversed, and why the measurement was not wrong
+>
+> This spike rejected "a proportional face" and it gave a real reason: at the size a tile affords,
+> thin strokes vanish into the antialiasing and a 6 starts to look like a 5. That finding is sound
+> and it was never contradicted. What it did not test is the one typeface drawn to answer it.
+>
+> Atkinson Hyperlegible, by the Braille Institute, exists to disambiguate exactly the characters low
+> vision confuses. The spike optimised for CRISPNESS — a segment display's whole virtue, and it wins
+> that measurement outright: 10.7% edge smear against the 32.2% the text now measures. It did not
+> measure CONFUSABILITY, which is the failure a child actually suffers, and on that axis a segment
+> display is silent: every digit is built from the same seven bars.
+>
+> Crisp-but-confusable is the worse trade for a number that has to be read. The smear cost is
+> recorded in `tests/mat.browser.test.ts`, where the threshold moved from 0.12 to 0.40 with the
+> reasoning beside it, and the confusability gain is asserted in `tests/glyph.browser.test.ts`,
+> which measures that 6/9, 1/7, 0/8 and 3/8 rasterise differently.
+>
+> ### What still holds, and is load-bearing
+>
+> · **Candidate (b) itself** — the symbol is stamped at the tile's PROJECTED CENTRE, upright,
+>   after the 3D pass. Only the brush changed, from segment bars to `fillText`. The two candidates
+>   this spike killed are still dead, and for the reasons it measured: flat on the face renders
+>   "12" as "IC", and standing upright is correctly occluded by the row in front, which is exactly
+>   the problem.
+> · **Zdog does no texture mapping**, which is why there is a stamping pass at all.
+> · **The tile rise of 7 world units**, still the primary non-colour channel for "this tile is in
+>   play" (WCAG 1.4.1).
+> · **The pixel-scan method** — measuring smear as perpendicular distance in RGB to the segment
+>   between two colours — which is the technique the palette and the mat-seam tests still use.
+
+
 **Verdict: (b), the sprite at the projected centre. GO.**
 
 Measured 2026-09-05 with `spike/symbol-legibility.html`, served over HTTP and driven from
@@ -123,7 +170,11 @@ but the defect carries forward as a requirement for `render/palette.ts`: **the u
 
 ## Locked
 
-| Decision | Value |
+> ⚠️ **AS DECIDED ON 2026-09-05.** Five of these rows have since changed; the table at the top
+> of this file says which, and where the current value lives. Left unedited on purpose: this is
+> the record of what was decided that day, and rewriting it would destroy the only copy of that.
+
+| Decision (2026-09-05) | Value as decided then |
 |---|---|
 | Symbol | **(b)** — axis-aligned pixel glyph at the projected centre, in the Pixi pass |
 | Glyph height | 9 world units on a 16-unit tile |
