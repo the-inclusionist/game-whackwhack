@@ -21,6 +21,9 @@ STORE=app/js/store
 # The stylesheet is source too: tests/feedback.browser.test.ts asserts on a computed animation
 # name, and nothing else in this file could break that assertion.
 CSS=app/css
+# The shipped page. tests/a11y.browser.test.ts reads it with `?raw` rather than imitating it, so
+# the markup createGame requires is gated where it actually lives.
+APP=app
 
 NAMES=(); FILES=(); FROMS=(); TOS=()
 add() { NAMES+=("$1"); FILES+=("$2"); FROMS+=("$3"); TOS+=("$4"); }
@@ -889,6 +892,20 @@ add "the result screen claims a record on every round" \
     "$UI/screens.ts" \
     "  record.hidden = !deps.record;" \
     "  record.hidden = false;"
+
+# ========================= THE AUDITED MARKUP =========================
+add "the canvas stops hiding itself from a screen reader" \
+    "$UI/../boot/main.ts" \
+    "  canvas.setAttribute('aria-hidden', 'true');" \
+    "  canvas.setAttribute('aria-hidden', 'false');"
+
+# ⚠️ EVERY `"` IN AN HTML ANCHOR NEEDS A BACKSLASH. These are double-quoted shell strings, so an
+# unescaped quote closes the argument and the remainder becomes separate words -- which matches
+# nothing and reports SKIP, the same silent shape as a drifted anchor.
+add "the shipped page loses the status region the engine requires" \
+    "$APP/index.html" \
+    "<div id=\"sr-status\" class=\"sr-only\" role=\"status\" aria-live=\"polite\"></div>" \
+    "<div id=\"sr-status\" class=\"sr-only\"></div>"
 
 TO_FILE="$(mktemp)"
 
