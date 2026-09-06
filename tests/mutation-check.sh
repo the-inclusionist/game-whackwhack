@@ -269,12 +269,12 @@ add "the projected centre is read without the zoom" \
 
 add "the result screen loses its way forward" \
     "$UI/screens.ts" \
-    "  card.append(score, level, again, change);" \
+    "  card.append(score, level, record, again, change);" \
     "  card.append(score, level);"
 
 add "the result screen offers only replaying, never changing options" \
     "$UI/screens.ts" \
-    "  card.append(score, level, again, change);" \
+    "  card.append(score, level, record, again, change);" \
     "  card.append(score, level, again);"
 
 add "winning and losing show the same heading" \
@@ -291,26 +291,6 @@ add "the dialog stops being modal" \
     "$UI/screens.ts" \
     "  root.setAttribute('aria-modal', 'true');" \
     "  root.setAttribute('aria-modal', 'false');"
-
-add "the title starts with a fixed category whatever was chosen" \
-    "$UI/screens.ts" \
-    "      category: deps.categories.find((c) => c.id === category.select.value) ?? deps.categories[0]," \
-    "      category: deps.categories[0],"
-
-add "the title ignores the chosen difficulty" \
-    "$UI/screens.ts" \
-    "      difficulty: difficulty.select.value as Difficulty," \
-    "      difficulty: 'medium' as Difficulty,"
-
-add "the selects lose their labels" \
-    "$UI/screens.ts" \
-    "  label.htmlFor = id;" \
-    "  label.htmlFor = 'nope';"
-
-add "an option is shown by its raw id" \
-    "$UI/screens.ts" \
-    "    deps.categories.map((c) => ({ value: c.id, label: i18n.t(c.nameKey) }))," \
-    "    deps.categories.map((c) => ({ value: c.id, label: c.id })),"
 
 add "the outcome stops reaching the stylesheet" \
     "$UI/screens.ts" \
@@ -573,6 +553,14 @@ add "the pool stops growing with the factor" \
     "  const pool = options.pool ?? range(1, poolMaxFor(factor));" \
     "  const pool = options.pool ?? range(1, POOL_MAX);"
 
+# ⚠️ FOUR MUTATIONS WERE RETIRED HERE, not lost. They guarded the three `<select>`s that used
+# to stand on the title card -- that a category was resolved back to a real object, that the
+# chosen difficulty was honoured, that each select had a real `<label for>`, that an option
+# was named through the catalogue rather than by its raw id. The controls moved into the HUD
+# and every one of those facts is now guarded on the radio group and the cyclers, above.
+#
+# They had been reporting SKIP since the move -- which is an escape, and does fail the run,
+# but only says so to someone reading the line.
 add "the title goes back to being modal, hiding the options from a reader" \
     "$UI/screens.ts" \
     "  root.removeAttribute('aria-modal');" \
