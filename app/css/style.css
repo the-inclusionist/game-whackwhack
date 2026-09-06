@@ -274,12 +274,28 @@ body {
   border: 1px solid #6B2E80;
   border-radius: 4px;
 }
-/* The result screen wears the arcade face too — it is the same game, and a system font there was
-   the seam the Dev noticed. */
-.screen-title,
-.screen-action,
-.screen-secondary,
-.screen-lead {
+/* ========================= THE ARCADE FACE, AND WHY THESE SELECTORS ARE DOUBLED ==========
+   The result screen wears the same face as the title: it is the same game, and a system font
+   there was a seam the Dev reported.
+
+   ⚠️ `.screen` IS REPEATED IN EVERY SELECTOR ON PURPOSE, and dropping it silently breaks three of
+   the four. Further down, `.screen select, .screen button { font: inherit }` exists so a form
+   control does not arrive in Arial 13.333px — but `font` is a SHORTHAND, so it resets font-family
+   AND font-size, and at (0,1,1) it outranks a bare `.screen-action` at (0,1,0). Specificity beats
+   source order, so moving this block lower would not have helped either.
+
+   The result: "Jogar", "Jogar de novo" and "Mudar opções" — every BUTTON here — rendered in
+   system-ui at 14px for several commits, while the `<h1>` and the `<p>` beside them correctly did
+   not. The Dev reported it twice ("no fim de jogo aparecem outras fontes", then "Jogar com
+   tamanho minúsculo") and both times I edited the losing rule and confirmed it by looking at a
+   screenshot, which is exactly what a 14px word looks like when you are expecting a small one.
+   Measured now: `getComputedStyle(button).fontFamily`.
+
+   Doubling the class takes these to (0,2,0), which beats (0,1,1) on class count. */
+.screen .screen-title,
+.screen .screen-action,
+.screen .screen-secondary,
+.screen .screen-lead {
   font-family: 'Press Start 2P', monospace;
 }
 .screen-title {
@@ -434,7 +450,7 @@ body {
    focus ring and the announced role come from the platform; only the chrome is removed. Building
    it as a div would mean re-implementing all four, and the usual result is that Enter works and
    Space does not. The tap target stays 44 px (WCAG 2.5.5) through the padding. */
-.title-play {
+.screen .title-play {
   font-family: 'Press Start 2P', monospace;
   /* ⚠️ SIZED OFF THE LOGO, not off the root. It was `clamp(0.8rem, 2vw, 1.2rem)` -- a ceiling of
      about 19 px, so on a classroom projector the one word a player has to find rendered smaller
@@ -453,7 +469,7 @@ body {
   cursor: pointer;
   animation: play-pulse 1.6s ease-in-out infinite;
 }
-.title-play:hover { color: var(--tile-lit); }
+.screen .title-play:hover { color: var(--tile-lit); }
 /* ⚠️ A pulse in SIZE, never in brightness, and never a blink. The original blinks its slabs with
    no guard at all, which is a photosensitivity risk under WCAG 2.3.1; a slow scale is the same
    invitation without the flash. The reduced-motion block at the bottom stops even this. */
@@ -491,7 +507,12 @@ body {
 .screen-row { display: flex; flex-direction: column; gap: 0.25em; margin: 0; }
 .screen-row label { color: #8B949E; font-size: 0.9em; }
 /* --tap is 22*k, 44 CSS px at the k=2 floor: the WCAG 2.5.5 target size. These screens sit OUTSIDE
-   #game-region, where that variable is set, so they carry the floor themselves. */
+   #game-region, where that variable is set, so they carry the floor themselves.
+
+   ⚠️ `font: inherit` is what stops a control arriving in Arial 13.333px, and it is a SHORTHAND —
+   it resets family, size and weight together. At (0,1,1) it outranks every `.screen-*` typography
+   rule above, which is how three buttons ended up in system-ui at 14px. Those rules are doubled
+   now so they win; this stays a shorthand because for a `<select>`, inheriting the lot is right. */
 .screen select,
 .screen button {
   min-height: 44px;
