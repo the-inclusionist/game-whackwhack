@@ -200,6 +200,84 @@ describe('[Right] the arrows walk the mat and stop at its edges', () => {
   });
 });
 
+describe('[Right] the hammer works on a REMAPPED key, and only once', () => {
+  it('activates the cell under the cursor when action1 arrives on another key', () => {
+    // ⚠️ The engine's keyboard is remappable and saved. A grid that only listened for Enter
+    // would ignore the remapping a child depends on -- and this game's whole verb is that one
+    // button, so ignoring it is ignoring the game.
+    const declaration: MirrorDeclaration = createWhackDeclaration({
+      view: () => ({ category: EVEN, tiles: TILES, hits: 0, focus: null }),
+      t: echo,
+    });
+    const onActivate = vi.fn();
+    const m = createGridMirror({
+      doc: document, declaration, t: echo, onActivate,
+      resolveAction: (code) => (code === 'KeyJ' ? 'action1' : null),
+    });
+    document.body.appendChild(m.root);
+    made.push(m);
+
+    const cells = buttons(m);
+    cells[7].focus();
+    const event = new KeyboardEvent('keydown', { code: 'KeyJ', bubbles: true, cancelable: true });
+    cells[7].dispatchEvent(event);
+
+    expect(onActivate).toHaveBeenCalledTimes(1);
+    expect(onActivate).toHaveBeenCalledWith(7);
+    // Swallowed, or the key also does whatever the browser had planned for it.
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('does NOT fire twice when action1 is bound to Enter', () => {
+    // ⚠️ THE ASSERTION THE GUARD EXISTS FOR. On a real `<button>` the platform turns Enter
+    // into a click by itself; handling it here as well would hammer the tile twice on one press,
+    // which in this game means scoring a hit and then a mistake on a tile that is already gone.
+    const declaration: MirrorDeclaration = createWhackDeclaration({
+      view: () => ({ category: EVEN, tiles: TILES, hits: 0, focus: null }),
+      t: echo,
+    });
+    const onActivate = vi.fn();
+    const m = createGridMirror({
+      doc: document, declaration, t: echo, onActivate,
+      resolveAction: (code) => (code === 'Enter' ? 'action1' : null),
+    });
+    document.body.appendChild(m.root);
+    made.push(m);
+
+    const cells = buttons(m);
+    cells[0].focus();
+    // The real sequence a browser delivers: keydown, then the activation click.
+    cells[0].dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter', bubbles: true, cancelable: true }));
+    cells[0].click();
+
+    expect(onActivate).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the cursor where it was, because hammering is not moving', () => {
+    const declaration: MirrorDeclaration = createWhackDeclaration({
+      view: () => ({ category: EVEN, tiles: TILES, hits: 0, focus: null }),
+      t: echo,
+    });
+    const m = createGridMirror({
+      doc: document, declaration, t: echo, onActivate: vi.fn(),
+      resolveAction: (code) => (code === 'KeyJ' ? 'action1' : null),
+    });
+    document.body.appendChild(m.root);
+    made.push(m);
+
+    // ⚠️ `focusCell`, not `cells[5].focus()`. Focusing the DOM node directly does NOT move the
+    // mirror's cursor -- and that is not a defect: the roving tabindex leaves exactly one cell
+    // tabbable, so nothing but this method and a click can put focus on another one. The first
+    // draft of this test used the raw `.focus()` and read a cursor of 0, which was the honest
+    // answer to a question nobody in the game ever asks.
+    const cells = buttons(m);
+    m.focusCell(5);
+    expect(m.cursor()).toBe(5);
+    cells[5].dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyJ', bubbles: true, cancelable: true }));
+    expect(m.cursor()).toBe(5);
+  });
+});
+
 describe('[Right] pointer and keyboard end in the SAME funnel', () => {
   it('activates on a click', () => {
     const { m, onActivate } = mirror();

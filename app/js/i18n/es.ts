@@ -26,6 +26,18 @@ export const es: Catalog = {
   'hud.best': 'Récord: {best}',
   'hud.collect': 'Recoge: {what}', 'hud.help': 'Flechas navegan · Enter martilla · Shift+flechas inclinan el tapete',
 
+  'act.up': 'Mover hacia arriba',
+  'act.up.short': 'Arriba',
+  'act.down': 'Mover hacia abajo',
+  'act.down.short': 'Abajo',
+  'act.left': 'Mover a la izquierda',
+  'act.left.short': 'Izquierda',
+  'act.right': 'Mover a la derecha',
+  'act.right.short': 'Derecha',
+  'act.hammer': 'Martillar',
+  'act.hammer.short': 'Martillar',
+  'act.hammer.hint': 'Martilla la baldosa donde está el cursor.',
+
   'combo.awesome': 'Awesome!',
   'combo.good': 'Good!',
   'combo.savage': 'Savage!',

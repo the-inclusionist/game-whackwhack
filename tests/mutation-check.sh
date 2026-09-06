@@ -17,6 +17,7 @@ DECL=app/js/declaration
 RENDER=app/js/render
 UI=app/js/ui
 I18N=app/js/i18n
+INPUT=app/js/input
 STORE=app/js/store
 # The stylesheet is source too: tests/feedback.browser.test.ts asserts on a computed animation
 # name, and nothing else in this file could break that assertion.
@@ -906,6 +907,43 @@ add "the shipped page loses the status region the engine requires" \
     "$APP/index.html" \
     "<div id=\"sr-status\" class=\"sr-only\" role=\"status\" aria-live=\"polite\"></div>" \
     "<div id=\"sr-status\" class=\"sr-only\"></div>"
+
+# ========================= THE NINE POSITIONS, AND THIS GAME'S FIVE =========================
+
+add "the game claims a position it does not use" \
+    "$INPUT/actions.ts" \
+    "export const USED: readonly Action[] = ['up', 'down', 'left', 'right', 'action1'];" \
+    "export const USED: readonly Action[] = ['up', 'down', 'left', 'right', 'action1', 'action4'];"
+
+add "the game declares no action at all, which cannot be played" \
+    "$INPUT/actions.ts" \
+    "export const USED: readonly Action[] = ['up', 'down', 'left', 'right', 'action1'];" \
+    "export const USED: readonly Action[] = [];"
+
+add "the hammer moves to a position the preset does not name" \
+    "$INPUT/actions.ts" \
+    "export const HAMMER: Action = 'action1';" \
+    "export const HAMMER: Action = 'action3';"
+
+add "an abstract position reaches the remapping screen" \
+    "$INPUT/actions.ts" \
+    "    action1: { label: t('act.hammer'), short: t('act.hammer.short'), hint: t('act.hammer.hint') }," \
+    "    action1: { label: 'action1', short: 'action1' },"
+
+add "a label is left blank, which is a mute row for a screen reader" \
+    "$INPUT/actions.ts" \
+    "    up: { label: t('act.up'), short: t('act.up.short') }," \
+    "    up: { label: '', short: t('act.up.short') },"
+
+add "the hammer stops working on a remapped key" \
+    "$UI/grid-mirror.ts" \
+    "    if (intent === HAMMER && !NATIVE_ACTIVATION.has(event.code)) {" \
+    "    if (false) {"
+
+add "the hammer fires twice on Enter, once from the key and once from the click" \
+    "$UI/grid-mirror.ts" \
+    "    if (intent === HAMMER && !NATIVE_ACTIVATION.has(event.code)) {" \
+    "    if (intent === HAMMER) {"
 
 TO_FILE="$(mktemp)"
 

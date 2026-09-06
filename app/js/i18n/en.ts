@@ -26,6 +26,18 @@ export const en: Catalog = {
   'hud.best': 'Best: {best}',
   'hud.collect': 'Collect: {what}', 'hud.help': 'Arrows move · Enter whacks · Shift+arrows lean the mat',
 
+  'act.up': 'Move up',
+  'act.up.short': 'Up',
+  'act.down': 'Move down',
+  'act.down.short': 'Down',
+  'act.left': 'Move left',
+  'act.left.short': 'Left',
+  'act.right': 'Move right',
+  'act.right.short': 'Right',
+  'act.hammer': 'Whack',
+  'act.hammer.short': 'Whack',
+  'act.hammer.hint': 'Whacks the tile the cursor is on.',
+
   'combo.awesome': 'Awesome!',
   'combo.good': 'Good!',
   'combo.savage': 'Savage!',

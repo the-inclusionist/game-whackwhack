@@ -33,6 +33,18 @@ export const pt: Catalog = {
   'hud.best': 'Recorde: {best}',
   'hud.collect': 'Colete: {what}', 'hud.help': 'Setas navegam · Enter martela · Shift+setas inclinam o tapete',
 
+  'act.up': 'Mover para cima',
+  'act.up.short': 'Cima',
+  'act.down': 'Mover para baixo',
+  'act.down.short': 'Baixo',
+  'act.left': 'Mover para a esquerda',
+  'act.left.short': 'Esquerda',
+  'act.right': 'Mover para a direita',
+  'act.right.short': 'Direita',
+  'act.hammer': 'Martelar',
+  'act.hammer.short': 'Martelar',
+  'act.hammer.hint': 'Martela o azulejo onde o cursor está.',
+
   'combo.awesome': 'Awesome!',
   'combo.good': 'Good!',
   'combo.savage': 'Savage!',

@@ -33,6 +33,7 @@
 
 import type { GameDeclaration, Spot } from '@the-inclusionist/engine/core/contract.js';
 import { MAT_CELLS, MAT_COLS, MAT_ROWS, spotOfCell } from '../rules/grid.ts';
+import { HAMMER } from '../input/actions.ts';
 
 /** What the mirror needs of the declaration: the two questions about a place. */
 export type MirrorDeclaration = Pick<GameDeclaration, 'nameAt' | 'roleAt'>;
@@ -72,11 +73,25 @@ const ARROW_INTENT: Readonly<Record<string, string>> = {
 };
 
 /**
- * The intents this grid moves on. The engine's keyboard runtime also produces `jump`, `run` and
- * the rest; they belong to a platformer and are ignored here rather than silently steering the
- * cursor somewhere.
+ * The intents this grid MOVES on.
+ *
+ * ⚠️ The comment here named `jump` and `run`, and those words no longer exist. ADR-0074 emptied
+ * the engine's vocabulary of meaning and ADR-0077 finished it: the positions are `up`..`right`,
+ * `action1`..`action4`, four shoulders and triggers, `start` and `select`, and not one of them says
+ * what it is for. A stale comment about a platformer's verbs was the only thing in this file that
+ * still claimed otherwise.
  */
 const MOVES = new Set(['up', 'down', 'left', 'right']);
+
+/**
+ * The codes the PLATFORM already turns into a click on a focused `<button>`.
+ *
+ * ⚠️ HANDLING `action1` MYSELF ON THESE WOULD FIRE THE HAMMER TWICE -- once from this keydown
+ * and once from the native click that follows it. The whole reason the mirror is made of real
+ * buttons is that Enter and Space come free; the manual path exists only for a child who has
+ * REMAPPED the hammer onto some other key, which the platform knows nothing about.
+ */
+const NATIVE_ACTIVATION = new Set(['Enter', 'NumpadEnter', 'Space']);
 
 /** Where an intent lands from `cell`, clamped at the edges. Pure, so it is tested on its own. */
 export function step(cell: number, intent: string): number {
@@ -141,6 +156,15 @@ export function createGridMirror(deps: GridMirrorDeps): GridMirror {
   function onKeyDown(event: KeyboardEvent): void {
     const from = Number((event.currentTarget as HTMLElement).dataset.cell);
     const intent = intentOf(event);
+
+    // The hammer, for a remapped key. See NATIVE_ACTIVATION for why Enter and Space are excluded
+    // rather than handled here: on a real button the platform already delivers them as a click.
+    if (intent === HAMMER && !NATIVE_ACTIVATION.has(event.code)) {
+      event.preventDefault();
+      deps.onActivate(from);
+      return;
+    }
+
     if (!intent || !MOVES.has(intent)) return;
     const to = step(from, intent);
     event.preventDefault();
