@@ -82,7 +82,11 @@ describe('[Zero] there is no level zero for the curves to divide by', () => {
   // goes up by one, so the state never exists -- but the curves are asked anyway, because the
   // guarantee belongs to them and not to the caller that happens to be careful today.
   it('never produces an infinite or zero gap, at any level a round can reach', () => {
-    for (const level of [1, 2, 5, 20, 500, 5_000]) {
+    // ⚠️ 10_000 IS THE ONE THAT MATTERS, and the list stopped at 5_000. `3000 / 5000` rounds to 1,
+    // so removing the `Math.max(1, …)` changed nothing below about level 6_000 and the mutation
+    // escaped. A gap of zero is a scheduled event that consumes no time and never moves, which is
+    // an infinite loop inside a frame — so the level that first produces one has to be in here.
+    for (const level of [1, 2, 5, 20, 500, 5_000, 6_001, 10_000, 1_000_000]) {
       expect(Number.isFinite(spawnGapMs(level)), String(level)).toBe(true);
       expect(spawnGapMs(level), String(level)).toBeGreaterThan(0);
     }

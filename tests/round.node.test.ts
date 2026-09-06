@@ -292,9 +292,14 @@ describe('[Right] what is and is not a mistake', () => {
       r.advance(FRAME);
       if (r.tiles().some((t) => t.correct)) break;
     }
+    const before = r.errors();
     const events = play(r, tileDeadlineMs(r.level()) + FRAME);
     const missed = events.filter((e) => e.kind === 'mistake' && e.reason === 'missed');
     expect(missed.length).toBeGreaterThan(0);
+    // ⚠️ THE COUNTER, not just the event. Asserting only that a `missed` was emitted let
+    // `errors += 1` be mutated to `errors += 0` and escape: the announcement still went out, the
+    // round still looked right, and nobody was ever charged for the tile they let go.
+    expect(r.errors()).toBe(before + missed.length);
   });
 
   it('charges NOTHING for letting a wrong tile expire, which is the right answer', () => {
@@ -419,6 +424,30 @@ describe('[Right] each defeat mode ends the round its own way', () => {
     expect(r.tiles()).toEqual([]);
     expect(r.advance(60_000)).toEqual([]);
     expect(r.hit(0)).toEqual([]);
+    // ⚠️ AND THE CLOCK IS STOPPED. Without this, dropping `ended` from the guard in `advance`
+    // escaped: the loop exits on `!ended` anyway, so no EVENTS came out — but the round went on
+    // quietly accumulating elapsed time behind a result screen.
+    const frozen = r.elapsedMs();
+    r.advance(60_000);
+    expect(r.elapsedMs()).toBe(frozen);
+  });
+
+  it('emits `over` exactly once WITHIN a single advance that ends the round', () => {
+    // ⚠️ The version below drives the ending through `hit`, where `checkEnd` runs once and a
+    // double push is impossible. Ending it through an EXPIRY is the case that matters: `advance`
+    // calls `checkEnd` inside its loop AND again after it, so the guard in `checkEnd` is the only
+    // thing between one `over` and two. Mutating that guard escaped until this existed.
+    const r = round({ defeat: 'sudden-death' });
+    let guard = 0;
+    while (guard++ < 5000) {
+      const events = r.advance(FRAME);
+      const over = events.filter((e) => e.kind === 'over');
+      if (over.length > 0) {
+        expect(over).toHaveLength(1);
+        return;
+      }
+    }
+    throw new Error('the round never ended by letting a correct tile expire');
   });
 
   it('emits `over` exactly once', () => {

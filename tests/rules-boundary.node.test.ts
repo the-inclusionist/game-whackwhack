@@ -26,13 +26,27 @@ function sourcesUnder(dir: string): string[] {
 
 const FILES = sourcesUnder(RULES_DIR);
 
-/** Every module specifier this file imports from, type-only imports included. */
+/**
+ * Every module specifier this file imports from, type-only imports included.
+ *
+ * ⚠️ NOT ANCHORED TO THE START OF A LINE, and it was. `(?:^|\n)\s*import` finds the FIRST import
+ * on a line and no other, so `import a from 'x'; import { TILE } from '../render/resolution.ts'`
+ * — one line, two imports — was invisible to every assertion below. Two mutations escaped through
+ * exactly that hole, one in `rules/spawn.ts` and one in `rules/category.ts`, and both of them are
+ * the specific thing this file exists to forbid.
+ *
+ * Comments are stripped first, because an unanchored pattern would otherwise find the example
+ * import in a doc comment and fail on it — which is a false positive, but a confusing one.
+ */
 function importsOf(source: string): string[] {
+  const code = source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
   const out: string[] = [];
-  const re = /(?:^|\n)\s*(?:import|export)\s[^;\n]*?from\s*['"]([^'"]+)['"]/g;
-  for (const m of source.matchAll(re)) out.push(m[1]);
-  const bare = /(?:^|\n)\s*import\s*['"]([^'"]+)['"]/g;
-  for (const m of source.matchAll(bare)) out.push(m[1]);
+  for (const m of code.matchAll(/\b(?:import|export)\s[^;\n]*?from\s*['"]([^'"]+)['"]/g)) {
+    out.push(m[1]);
+  }
+  for (const m of code.matchAll(/\bimport\s*['"]([^'"]+)['"]/g)) out.push(m[1]);
   return out;
 }
 

@@ -437,10 +437,19 @@ add "pt loses the region its voice depends on" \
     "  pt: 'pt-BR'," \
     "  pt: 'pt',"
 
+# ⚠️ A BACKTICK OR A `$` IN AN ANCHOR HAS TO BE BACKSLASH-ESCAPED. These strings sit inside
+# DOUBLE quotes, so the shell runs a backtick as command substitution and expands ${…} as a
+# parameter before mutate.cjs ever sees them. This anchor arrived as "  nameKey: ," and
+# skipped in silence -- which a SKIP does report, but only if anyone reads the line.
+#
+# The three hand-written categories became a generated family of eight, so the anchor moved
+# from a constant to the expression that builds every name. Off by one on the factor: the
+# first seven keys still exist, and only `obj.multiplesOf10` does not -- which is the shape a
+# real mistake here would have.
 add "a category name stops matching its catalogue key" \
     "$RULES/category.ts" \
-    "export const MULTIPLE_OF_4 = multipleOf(4, { id: 'multiple-of-4', nameKey: 'obj.multiplesOf4' });" \
-    "export const MULTIPLE_OF_4 = multipleOf(4, { id: 'multiple-of-4', nameKey: 'obj.multiplesOfFour' });"
+    "  nameKey: \`obj.multiplesOf\${factor}\`," \
+    "  nameKey: \`obj.multiplesOf\${factor + 1}\`,"
 
 UI=app/js/ui
 
@@ -692,10 +701,13 @@ add "two tiles may land on the same cell" \
     "    const taken = new Set(live.map((t) => t.cell));" \
     "    const taken = new Set<number>();"
 
+# ⚠️ THE ANCHOR IS THE ASSIGNMENT IN `startLevel`, NOT THE DECLARATION. Mutating
+# `let spawnLeft = 0;` escaped, and correctly: `startLevel()` runs in the constructor and
+# overwrites it, so the initialiser is dead code and its mutation is equivalent.
 add "the first tile waits a full gap after Play is pressed" \
     "$RULES/round.ts" \
-    "  let spawnLeft = 0;" \
-    "  let spawnLeft = 3000;"
+    "    spawnLeft = 0;" \
+    "    spawnLeft = 3000;"
 
 add "the level never advances, so the budget means nothing" \
     "$RULES/round.ts" \
