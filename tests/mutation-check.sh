@@ -238,10 +238,14 @@ add "a lit tile stops changing colour" \
     "        faces[cell].color = on ? TILE_LIT : TILE_IDLE;" \
     "        faces[cell].color = TILE_IDLE;"
 
+# ⚠️ THE ANCHOR MOVED WHEN THE BUG WAS FIXED. It named `const GUTTER = 1.5;`, which is now
+# derived (`TILE_GAP + STROKE`) -- and a SKIP is what a moved anchor looks like. Mutating
+# TILE_GAP to zero restores the exact defect that shipped: a path gap of one stroke width,
+# which the stroke then fills in, so the quads are apart and the pixels are not.
 add "the gutter between tiles disappears" \
     "$RENDER/mat.ts" \
-    "const GUTTER = 1.5;" \
-    "const GUTTER = 0;"
+    "export const TILE_GAP = 1.5;" \
+    "export const TILE_GAP = 0;"
 
 add "the glyph is drawn at fractional coordinates, so it blurs" \
     "$RENDER/glyph-pass.ts" \

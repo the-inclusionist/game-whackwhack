@@ -199,6 +199,39 @@ describe('[Right] a click lands on the tile under it', () => {
     expect(pickTopmost(quads, toIllustrationSpace(centreOf(quads[cell], v), v))).toBe(cell);
   });
 
+  it('leaves GROUND visible between two tiles, not merely a gap in the path', () => {
+    // ⚠️ THE ASSERTION THE SHIPPED BUG WALKED PAST. The gutter was `TILE - GUTTER` wide with
+    // `stroke: STROKE`, and a Zdog stroke extends STROKE/2 beyond the path on every side — so the
+    // DRAWN width was `(TILE - GUTTER) + STROKE`, and with both constants at 1.5 that is exactly
+    // TILE. The mat rendered as one continuous slab while the quads still had a gap between them,
+    // so the test below (which reads the PATH) passed throughout and the Dev reported it by eye:
+    // "os tiles estão sem borda nenhuma entre eles".
+    //
+    // This one samples the canvas. It is the only version that can tell a gap in the geometry
+    // from a gap you can see.
+    const { stage, mat, ctx } = scene();
+    const v = stage.viewport();
+    const quads = mat.quads();
+    const a = centreOf(quads[0], v);
+    const b = centreOf(quads[1], v);
+    const seam = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+
+    // ⚠️ TRANSPARENT, not the ground colour. Nothing paints the ground onto this canvas: the
+    // mat is drawn on a clear surface and `body { background: var(--ground) }` shows through from
+    // the page behind it. Asserting the GROUND's rgb here failed on `0,0,0,0` -- which is the
+    // right pixel and the wrong expectation, and worth writing down because the next person to
+    // sample this canvas will reach for the same wrong constant.
+    const d = ctx.getImageData(Math.round(seam.x), Math.round(seam.y), 1, 1).data;
+    expect(d[3], `seam alpha ${d[3]} — expected the page's ground to show through`).toBeLessThan(16);
+    expect(near([d[0], d[1], d[2]], rgbOf(TILE_IDLE))).toBe(false);
+
+    // And the tile's own centre IS painted, or the assertion above would hold for a mat that
+    // drew nothing at all.
+    const middle = ctx.getImageData(Math.round(a.x), Math.round(a.y), 1, 1).data;
+    expect(middle[3]).toBeGreaterThan(240);
+    expect(near([middle[0], middle[1], middle[2]], rgbOf(TILE_IDLE))).toBe(true);
+  });
+
   it('does not claim a point in the gutter between two tiles', () => {
     // The gutter is what lets a player see where one tile ends. A pick that snapped across it
     // would make the mat feel continuous to the hand and discrete to the eye.
