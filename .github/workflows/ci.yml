@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# ADR-0068 §4: a game's workflow INVOKES the organisation's reusable one and copies nothing. Three
+# hundred copies of a pipeline drift, and the ones that drift silently are the ones that stop
+# gating — while the repository still shows a green tick.
+#
+# The reusable workflow lives in the ENGINE repository rather than in a `.github` one, because
+# ADR-0067 §5 says a repository is created when a RECORD declares its address, and no record
+# declares one for a workflows repository.
+#
+# ========================= ⚠️ THIS CANNOT GO GREEN YET, AND THAT IS THE POINT =========================
+# The gate runs `npm ci`, and this game's engine dependency is `file:../SP-the-inclusionist-tracer`
+# — a sibling directory that exists on the machine this was written on and nowhere else. The
+# lockfile records it as `"resolved": "../SP-the-inclusionist-tracer"`, so the install fails before
+# any gate runs. ADR-0072 settles where the engine comes from instead: public npmjs, because a
+# volunteer without a token cannot install from GitHub Packages. The first green run arrives when
+# the engine is published and this repository's dependency becomes a version rather than a path.
+#
+# Writing it red is deliberate, and `game-15puzzle` made the same call for the same reason. A file
+# that says why it fails is a coordination point; an absent workflow is a repository that looks
+# gated and is not. Until then the same four gates run locally through `npm run validate`, plus
+# `bash tests/mutation-check.sh`, which no runner has ever run.
+#
+# ========================= WHAT THE a11y INPUT MEANS HERE =========================
+# ⚠️ The reusable workflow serves the built game on a port and hands its address to the axe script
+# as `AXE_URL`. This game's `test:a11y` does NOT read that variable: it boots `boot/main` inside a
+# real browser under Vitest, which is stronger in one way — it can drive the game into BOTH of its
+# states, the title and a running mat, where a static URL audit only ever sees the first — and
+# weaker in another, since it audits the module graph rather than the minified bundle. The markup
+# half of that gap is closed already: the test reads `app/index.html` with `?raw` instead of
+# imitating it. The bundle half is open, and is written here rather than left to be discovered.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gate:
+    uses: the-inclusionist/the-inclusionist-engine/.github/workflows/game-ci.yml@main
+    with:
+      # ⚠️ Named rather than left to its default. The input exists so that skipping pillar 2 is a
+      # VISIBLE line in the caller instead of an absence — and this game answers `tick: 'clock'`,
+      # which is the field that puts WCAG 2.2.1 in play. It is the last one that should skip it.
+      a11y: true
