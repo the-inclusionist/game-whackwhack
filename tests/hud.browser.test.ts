@@ -50,6 +50,7 @@ function hud(over: Partial<Parameters<typeof createHud>[0]> = {}, have = 0) {
     defeat: 'lives',
     livesLeft: () => LIVES,
     level: () => 1,
+    best: () => 0,
     ...over,
   });
   // ⚠️ Into the DOCUMENT, not held in a variable. Every assertion here is a rendered measurement,
@@ -153,6 +154,36 @@ describe('[Right] the lives line reads for the mode it is in', () => {
     h.setDefeat('sudden-death');
     expect(readouts()!.textContent).toContain(i18n.t('hud.suddenDeath'));
     expect(readouts()!.textContent).not.toContain(i18n.t('hud.endless'));
+  });
+});
+
+describe('[Right] the high score is shown only when there is one', () => {
+  it('says nothing at all on a first visit', () => {
+    // ⚠️ "Recorde: 0" is not information, it is a reproach -- and the original shows its high
+    // score only when there is a high score. `hidden` rather than an empty string, so the line
+    // takes no space and a reader does not stop on it.
+    const { hud: h } = hud({ best: () => 0 });
+    h.setPhase('playing');
+    expect(shown(document.querySelector('.hud-best'))).toBe(false);
+  });
+
+  it('shows the number once there is one to beat', () => {
+    const { hud: h } = hud({ best: () => 14 });
+    h.setPhase('playing');
+    expect(shown(document.querySelector('.hud-best'))).toBe(true);
+    expect(document.querySelector('.hud-best')!.textContent).toContain('14');
+  });
+
+  it('follows the record when a round beats it, without being rebuilt', () => {
+    // It is read through a FUNCTION for exactly this: the round that beats the record is the same
+    // round the HUD is already showing, and a number captured at boot would be one behind.
+    let best = 0;
+    const { hud: h } = hud({ best: () => best });
+    h.setPhase('playing');
+    expect(shown(document.querySelector('.hud-best'))).toBe(false);
+    best = 8;
+    h.refresh();
+    expect(document.querySelector('.hud-best')!.textContent).toContain('8');
   });
 });
 

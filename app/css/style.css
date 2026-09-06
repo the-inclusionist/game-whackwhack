@@ -127,6 +127,9 @@ body {
    caption is easy to mistake for decoration when nothing seems to be happening. */
 .hud-score { font-weight: 700; font-size: 1.15em; }
 .hud-lives { color: var(--tile-lit); }
+/* Dimmer than the score: it is the number to beat, not the number you have, and a player glancing
+   for their progress must not land on it by mistake. */
+.hud-best { color: #E7C9F0; font-size: 0.95em; }
 
 /* ========================= THE OPTIONS, IN THE HUD =========================
    They were three <select>s on the title card, then the same three folded into a <details>, and
@@ -205,6 +208,56 @@ body {
 .opt-factor input:focus-visible + .opt-factor-face {
   outline: 3px solid var(--tile-lit);
   outline-offset: 2px;
+}
+
+/* ========================= THE FOOTER THAT SAYS "+1" =========================
+   The original's, with two changes. Its `@keyframes blink-and-fade-out` BLINKS, which is a
+   photosensitivity risk under WCAG 2.3.1 -- the same reason this game's tiles rise where the
+   original's flash. The fade carries the whole message; the blink only carried the risk.
+
+   And it sits bottom-LEFT rather than bottom-right. The original's HUD is a header across the
+   top, so its footer had the bottom corner to itself; this one's HUD is a column down the right,
+   and a footer in that corner would be printing over the score.
+
+   `pointer-events: none` is load-bearing: without it the footer sits between the player and the
+   mat and eats the clicks it exists to celebrate. */
+.feedback {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: calc((1 - var(--hud-fraction)) * 100%);
+  padding: calc(var(--ui-fs, 16px) * 0.5);
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 3;
+}
+.feedback-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15em;
+}
+.feedback-item {
+  /* The arcade face, at a size that reads across a classroom without competing with the logo. */
+  font-family: 'Press Start 2P', monospace;
+  font-size: calc(var(--ui-fs, 16px) * 0.9);
+  line-height: 1.2;
+  color: var(--tile-lit);
+  /* A glow rather than an outline: the footer floats over a mat whose own colours move, and a
+     hard edge in any single colour would disappear against one of them. */
+  text-shadow: 0 0 0.4em rgba(255, 255, 255, 0.55), 0 0 0.15em var(--ground);
+  animation: feedback-fade 5s ease both;
+}
+/* ⚠️ NO BLINK. Opacity runs one way, and `both` holds the final frame so the item is invisible for
+   the instant between the animation ending and `ui/feedback` taking the node out. */
+@keyframes feedback-fade {
+  0%   { opacity: 0; transform: translateY(0.6em) scale(1.25); }
+  12%  { opacity: 1; transform: translateY(0) scale(1); }
+  70%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-0.8em); }
 }
 
 /* ========================= THE GRID MIRROR =========================
@@ -501,6 +554,15 @@ body {
 .screen-title:focus,
 .screen-title:focus-visible { outline: none; }
 .screen[data-outcome="lost"] .screen-title { color: #E9A2A2; }
+/* The one line on the result screen that is good news whichever way the round went. It borrows
+   the title's neon so it reads as a prize rather than as another statistic. */
+.screen-record {
+  margin: 0;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.9em;
+  color: var(--title-pink);
+  text-shadow: 0 0 0.5em var(--title-glow);
+}
 .screen-lead { margin: 0; color: #C9D1D9; font-size: 0.8em; line-height: 1.7; }
 .screen-sub { margin: 0; color: #8B949E; font-size: 0.9em; }
 

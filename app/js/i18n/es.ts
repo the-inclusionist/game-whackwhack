@@ -23,7 +23,15 @@ export const es: Catalog = {
   'hud.lives': 'Vidas restantes: {lives}',
   'hud.endless': 'Sin derrota',
   'hud.suddenDeath': 'Muerte súbita',
+  'hud.best': 'Récord: {best}',
   'hud.collect': 'Recoge: {what}', 'hud.help': 'Flechas navegan · Enter martilla · Shift+flechas inclinan el tapete',
+
+  'combo.awesome': 'Awesome!',
+  'combo.good': 'Good!',
+  'combo.savage': 'Savage!',
+  'combo.onFire': 'On fire!',
+  'combo.combo': 'Combo!',
+  'feedback.point': '+1',
 
   'say.tileLit': 'Se encendio {value}. Recoge {what}.',
   'say.hit': 'Correcto, {value}.',
@@ -41,6 +49,7 @@ export const es: Catalog = {
   'result.lost': 'Fin del juego',
   'result.score': 'Aciertos: {have} de {need}',
   'result.level': 'Llegó al nivel {level}',
+  'result.record': '¡Nuevo récord!',
   'result.again': 'Jugar de nuevo',
   'result.change': 'Cambiar opciones',
 

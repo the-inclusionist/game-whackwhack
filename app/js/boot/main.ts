@@ -23,6 +23,7 @@ import { startLoop } from '@the-inclusionist/engine/core/loop.js';
 import { rnd } from '@the-inclusionist/engine/core/rng.js';
 
 import { CATEGORIES } from '../rules/category.ts';
+import { comboKeyFor } from '../rules/combo.ts';
 import { LIVES } from '../rules/defeat.ts';
 import { ROUND_GOAL } from '../rules/difficulty.ts';
 import { createRound, type Round, type RoundEvent } from '../rules/round.ts';
@@ -37,10 +38,12 @@ import { createFades } from '../render/fade.ts';
 import { createZdogStage } from '../render/zdog-stage.ts';
 import { createGridMirror } from '../ui/grid-mirror.ts';
 import { announcementFor } from '../ui/announce.ts';
+import { createFeedback } from '../ui/feedback.ts';
 import { createHud } from '../ui/hud.ts';
 import { applyLayout } from '../ui/layout.ts';
 import { createOptions, type RoundChoice } from '../ui/options.ts';
 import { createResultScreen, createTitleScreen, type Screen } from '../ui/screens.ts';
+import { readHighScore, recordHighScore } from '../store/high-score.ts';
 import { createI18n, preferredLocale } from '../i18n/index.ts';
 
 /**
@@ -128,6 +131,14 @@ function boot(): void {
     onChange: (next) => { choice = next; hud.setDefeat(next.defeat); hud.refresh(); },
   });
 
+  /**
+   * ⚠️ READ ONCE, AT BOOT, and held. `readHighScore` touches `localStorage`, and the HUD refreshes
+   * on every event of a round -- a hit, a mistake, a level. Reading storage a few times a second
+   * for a number that changes when a ROUND ENDS is work nobody asked for, and on the school
+   * hardware this targets it is work in the middle of the frame budget.
+   */
+  let best = readHighScore();
+
   const hud = createHud({
     doc,
     declaration,
@@ -136,8 +147,17 @@ function boot(): void {
     defeat: choice.defeat,
     livesLeft: () => (choice.defeat === 'lives' ? Math.max(0, LIVES - (round?.errors() ?? 0)) : null),
     level: () => round?.level() ?? 1,
+    best: () => best,
   });
   region.appendChild(hud.root);
+
+  /**
+   * The "+1" footer. In the REGION rather than the document, so it is bounded by the board and
+   * scrolls out of existence with it; the original fixes its own to the viewport, which it can
+   * afford because its HUD is a header rather than a column.
+   */
+  const feedback = createFeedback({ doc });
+  region.appendChild(feedback.root);
 
   // 3. WHAT THE ROUND SAYS OUT LOUD. The sentences live in `ui/announce`, which is pure and tested;
   //    what is left here is the wiring — urgent to the assertive region, everything else polite.
@@ -168,6 +188,16 @@ function boot(): void {
       // distinction the player has to learn on top of the one that matters.
       if (event.kind === 'hit' || event.kind === 'mistake') {
         fades.start(event.cell, String(event.value), performance.now());
+      }
+      /**
+       * ⚠️ THE SCORE AFTER THE HIT, not a streak. The original's rule is that the RUNNING SCORE
+       * being a multiple of five earns a word; a mistake resets nothing, because nothing is being
+       * counted but the score. `round.hits()` is already updated by the time this runs, which is
+       * what makes the fifth hit -- and not the sixth -- the one that gets the word.
+       */
+      if (event.kind === 'hit') {
+        const word = comboKeyFor(round?.hits() ?? 0, rnd);
+        feedback.push(i18n.t(word ?? 'feedback.point'));
       }
     }
     if (events.length === 0) return;
@@ -224,10 +254,18 @@ function boot(): void {
   function showResult(outcome: 'won' | 'lost'): void {
     const hits = round?.hits() ?? 0;
     const level = round?.level() ?? 1;
+    /**
+     * ⚠️ SAVED ON EVERY ENDING, win or loss. The original saves only in `handleGameOver`, so a
+     * round that is WON never records its score -- which is the one round most likely to deserve
+     * it. Both endings come through here, so both count.
+     */
+    const record = recordHighScore(hits);
+    if (record) best = hits;
+    hud.refresh();
     engine.cenas.replace({
       nome: 'result',
       enter: () => mount(createResultScreen({
-        doc, i18n, outcome, hits, level, need: ROUND_GOAL,
+        doc, i18n, outcome, hits, level, need: ROUND_GOAL, record,
         onAgain: () => startRound(options.choice()),
         onChange: showTitle,
       })),
@@ -244,6 +282,8 @@ function boot(): void {
       rnd,
     });
     fades.clear();
+    // A new round starts on a clean footer rather than on the tail of the last one.
+    feedback.clear();
     engine.cenas.replace({ nome: 'playing', enter: unmount });
     hud.setDefeat(next.defeat);
     mirror.refresh();
@@ -425,7 +465,8 @@ function boot(): void {
     (window as unknown as Record<string, unknown>).__whack = {
       get round() { return round; },
       get screen() { return screen; },
-      mat, stage, mirror, hud, options, i18n, engine, camera,
+      mat, stage, mirror, hud, options, feedback, i18n, engine, camera,
+      get best() { return best; },
       start: (over: Partial<RoundChoice> = {}) => startRound({ ...choice, ...over }),
       step: (dt = 1) => ticker.step(dt),
     };

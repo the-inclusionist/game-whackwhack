@@ -41,6 +41,14 @@ export interface HudDeps {
   /** Lives left, or `null` where the mode has none. */
   livesLeft(): number | null;
   level(): number;
+  /**
+   * The best score on this machine, or 0 for none yet.
+   *
+   * A function rather than a number because it changes WHILE the HUD is alive: a round that beats
+   * it writes the new one, and the next round has to show that rather than the value that was
+   * true at boot.
+   */
+  best(): number;
 }
 
 /**
@@ -89,6 +97,9 @@ export function createHud(deps: HudDeps): Hud {
   const lives = doc.createElement('p');
   lives.className = 'hud-lives';
 
+  const best = doc.createElement('p');
+  best.className = 'hud-best';
+
   /**
    * Keyboard help, inside the HUD rather than under the stage.
    *
@@ -110,7 +121,7 @@ export function createHud(deps: HudDeps): Hud {
    */
   const live = doc.createElement('div');
   live.className = 'hud-live';
-  live.append(collect, score, level, lives);
+  live.append(collect, score, level, lives, best);
 
   root.append(deps.options, live, help);
 
@@ -133,6 +144,21 @@ export function createHud(deps: HudDeps): Hud {
     } else {
       lives.textContent = i18n.t('hud.lives', { lives: left });
     }
+
+    /**
+     * ⚠️ HIDDEN UNTIL THERE IS ONE. "Recorde: 0" on a first visit is not information, it is a
+     * reproach — and the original shows its high score only when there is a high score. `hidden`
+     * rather than an empty string, so the line takes no space AND a reader does not stop on it.
+     *
+     * ⚠️ AND THE TEXT IS WRITTEN UNCONDITIONALLY, which looks like the redundant half and is the
+     * opposite. It was `record > 0 ? … : ''` as well, and the two guards MASKED EACH OTHER: with
+     * both in place, breaking either one alone changed nothing observable, so both mutations
+     * escaped and the whole behaviour was ungated while looking doubly protected. Belt and braces
+     * is a fine instinct for a bridge and a bad one for a gate.
+     */
+    const record = deps.best();
+    best.textContent = i18n.t('hud.best', { best: record });
+    best.hidden = record <= 0;
   }
 
   refresh();

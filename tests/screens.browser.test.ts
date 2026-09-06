@@ -151,6 +151,29 @@ describe('[Right] the result says what happened, and offers a way on', () => {
   });
 });
 
+describe('[Right] the result screen says "new record" only when there is one', () => {
+  it('stays quiet on an ordinary round', () => {
+    result({ record: false });
+    expect(document.querySelector('.screen-record')).not.toBeNull();
+    expect((document.querySelector('.screen-record') as HTMLElement).hidden).toBe(true);
+  });
+
+  it('says it when the round beat the stored best', () => {
+    result({ record: true });
+    const line = document.querySelector('.screen-record') as HTMLElement;
+    expect(line.hidden).toBe(false);
+    expect(line.textContent!.trim()).not.toBe('');
+  });
+
+  it('stays quiet when no record was reported at all', () => {
+    // ⚠️ The flag comes from `store/high-score`, which returns whether STORAGE ACCEPTED the
+    // write -- private mode, a full quota and blocked site data all make it fail. Telling a child
+    // they set a record the next visit will not remember is a promise this screen cannot keep.
+    result({});
+    expect((document.querySelector('.screen-record') as HTMLElement).hidden).toBe(true);
+  });
+});
+
 describe('[Zero] a screen cleans up after itself', () => {
   it('leaves nothing in the document', () => {
     const { screen } = title();

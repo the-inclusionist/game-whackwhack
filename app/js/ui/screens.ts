@@ -172,6 +172,8 @@ export interface ResultScreenDeps {
   readonly hits: number;
   readonly need: number;
   readonly level: number;
+  /** True only when this round beat the stored best AND the write was accepted. */
+  readonly record?: boolean;
   onAgain(): void;
   onChange(): void;
 }
@@ -191,6 +193,17 @@ export function createResultScreen(deps: ResultScreenDeps): Screen {
   level.className = 'screen-sub';
   level.textContent = i18n.t('result.level', { level: deps.level });
 
+  /**
+   * ⚠️ ONLY WHEN THE WRITE WAS ACCEPTED. `store/high-score` returns whether storage took it, and
+   * this line is the reason it bothers: private mode, a full quota or blocked site data all make
+   * the save fail silently, and telling a child they set a record that will not survive the tab
+   * is a promise the next visit breaks.
+   */
+  const record = doc.createElement('p');
+  record.className = 'screen-record';
+  record.textContent = i18n.t('result.record');
+  record.hidden = !deps.record;
+
   const again = doc.createElement('button');
   again.type = 'button';
   again.className = 'screen-action';
@@ -203,7 +216,7 @@ export function createResultScreen(deps: ResultScreenDeps): Screen {
   change.textContent = i18n.t('result.change');
   change.addEventListener('click', () => deps.onChange());
 
-  card.append(score, level, again, change);
+  card.append(score, level, record, again, change);
 
   return {
     root,

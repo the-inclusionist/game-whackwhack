@@ -17,6 +17,10 @@ DECL=app/js/declaration
 RENDER=app/js/render
 UI=app/js/ui
 I18N=app/js/i18n
+STORE=app/js/store
+# The stylesheet is source too: tests/feedback.browser.test.ts asserts on a computed animation
+# name, and nothing else in this file could break that assertion.
+CSS=app/css
 
 NAMES=(); FILES=(); FROMS=(); TOS=()
 add() { NAMES+=("$1"); FILES+=("$2"); FROMS+=("$3"); TOS+=("$4"); }
@@ -758,6 +762,102 @@ add "setLit stops clearing the tiles that were up before" \
     "        anchors[cell].translate.y = on ? -TILE_RISE : 0;" \
     "        if (on) anchors[cell].translate.y = -TILE_RISE;"
 
+# ========================= THE FOOTER, THE WORDS AND THE REMEMBERED SCORE =========================
+
+add "a word arrives on every point instead of every fifth" \
+    "$RULES/combo.ts" \
+    "  if (hits % COMBO_EVERY !== 0) return null;" \
+    "  if (hits % 1 !== 0) return null;"
+
+add "the interval moves off the original's five" \
+    "$RULES/combo.ts" \
+    "export const COMBO_EVERY = 5;" \
+    "export const COMBO_EVERY = 3;"
+
+add "the guard on zero is dropped, so the footer shouts before the first hit" \
+    "$RULES/combo.ts" \
+    "  if (!Number.isInteger(hits) || hits <= 0) return null;" \
+    "  if (!Number.isInteger(hits)) return null;"
+
+add "the word stops being random" \
+    "$RULES/combo.ts" \
+    "  const index = Math.min(COMBO_KEYS.length - 1, Math.floor(rnd() * COMBO_KEYS.length));" \
+    "  const index = 0;"
+
+add "the draw runs off the end of the word list" \
+    "$RULES/combo.ts" \
+    "  const index = Math.min(COMBO_KEYS.length - 1, Math.floor(rnd() * COMBO_KEYS.length));" \
+    "  const index = Math.floor(rnd() * COMBO_KEYS.length);"
+
+add "matching the record counts as beating it" \
+    "$STORE/high-score.ts" \
+    "  if (Math.floor(hits) <= best) return false;" \
+    "  if (Math.floor(hits) < best) return false;"
+
+add "the saved key loses its namespace and collides with the sibling games" \
+    "$STORE/high-score.ts" \
+    "export const HIGH_SCORE_KEY = 'incl.whackwhack.highscore';" \
+    "export const HIGH_SCORE_KEY = 'highscore';"
+
+add "a refused write is reported to the child as a new record" \
+    "$STORE/high-score.ts" \
+    "  return set(HIGH_SCORE_KEY, Math.floor(hits));" \
+    "  set(HIGH_SCORE_KEY, Math.floor(hits)); return true;"
+
+add "a corrupted stored score reaches the screen" \
+    "$STORE/high-score.ts" \
+    "  if (!Number.isFinite(stored) || stored < 0) return 0;" \
+    "  if (!Number.isFinite(stored)) return 0;"
+
+add "a fractional stored score is shown as it is" \
+    "$STORE/high-score.ts" \
+    "  return Math.floor(stored);" \
+    "  return stored;"
+
+add "the footer grows without bound, as the original's does" \
+    "$UI/feedback.ts" \
+    "      while (list.children.length > MAX_ITEMS) {" \
+    "      while (false) {"
+
+add "the ceiling drops the NEWEST item instead of the oldest" \
+    "$UI/feedback.ts" \
+    "        remove(list.children[0] as HTMLElement);" \
+    "        remove(list.children[list.children.length - 1] as HTMLElement);"
+
+add "an item never leaves on its own once the animation is refused" \
+    "$UI/feedback.ts" \
+    "      timers.set(item, setTimeout(() => remove(item), lifetimeMs + 250));" \
+    "      void lifetimeMs;"
+
+add "the animation ending stops taking the item out" \
+    "$UI/feedback.ts" \
+    "      item.addEventListener('animationend', () => remove(item), { once: true });" \
+    "      void item;"
+
+add "the footer is read out, on top of the announcement that already exists" \
+    "$UI/feedback.ts" \
+    "  root.setAttribute('aria-hidden', 'true');" \
+    "  root.setAttribute('aria-hidden', 'false');"
+
+add "the footer blinks, as the original's does" \
+    "$CSS/style.css" \
+    "  animation: feedback-fade 5s ease both;" \
+    "  animation: blink-and-fade-out 5s ease both;"
+
+# ⚠️ THIS ONE ESCAPED TWICE BEFORE THE CODE CHANGED, and the escapes were right both times.
+# The HUD guarded the high-score line twice over -- an empty string AND `hidden` -- so breaking
+# either alone changed nothing observable and the behaviour was ungated while looking doubly
+# protected. The second guard was removed rather than a second assertion invented.
+add "the high score line reads zero on a first visit" \
+    "$UI/hud.ts" \
+    "    best.hidden = record <= 0;" \
+    "    best.hidden = false;"
+
+add "the result screen claims a record on every round" \
+    "$UI/screens.ts" \
+    "  record.hidden = !deps.record;" \
+    "  record.hidden = false;"
+
 TO_FILE="$(mktemp)"
 
 # ========================= AN INTERRUPTED RUN MUST NOT LEAVE MUTATED SOURCE =========================
@@ -798,9 +898,31 @@ fi
 echo "baseline green."
 echo
 
+# ========================= RUNNING IT IN PIECES =========================
+# `bash tests/mutation-check.sh combo` runs only the mutations whose NAME or FILE contains
+# "combo". It exists because the whole set is 155 mutations at about five seconds each -- twelve
+# minutes of silence -- and twelve minutes of silence is how this ended up being run in the
+# background, out of the Dev's sight, twice. A filtered run is a minute and prints as it goes.
+#
+# ⚠️ A FILTERED RUN PROVES ONLY WHAT IT RAN. The exit status still means "nothing escaped",
+# but of a subset, so it is a development tool and not the gate. The gate is the unfiltered run.
+FILTER="${1:-}"
+if [ -n "$FILTER" ]; then
+  echo "FILTERED to mutations matching: $FILTER"
+  echo "(a partial run -- the gate is this script with no argument)"
+  echo
+fi
+
 caught=0
 escaped=0
+skipped=0
 for i in "${!NAMES[@]}"; do
+  if [ -n "$FILTER" ]; then
+    case "${NAMES[$i]} ${FILES[$i]}" in
+      *"$FILTER"*) ;;
+      *) skipped=$((skipped + 1)); continue ;;
+    esac
+  fi
   f="${FILES[$i]}"
   cp "$f" "$f.bak"
   # Set AFTER the copy: a trap that fires between the two would otherwise try to restore from a
@@ -832,6 +954,9 @@ for i in "${!NAMES[@]}"; do
 done
 
 echo
+if [ -n "$FILTER" ]; then
+  echo "filtered by \"$FILTER\": $((caught + escaped)) run, $skipped not run"
+fi
 echo "mutations caught: $caught   escaped: $escaped"
 # A SKIP counts as an escape on purpose. An anchor that no longer matches its file is a gate that
 # has stopped being checked, and it fails silently in both directions: the mutation is never

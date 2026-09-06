@@ -30,7 +30,15 @@ export const pt: Catalog = {
   'hud.lives': 'Vidas restantes: {lives}',
   'hud.endless': 'Sem derrota',
   'hud.suddenDeath': 'Morte súbita',
+  'hud.best': 'Recorde: {best}',
   'hud.collect': 'Colete: {what}', 'hud.help': 'Setas navegam · Enter martela · Shift+setas inclinam o tapete',
+
+  'combo.awesome': 'Awesome!',
+  'combo.good': 'Good!',
+  'combo.savage': 'Savage!',
+  'combo.onFire': 'On fire!',
+  'combo.combo': 'Combo!',
+  'feedback.point': '+1',
 
   'say.tileLit': 'Acendeu {value}. Colete {what}.',
   'say.hit': 'Certo, {value}.',
@@ -48,6 +56,7 @@ export const pt: Catalog = {
   'result.lost': 'Fim de jogo',
   'result.score': 'Acertos: {have} de {need}',
   'result.level': 'Chegou ao nível {level}',
+  'result.record': 'Novo recorde!',
   'result.again': 'Jogar de novo',
   'result.change': 'Mudar opções',
 

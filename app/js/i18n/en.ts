@@ -23,7 +23,15 @@ export const en: Catalog = {
   'hud.lives': 'Lives left: {lives}',
   'hud.endless': 'No defeat',
   'hud.suddenDeath': 'Sudden death',
+  'hud.best': 'Best: {best}',
   'hud.collect': 'Collect: {what}', 'hud.help': 'Arrows move · Enter whacks · Shift+arrows lean the mat',
+
+  'combo.awesome': 'Awesome!',
+  'combo.good': 'Good!',
+  'combo.savage': 'Savage!',
+  'combo.onFire': 'On fire!',
+  'combo.combo': 'Combo!',
+  'feedback.point': '+1',
 
   'say.tileLit': '{value} is up. Collect {what}.',
   'say.hit': 'Right, {value}.',
@@ -41,6 +49,7 @@ export const en: Catalog = {
   'result.lost': 'Game over',
   'result.score': 'Hits: {have} of {need}',
   'result.level': 'Reached level {level}',
+  'result.record': 'New record!',
   'result.again': 'Play again',
   'result.change': 'Change options',
 
