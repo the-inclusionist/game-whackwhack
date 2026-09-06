@@ -33,6 +33,14 @@ import { centreOf, type Point2, type Quad, type Viewport } from './picking.ts';
 export interface GlyphItem {
   readonly cell: number;
   readonly text: string;
+  /**
+   * 1 is fully inked; below 1 the glyph is LEAVING.
+   *
+   * ⚠️ Blending reintroduces the partial pixels the whole-pixel fill exists to avoid, and that is
+   * accepted here for one reason: a fading glyph is not being READ, it is being dismissed. The
+   * crispness invariant applies to the state a child has to decode, not to its exit.
+   */
+  readonly alpha?: number;
 }
 
 /**
@@ -44,6 +52,7 @@ export interface GlyphItem {
  */
 export interface Stamper {
   fillStyle: string | CanvasGradient | CanvasPattern;
+  globalAlpha: number;
   fillRect(x: number, y: number, w: number, h: number): void;
 }
 
@@ -64,11 +73,18 @@ export function stampGlyphs(
   const height = GLYPH_HEIGHT * viewport.zoom;
   const weight = Math.max(1, Math.round(STROKE * viewport.zoom));
 
+  const entry = ctx.globalAlpha;
   for (const item of items) {
     const quad = quads[item.cell];
     if (!quad) continue;
+    const alpha = item.alpha ?? 1;
+    if (alpha <= 0) continue;
+    ctx.globalAlpha = entry * alpha;
     stampOne(ctx, centreOf(quad, viewport), item.text, height, weight);
   }
+  // Restored rather than set to 1: this pass does not own the context, and leaving it altered
+  // would silently tint whatever the caller draws next.
+  ctx.globalAlpha = entry;
 }
 
 function stampOne(

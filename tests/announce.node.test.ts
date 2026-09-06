@@ -10,14 +10,14 @@ import { describe, expect, it } from 'vitest';
 import { announcementFor, type AnnounceContext } from '../app/js/ui/announce.ts';
 import { createI18n } from '../app/js/i18n/index.ts';
 import type { RoundEvent } from '../app/js/rules/round.ts';
-import type { Wave } from '../app/js/rules/wave.ts';
+import type { RoundWave } from '../app/js/rules/round.ts';
 
-const WAVE: Wave = {
+const WAVE: RoundWave = {
   deadlineMs: 12_020,
   tiles: [
-    { cell: 0, value: 4, correct: true },
-    { cell: 7, value: 7, correct: false },
-    { cell: 13, value: 11, correct: false },
+    { cell: 0, value: 4, correct: true, resolved: false },
+    { cell: 7, value: 7, correct: false, resolved: false },
+    { cell: 13, value: 11, correct: false, resolved: false },
   ],
 };
 

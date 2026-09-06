@@ -10,13 +10,13 @@ import { MAT_CELLS, MAT_COLS, MAT_ROWS, spotOfCell } from '../app/js/rules/grid.
 import { createGridMirror, step, type MirrorDeclaration } from '../app/js/ui/grid-mirror.ts';
 import { createWhackDeclaration } from '../app/js/declaration/whack-declaration.ts';
 import { EVEN } from '../app/js/rules/category.ts';
-import type { Wave } from '../app/js/rules/wave.ts';
+import type { RoundWave } from '../app/js/rules/round.ts';
 
-const WAVE: Wave = {
+const WAVE: RoundWave = {
   deadlineMs: 12_020,
   tiles: [
-    { cell: 0, value: 4, correct: true },
-    { cell: 7, value: 7, correct: false },
+    { cell: 0, value: 4, correct: true, resolved: false },
+    { cell: 7, value: 7, correct: false, resolved: false },
   ],
 };
 
@@ -26,8 +26,8 @@ const echo = (key: string, params?: Record<string, string | number>): string =>
 
 const made: { destroy(): void }[] = [];
 
-function mirror(over: { wave?: Wave | null } = {}) {
-  let wave: Wave | null = over.wave === undefined ? WAVE : over.wave;
+function mirror(over: { wave?: RoundWave | null } = {}) {
+  let wave: RoundWave | null = over.wave === undefined ? WAVE : over.wave;
   const declaration: MirrorDeclaration = createWhackDeclaration({
     view: () => ({ category: EVEN, wave, hits: 0, focus: null }),
     t: echo,
@@ -37,7 +37,7 @@ function mirror(over: { wave?: Wave | null } = {}) {
   const m = createGridMirror({ doc: document, declaration, t: echo, onActivate, onCursor });
   document.body.appendChild(m.root);
   made.push(m);
-  return { m, onActivate, onCursor, setWave: (next: Wave | null) => { wave = next; } };
+  return { m, onActivate, onCursor, setWave: (next: RoundWave | null) => { wave = next; } };
 }
 
 function buttons(m: { root: HTMLElement }): HTMLButtonElement[] {
@@ -255,7 +255,7 @@ describe('[Right] the labels come from the declaration, not a second table', () 
     // Built once and consulted for the life of the round: a mirror that kept the first wave's
     // labels would read out a board that ended minutes ago, with nothing to indicate it.
     const { m, setWave } = mirror();
-    setWave({ deadlineMs: 5_000, tiles: [{ cell: 1, value: 16, correct: true }] });
+    setWave({ deadlineMs: 5_000, tiles: [{ cell: 1, value: 16, correct: true, resolved: false }] });
     m.refresh();
     expect(buttons(m)[1].getAttribute('aria-label')).toContain('content=16');
     expect(buttons(m)[0].getAttribute('aria-label')).toContain('content=mat.empty');

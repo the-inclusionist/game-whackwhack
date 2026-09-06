@@ -29,12 +29,12 @@ import type { Category } from './category.ts';
 import { LIT_PER_WAVE, type Difficulty, levelAt, waveDeadlineMs, waveGapMs } from './difficulty.ts';
 import { outcomeOf, type DefeatMode, type RoundOutcome } from './defeat.ts';
 import { MAT_CELLS } from './grid.ts';
-import { composeWave, type LitTile, type Wave } from './wave.ts';
+import { composeWave, type LitTile } from './wave.ts';
 
 export type MistakeReason = 'wrong-tile' | 'missed';
 
 export type RoundEvent =
-  | { readonly kind: 'wave-lit'; readonly wave: Wave }
+  | { readonly kind: 'wave-lit'; readonly wave: RoundWave }
   | { readonly kind: 'hit'; readonly cell: number; readonly value: number }
   | {
       readonly kind: 'mistake';
@@ -61,7 +61,7 @@ export interface RoundOptions {
 /** The slice `declaration/whack-declaration` reads. Kept structural rather than imported. */
 export interface RoundViewShape {
   readonly category: Category;
-  readonly wave: Wave | null;
+  readonly wave: RoundWave | null;
   readonly hits: number;
   readonly focus: Focus | null;
 }
@@ -69,7 +69,7 @@ export interface RoundViewShape {
 export interface Round {
   elapsedMs(): number;
   level(): number;
-  wave(): Wave | null;
+  wave(): RoundWave | null;
   hits(): number;
   errors(): number;
   outcome(): RoundOutcome;
@@ -79,6 +79,27 @@ export interface Round {
   advance(dtMs: number): RoundEvent[];
   /** The one door in, for the pointer and the keyboard alike. */
   hit(cell: number): RoundEvent[];
+}
+
+/**
+ * A tile as the round sees it: the composed tile plus whether it has been answered.
+ *
+ * ⚠️ `resolved` is PUBLIC, and it was not, which was a real defect. The renderer lit every tile in
+ * the wave and stamped every number, so a tile you had already hit stayed on the mat with its
+ * number on it — the game looked broken even though the score was going up. Worse, the declaration
+ * had the same blind spot: `targetsOf` handed back tiles already collected, so the sonar kept
+ * aiming a blind player at something they had finished, and `nameAt` kept announcing it.
+ *
+ * Resolution is not private bookkeeping. It is the difference between a tile that is still a
+ * question and one that is not, which is exactly what every consumer needs to know.
+ */
+export interface RoundTile extends LitTile {
+  readonly resolved: boolean;
+}
+
+export interface RoundWave {
+  readonly tiles: readonly RoundTile[];
+  readonly deadlineMs: number;
 }
 
 interface LiveTile extends LitTile {
@@ -102,7 +123,7 @@ export function createRound(options: RoundOptions): Round {
    * frame (`roleAt`, `nameAt`, `targetsOf`), so rebuilding allocates for nothing. And a stable
    * identity is what lets a consumer notice that the wave CHANGED rather than diffing its tiles.
    */
-  let wave: Wave | null = null;
+  let wave: RoundWave | null = null;
   let tiles: LiveTile[] | null = null;
 
   /**

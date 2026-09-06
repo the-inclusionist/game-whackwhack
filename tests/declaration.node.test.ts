@@ -16,15 +16,15 @@ import { conformanceProblems, speakableProblems } from '@the-inclusionist/engine
 import { EVEN, MULTIPLE_OF_3 } from '../app/js/rules/category.ts';
 import { MAT_CELLS, MAT_COLS, MAT_ROWS, cellOfSpot, inBounds, spotOfCell } from '../app/js/rules/grid.ts';
 import { ROUND_GOAL } from '../app/js/rules/difficulty.ts';
-import type { Wave } from '../app/js/rules/wave.ts';
+import type { RoundWave } from '../app/js/rules/round.ts';
 import { createWhackDeclaration, type RoundView } from '../app/js/declaration/whack-declaration.ts';
 
-const WAVE: Wave = {
+const WAVE: RoundWave = {
   deadlineMs: 12_020,
   tiles: [
-    { cell: 0, value: 4, correct: true },    // spot 0,0
-    { cell: 7, value: 7, correct: false },   // spot 2,1
-    { cell: 13, value: 10, correct: true },  // spot 3,2
+    { cell: 0, value: 4, correct: true, resolved: false },    // spot 0,0
+    { cell: 7, value: 7, correct: false, resolved: false },   // spot 2,1
+    { cell: 13, value: 10, correct: true, resolved: false },  // spot 3,2
   ],
 };
 
@@ -187,7 +187,7 @@ describe('[Simple] the declaration reads live state, it does not snapshot it', (
     // wave would answer about a wave that ended minutes ago, and nothing would report it.
     const { decl, set } = declOf();
     expect(decl.roleAt(spotOfCell(0))).toBe('goal');
-    set({ wave: { deadlineMs: 5_000, tiles: [{ cell: 0, value: 3, correct: false }] } });
+    set({ wave: { deadlineMs: 5_000, tiles: [{ cell: 0, value: 3, correct: false, resolved: false }] } });
     expect(decl.roleAt(spotOfCell(0))).toBe('hazard');
     expect(decl.nameAt(spotOfCell(0))?.text).toBe('3');
   });

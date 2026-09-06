@@ -34,6 +34,12 @@ const GUTTER = 1.5;
 export interface MatView {
   /** Lights exactly the cells given, leaving every other tile idle. */
   setLit(cells: Iterable<number>): void;
+  /**
+   * Puts one tile part of the way up, between 0 and 1. Applied AFTER `setLit`, which resets
+   * everything — that ordering is what lets a tile that has just been answered sink back down
+   * instead of blinking out of existence between two frames.
+   */
+  setRaise(cell: number, fraction: number): void;
   /** The projected quads, in cell order. Valid after the stage has run `update()`. */
   quads(): Quad[];
   destroy(): void;
@@ -81,6 +87,16 @@ export function createMat(parent: Anchor): MatView {
         anchors[cell].translate.y = on ? -TILE_RISE : 0;
         faces[cell].color = on ? TILE_LIT : TILE_IDLE;
       }
+    },
+
+    setRaise(cell: number, fraction: number) {
+      const anchor = anchors[cell];
+      if (!anchor) return;
+      const amount = Math.min(1, Math.max(0, fraction));
+      anchor.translate.y = -TILE_RISE * amount;
+      // The colour follows the height, so a sinking tile also cools back to the idle shade rather
+      // than staying gold until the instant it lands.
+      faces[cell].color = amount > 0 ? TILE_LIT : TILE_IDLE;
     },
 
     quads(): Quad[] {

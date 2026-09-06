@@ -33,6 +33,7 @@ import { createMat } from '../render/mat.ts';
 import { stampGlyphs } from '../render/glyph-pass.ts';
 import { pickTopmost, toIllustrationSpace } from '../render/picking.ts';
 import { createCamera, type NudgeDirection } from '../render/camera.ts';
+import { createFades } from '../render/fade.ts';
 import { createZdogStage } from '../render/zdog-stage.ts';
 import { createGridMirror } from '../ui/grid-mirror.ts';
 import { announcementFor } from '../ui/announce.ts';
@@ -127,11 +128,26 @@ function boot(): void {
     if (said) (said.urgent ? srAlert : srSay)(said.text);
   }
 
+  // Reduced motion maps to a duration of ZERO, which makes every fade already finished: the tile
+  // is simply gone. The preference is arithmetic here rather than a second code path that rots.
+  const fades = createFades({
+    durationMs: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : undefined,
+  });
+
   let dirty = true;
   function invalidate(): void { dirty = true; }
 
   function handle(events: readonly RoundEvent[]): void {
-    for (const event of events) announce(event);
+    for (const event of events) {
+      announce(event);
+      // A tile leaves the mat for one of three reasons, and all three earn the same exit: hit,
+      // hit wrongly, or left to expire. Only the SCORE distinguishes them; the disappearance is
+      // the same event to look at, and giving them different exits would be inventing a
+      // distinction the player has to learn on top of the one that matters.
+      if (event.kind === 'hit' || event.kind === 'mistake') {
+        fades.start(event.cell, String(event.value), performance.now());
+      }
+    }
     if (events.length === 0) return;
     mirror.refresh();
     hud.refresh();
@@ -190,7 +206,7 @@ function boot(): void {
       defeat: next.defeat,
       rnd,
     });
-    engine.cenas.replace({ nome: 'playing', enter: unmount });
+    fades.clear();
     hud.setDefeat(next.defeat);
     mirror.refresh();
     hud.refresh();
@@ -198,20 +214,38 @@ function boot(): void {
   }
 
   // 5. THE PICTURE, ONCE PER FRAME THAT NEEDS ONE.
+  //
+  // ⚠️ `!t.resolved` IS THE BUG THAT WAS REPORTED. This lit every tile of the wave and stamped
+  // every number, answered or not, so a tile you had just hit stayed on the mat with its number
+  // on it. The score went up and nothing moved, which reads as a game that ignores you.
   function draw(): void {
     const wave = round?.wave() ?? null;
-    mat.setLit(wave ? wave.tiles.map((t) => t.cell) : []);
+    const live = wave ? wave.tiles.filter((t) => !t.resolved) : [];
+    const now = performance.now();
+
+    mat.setLit(live.map((t) => t.cell));
+    // A tile that has just been answered sinks as its number fades, so the change is something a
+    // child SEES happen rather than something they find already done.
+    for (const leaving of fades.active(now)) mat.setRaise(leaving.cell, leaving.alpha);
     stage.render();
-    if (!wave) return;
+
     // ⚠️ AFTER `stage.render()`, which updates the graph: the projected corners the glyphs sit on
     // are last frame's until it runs, and numbers one frame behind the mat look like a rendering
     // glitch while really being a sequencing bug.
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    const quads = mat.quads();
+    // The live numbers at full ink, then the ones on their way out at whatever is left of theirs.
     stampGlyphs(
       ctx,
-      wave.tiles.map((t) => ({ cell: t.cell, text: String(t.value) })),
-      mat.quads(),
+      live.map((t) => ({ cell: t.cell, text: String(t.value) })),
+      quads,
+      stage.viewport(),
+    );
+    stampGlyphs(
+      ctx,
+      fades.active(now).map((f) => ({ cell: f.cell, text: f.text, alpha: f.alpha })),
+      quads,
       stage.viewport(),
     );
   }
@@ -285,6 +319,9 @@ function boot(): void {
     // Only the round gets time, and only while it is the top of the stack. A wave that expired
     // behind a result screen would charge a player for a mistake they were not allowed to make.
     if (round && !screen) handle(round.advance(dt * FRAME_MS));
+    // A fade in progress is a reason to draw even when nothing else changed — the dirty flag is
+    // about STATE, and an animation is state changing continuously.
+    if (fades.busy(performance.now())) invalidate();
     if (!dirty) return;
     dirty = false;
     draw();

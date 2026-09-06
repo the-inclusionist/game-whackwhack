@@ -27,7 +27,7 @@ import type {
   Focus, GameDeclaration, Objective, Role, Speakable, Spot, Topology,
 } from '@the-inclusionist/engine/core/contract.js';
 import type { Category } from '../rules/category.ts';
-import type { Wave } from '../rules/wave.ts';
+import type { RoundWave } from '../rules/round.ts';
 import { ROUND_GOAL } from '../rules/difficulty.ts';
 import { MAT_COLS, MAT_ROWS, cellOfSpot } from '../rules/grid.ts';
 
@@ -35,7 +35,7 @@ import { MAT_COLS, MAT_ROWS, cellOfSpot } from '../rules/grid.ts';
 export interface RoundView {
   readonly category: Category;
   /** The wave currently up, or `null` in the gap between waves. */
-  readonly wave: Wave | null;
+  readonly wave: RoundWave | null;
   /** Correct tiles hit so far this round. */
   readonly hits: number;
   /** Where the keyboard cursor sits, or `null` when nothing has focus. */
@@ -54,12 +54,20 @@ export interface DeclarationDeps {
 const TOPOLOGY: Topology = { kind: 'grid', cols: MAT_COLS, rows: MAT_ROWS };
 
 export function createWhackDeclaration(deps: DeclarationDeps): GameDeclaration {
-  /** The lit tile at `at`, or undefined. Off-mat spots resolve to cell -1 and match nothing. */
+  /**
+   * The LIVE tile at `at`, or undefined. Off-mat spots resolve to cell -1 and match nothing.
+   *
+   * ⚠️ UNRESOLVED ONLY, and it was not. A tile that has been answered is no longer on the mat, and
+   * treating it as though it were is what made `targetsOf` keep aiming the sonar at something the
+   * player had already collected, and `nameAt` keep announcing a number that had gone. Both were
+   * silent: the score was right, so nothing looked wrong.
+   */
   function tileAt(at: Spot) {
     const view = deps.view();
     if (!view.wave) return undefined;
     const cell = cellOfSpot(at);
-    return cell < 0 ? undefined : view.wave.tiles.find((t) => t.cell === cell);
+    if (cell < 0) return undefined;
+    return view.wave.tiles.find((t) => t.cell === cell && !t.resolved);
   }
 
   return {
@@ -112,7 +120,7 @@ export function createWhackDeclaration(deps: DeclarationDeps): GameDeclaration {
       const view = deps.view();
       if (!view.wave) return [];   // between waves. Empty is an answer, not an error.
       return view.wave.tiles
-        .filter((t) => t.correct)
+        .filter((t) => t.correct && !t.resolved)
         .map((t) => ({ x: t.cell % MAT_COLS, y: Math.floor(t.cell / MAT_COLS) }));
     },
   };
