@@ -29,6 +29,20 @@ export const en: Catalog = {
   'say.lost': 'Game over. {have} hits.',
   'say.crashed': 'The game stopped on an error. Reload the page.',
 
+  'title.start': 'Start',
+  'title.lead': 'Whack only what the round asks for.',
+
+  'result.won': 'You did it!',
+  'result.lost': 'Game over',
+  'result.score': 'Hits: {have} of {need}',
+  'result.level': 'Reached level {level}',
+  'result.again': 'Play again',
+  'result.change': 'Change options',
+
+  'opt.suddenDeath': 'Sudden death — one mistake ends it',
+  'opt.lives': 'Lives — three mistakes end it',
+  'opt.endless': 'No defeat — ends only on a win',
+
   'opt.difficulty': 'Difficulty',
   'opt.easy': 'Easy',
   'opt.medium': 'Medium',

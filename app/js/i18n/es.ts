@@ -29,6 +29,20 @@ export const es: Catalog = {
   'say.lost': 'Fin del juego. {have} aciertos.',
   'say.crashed': 'El juego se detuvo por un error. Recarga la página.',
 
+  'title.start': 'Comenzar',
+  'title.lead': 'Martilla solo lo que la ronda pide.',
+
+  'result.won': '¡Lo lograste!',
+  'result.lost': 'Fin del juego',
+  'result.score': 'Aciertos: {have} de {need}',
+  'result.level': 'Llegó al nivel {level}',
+  'result.again': 'Jugar de nuevo',
+  'result.change': 'Cambiar opciones',
+
+  'opt.suddenDeath': 'Muerte súbita — un error termina',
+  'opt.lives': 'Vidas — tres errores terminan',
+  'opt.endless': 'Sin derrota — solo termina al ganar',
+
   'opt.difficulty': 'Dificultad',
   'opt.easy': 'Fácil',
   'opt.medium': 'Medio',

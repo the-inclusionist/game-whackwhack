@@ -56,8 +56,13 @@ export const CAMERA = {
    */
   pitch: -0.9,
   yaw: 0,
-  /** Doubled with the source resolution, exactly as the chess game's was. */
-  zoom: 4.4,
+  /**
+   * ⚠️ RAISED FROM 4.4 AFTER PLAYING IT. Spike 0 fixed 4.4 while measuring GLYPH LEGIBILITY and
+   * never measured FRAMING — a scoping mistake in the spike. At 4.4 the mat occupies 55% of the
+   * canvas width and 61% of its height and floats in an empty field. 5.4 fills it, and the glyph,
+   * which is sized in world units, grows with it.
+   */
+  zoom: 5.4,
   /**
    * No offset. The chess game pushes its board left to clear a HUD column; this HUD sits along the
    * top and bottom instead, because a mat that is wider than it is deep leaves height, not width.

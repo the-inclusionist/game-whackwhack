@@ -383,6 +383,56 @@ add "the round keeps running after it is over" \
     "      if (ended || dtMs <= 0) return out;" \
     "      if (dtMs <= 0) return out;"
 
+add "the result screen loses its way forward" \
+    "$UI/screens.ts" \
+    "  card.append(score, level, again, change);" \
+    "  card.append(score, level);"
+
+add "the result screen offers only replaying, never changing options" \
+    "$UI/screens.ts" \
+    "  card.append(score, level, again, change);" \
+    "  card.append(score, level, again);"
+
+add "winning and losing show the same heading" \
+    "$UI/screens.ts" \
+    "    doc, i18n, labelKey: deps.outcome === 'won' ? 'result.won' : 'result.lost'," \
+    "    doc, i18n, labelKey: 'result.lost',"
+
+add "focus lands on a button instead of the heading" \
+    "$UI/screens.ts" \
+    "  heading.tabIndex = -1;" \
+    "  heading.tabIndex = -1; heading.focus = () => {};"
+
+add "the dialog stops being modal" \
+    "$UI/screens.ts" \
+    "  root.setAttribute('aria-modal', 'true');" \
+    "  root.setAttribute('aria-modal', 'false');"
+
+add "the title starts with a fixed category whatever was chosen" \
+    "$UI/screens.ts" \
+    "      category: deps.categories.find((c) => c.id === category.select.value) ?? deps.categories[0]," \
+    "      category: deps.categories[0],"
+
+add "the title ignores the chosen difficulty" \
+    "$UI/screens.ts" \
+    "      difficulty: difficulty.select.value as Difficulty," \
+    "      difficulty: 'medium' as Difficulty,"
+
+add "the selects lose their labels" \
+    "$UI/screens.ts" \
+    "  label.htmlFor = id;" \
+    "  label.htmlFor = 'nope';"
+
+add "an option is shown by its raw id" \
+    "$UI/screens.ts" \
+    "    deps.categories.map((c) => ({ value: c.id, label: i18n.t(c.nameKey) }))," \
+    "    deps.categories.map((c) => ({ value: c.id, label: c.id })),"
+
+add "the outcome stops reaching the stylesheet" \
+    "$UI/screens.ts" \
+    "  root.dataset.outcome = deps.outcome;" \
+    "  root.dataset.outcome = 'won';"
+
 add "the pitch clamp that keeps the mat clickable is removed" \
     "$RENDER/camera.ts" \
     "  return Math.min(PITCH_SHALLOWEST, Math.max(PITCH_STEEPEST, pitch));" \

@@ -57,16 +57,22 @@ body {
   box-sizing: border-box;
   display: flex;
   flex-wrap: wrap;
-  gap: calc(var(--ui-fs, 16px) * 0.8);
-  padding: calc(var(--ui-fs, 16px) * 0.35);
+  align-items: baseline;
+  gap: calc(var(--ui-fs, 16px) * 0.9);
+  padding: calc(var(--ui-fs, 16px) * 0.45);
   font-size: var(--ui-fs, 16px);
   line-height: 1.25;
-  color: #C9D1D9;
-  background: rgba(11, 15, 20, 0.82);
+  color: #FFFFFF;
+  background: rgba(11, 15, 20, 0.94);
   border-top: 1px solid #2B3A4A;
 }
 .hud p { margin: 0; }
-.hud-collect { font-weight: 600; color: var(--tile-lit); }
+.hud-collect { font-weight: 700; color: var(--tile-lit); }
+/* ⚠️ The score is the thing a player looks for to know the game is responding, so it is the
+   biggest and brightest item on the bar. At the previous weight it read as a caption, and a
+   caption is easy to mistake for decoration when nothing seems to be happening. */
+.hud-score { font-weight: 700; font-size: 1.15em; }
+.hud-lives { color: var(--tile-lit); }
 
 /* ========================= THE GRID MIRROR =========================
    Twenty real buttons, off-screen but not hidden: `display: none` and `visibility: hidden` both
@@ -110,6 +116,74 @@ body {
   font-size: 0.85em;
   margin-left: auto;
 }
+
+/* ========================= THE TITLE AND RESULT SCREENS =========================
+   Modal, and covering the whole viewport rather than only the region: the region is `inert` while
+   one of these is up, and a dialog that left the dead board visible beside it would read as though
+   the game were still going. */
+.screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 15, 20, 0.92);
+  z-index: 10;
+}
+.screen-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9em;
+  min-width: min(90vw, 26em);
+  padding: 1.6em;
+  background: #131A24;
+  border: 1px solid #2B3A4A;
+  border-radius: 4px;
+}
+.screen-title {
+  margin: 0;
+  font-size: 1.8em;
+  color: var(--tile-lit);
+}
+/* The heading takes focus so a reader announces WHAT this screen is before what can be done on
+   it. It is not interactive, so it gets a focus ring and nothing else. */
+.screen-title:focus-visible { outline: 3px solid var(--tile-lit); outline-offset: 4px; }
+.screen[data-outcome="lost"] .screen-title { color: #E9A2A2; }
+.screen-lead { margin: 0; color: #C9D1D9; }
+.screen-sub { margin: 0; color: #8B949E; font-size: 0.9em; }
+
+.screen-row { display: flex; flex-direction: column; gap: 0.25em; margin: 0; }
+.screen-row label { color: #8B949E; font-size: 0.9em; }
+/* --tap is 22*k, 44 CSS px at the k=2 floor: the WCAG 2.5.5 target size. These screens sit OUTSIDE
+   #game-region, where that variable is set, so they carry the floor themselves. */
+.screen select,
+.screen button {
+  min-height: 44px;
+  font: inherit;
+  padding: 0.4em 0.8em;
+  border-radius: 3px;
+}
+.screen select {
+  color: #C9D1D9;
+  background: #0B0F14;
+  border: 1px solid #2B3A4A;
+}
+.screen-action {
+  margin-top: 0.4em;
+  font-weight: 600;
+  color: #0B0F14;
+  background: var(--tile-lit);
+  border: 1px solid var(--tile-lit);
+  cursor: pointer;
+}
+.screen-secondary {
+  color: #C9D1D9;
+  background: transparent;
+  border: 1px solid #2B3A4A;
+  cursor: pointer;
+}
+.screen button:focus-visible,
+.screen select:focus-visible { outline: 3px solid var(--tile-lit); outline-offset: 2px; }
 
 /* ========================= REDUCED MOTION =========================
    There is nothing here that pulses or blinks, and that is the point: the original game signals a

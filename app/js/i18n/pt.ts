@@ -36,6 +36,20 @@ export const pt: Catalog = {
   'say.lost': 'Fim de jogo. {have} acertos.',
   'say.crashed': 'O jogo parou por um erro. Recarregue a página.',
 
+  'title.start': 'Começar',
+  'title.lead': 'Martele só o que a rodada pede.',
+
+  'result.won': 'Você conseguiu!',
+  'result.lost': 'Fim de jogo',
+  'result.score': 'Acertos: {have} de {need}',
+  'result.level': 'Chegou ao nível {level}',
+  'result.again': 'Jogar de novo',
+  'result.change': 'Mudar opções',
+
+  'opt.suddenDeath': 'Morte súbita — um erro encerra',
+  'opt.lives': 'Vidas — três erros encerram',
+  'opt.endless': 'Sem derrota — só termina ao vencer',
+
   'opt.difficulty': 'Dificuldade',
   'opt.easy': 'Fácil',
   'opt.medium': 'Médio',

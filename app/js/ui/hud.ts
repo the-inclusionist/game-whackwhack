@@ -39,11 +39,16 @@ export interface Hud {
   readonly root: HTMLElement;
   /** Re-reads everything. Cheap, and called when something changed rather than every frame. */
   refresh(): void;
+  /** The mode can change between rounds, and the lives line reads differently for each. */
+  setDefeat(mode: DefeatMode): void;
   destroy(): void;
 }
 
 export function createHud(deps: HudDeps): Hud {
   const { doc, i18n } = deps;
+  // Held rather than read from `deps` each time: the mode changes between rounds, and the HUD
+  // outlives a round.
+  let defeat = deps.defeat;
 
   const root = doc.createElement('div');
   root.className = 'hud';
@@ -91,7 +96,7 @@ export function createHud(deps: HudDeps): Hud {
       // `endless` and `sudden-death` have no life count to show, and showing "0" or an empty
       // slot would both read as a state rather than as an absence. The mode's own name does.
       lives.textContent = i18n.t(
-        deps.defeat === 'endless' ? 'hud.endless' : 'hud.suddenDeath',
+        defeat === 'endless' ? 'hud.endless' : 'hud.suddenDeath',
       );
     } else {
       lives.textContent = i18n.t('hud.lives', { lives: left });
@@ -103,6 +108,7 @@ export function createHud(deps: HudDeps): Hud {
   return {
     root,
     refresh,
+    setDefeat(mode) { defeat = mode; refresh(); },
     destroy() { root.remove(); },
   };
 }
