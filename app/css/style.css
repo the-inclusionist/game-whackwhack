@@ -353,7 +353,9 @@ body {
 }
 .screen-title {
   margin: 0;
-  font-size: 1.4em;
+  /* ⚠️ Was `1.4em` of an inherited 14px = 19.6px, on every screen size there is. The title
+     screen overrides this entirely (see `.title-mark`); this is the RESULT screen's. */
+  font-size: var(--screen-fs);
   line-height: 1.5;
   text-align: center;
   color: var(--tile-lit);
@@ -377,8 +379,21 @@ body {
   padding-left: calc((100vw - var(--region-w)) / 2);
   padding-right: calc((100vw - var(--region-w)) / 2 + var(--region-w) * var(--hud-fraction));
 }
-/* The track the five letters of "Whack" are sized against. */
-.screen--title .screen-card { --logo-track: calc(var(--region-w) * (1 - var(--hud-fraction))); }
+/* ⚠️ DEFINED ON EVERY SCREEN CARD, not only the title's, because the result screen has the same
+   problem and had it worse. Its buttons were `font: inherit` off a 14px body -- the words "Jogar
+   de novo" rendered smaller than the keyboard help behind them on any screen bigger than a
+   laptop. One track, one scale, both screens.
+
+   The title uses it as the width five letters of "Whack" must fill; the result screen uses it only
+   as a size to divide down from. It excludes the HUD column in both cases, which the result screen
+   does not strictly need -- but a second variable that differs by 27.5% is a second thing to keep
+   in step, and nothing on the result screen wants that width anyway. */
+.screen-card {
+  --logo-track: calc(var(--region-w) * (1 - var(--hud-fraction)));
+  /* One "Whack" is `--logo-track * 0.15`. A quarter of that is the result screen's base: about
+     35 px on the 1366-wide Chromebook this targets, where 14 px was the whole problem. */
+  --screen-fs: calc(var(--logo-track) * 0.15 / 4);
+}
 .screen--title .screen-card {
   background: none;
   border: 0;
@@ -560,11 +575,14 @@ body {
   margin: 0;
   font-family: 'Press Start 2P', monospace;
   font-size: 0.9em;
+  font-size: calc(var(--screen-fs) * 0.6);
   color: var(--title-pink);
   text-shadow: 0 0 0.5em var(--title-glow);
 }
-.screen-lead { margin: 0; color: #C9D1D9; font-size: 0.8em; line-height: 1.7; }
-.screen-sub { margin: 0; color: #8B949E; font-size: 0.9em; }
+/* Everything below is a fraction of `--screen-fs`, so the result screen has ONE number to move
+   and the relationships between its lines survive the move. */
+.screen-lead { margin: 0; color: #C9D1D9; font-size: calc(var(--screen-fs) * 0.6); line-height: 1.7; }
+.screen-sub { margin: 0; color: #8B949E; font-size: calc(var(--screen-fs) * 0.5); }
 
 .screen-row { display: flex; flex-direction: column; gap: 0.25em; margin: 0; }
 .screen-row label { color: #8B949E; font-size: 0.9em; }
@@ -587,6 +605,12 @@ body {
   background: var(--ground);
   border: 1px solid #2B3A4A;
 }
+/* ⚠️ `font-size` here and NOT in the `.screen button` shorthand above: that rule is `font:
+   inherit`, which resets size along with family, and these two selectors are (0,1,0) against its
+   (0,1,1). Same specificity trap that had every button on both screens in system-ui -- stated
+   again here because the fix is invisible from this end of the file. */
+.screen .screen-action,
+.screen .screen-secondary { font-size: calc(var(--screen-fs) * 0.62); }
 .screen-action {
   margin-top: 0.4em;
   font-weight: 600;
