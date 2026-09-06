@@ -110,30 +110,48 @@ add "the grid turns column-major" \
 
 add "the mat changes shape" \
     "$RULES/grid.ts" \
-    "export const MAT_COLS = 5;" \
-    "export const MAT_COLS = 4;"
+    "export const MAT_COLS = 4;" \
+    "export const MAT_COLS = 5;"
 
 RENDER=app/js/render
 
-add "the unlit tile goes back to the colour spike 0 rejected" \
+add "the unlit tile stops separating from the ground" \
     "$RENDER/palette.ts" \
-    "export const TILE_IDLE = '#686878';" \
-    "export const TILE_IDLE = '#2E3B4E';"
+    "export const TILE_IDLE = '#8A4AA6';" \
+    "export const TILE_IDLE = '#3A1438';"
 
 add "the lit tile stops separating from the unlit one" \
     "$RENDER/palette.ts" \
-    "export const TILE_LIT = '#F2D479';" \
-    "export const TILE_LIT = '#8A8A98';"
+    "export const TILE_LIT = '#FFFFFF';" \
+    "export const TILE_LIT = '#C98FD8';"
 
 add "the ink stops being readable on its tile" \
     "$RENDER/palette.ts" \
-    "export const INK = '#1A1206';" \
-    "export const INK = '#6A5A30';"
+    "export const INK = '#1C041B';" \
+    "export const INK = '#8A6A88';"
 
+# ⚠️ THE ONE MUTATION HERE THAT PASSES PLAIN sRGB CONTRAST, and the only one that can prove the
+# colour-vision loop in tests/palette.node.test.ts is load-bearing rather than decorative. Every
+# other palette mutation fails in normal vision too, so all of them would still be caught even if
+# `ratioIn` ignored its `mode` argument entirely.
+#
+# A cyan lit tile against the purple unlit one measures, on the Machado (2009) matrices:
+#
+#     normal 4.37   protan 4.66   deuter 2.91   tritan 5.21
+#
+# It clears the 3:1 floor for a typical viewer and collapses for a deuteranope -- a separation
+# carried by HUE where this palette's rule is that it must be carried by LUMINANCE. Every other
+# assertion in the file still passes in every mode (ink/lit is 9.51 at its worst), so that one
+# deuter cell is the single thing that fails.
+#
+# ⚠️ The first attempt was a green, #38784A on TILE_IDLE, and it ESCAPED: at luminance 0.148
+# against a ground of 0.004 it separates by luminance after all. Against a near-black ground a
+# hue-only failure is not constructible at all, which is why this moved to the lit/unlit pair,
+# where both colours are light. Written down because the escape was the useful part.
 add "the palette separates by hue instead of luminance" \
     "$RENDER/palette.ts" \
-    "export const TILE_IDLE = '#686878';" \
-    "export const TILE_IDLE = '#38784A';"
+    "export const TILE_LIT = '#FFFFFF';" \
+    "export const TILE_LIT = '#00F8F8';"
 
 add "the source resolution drops back to the engine's" \
     "$RENDER/resolution.ts" \
@@ -741,7 +759,30 @@ add "setLit stops clearing the tiles that were up before" \
     "        if (on) anchors[cell].translate.y = -TILE_RISE;"
 
 TO_FILE="$(mktemp)"
-trap 'rm -f "$TO_FILE"' EXIT
+
+# ========================= AN INTERRUPTED RUN MUST NOT LEAVE MUTATED SOURCE =========================
+# ⚠️ THIS TRAP USED TO CLEAN UP THE TEMP FILE AND NOTHING ELSE, and the omission bit three times in
+# one afternoon. The loop below copies a source file to `.bak`, edits the original, runs the suite,
+# and restores. Kill it anywhere in the middle -- Ctrl+C, a stopped background task, a closed
+# terminal -- and the file is left BROKEN on disk with a `.bak` beside it, silently. Twice it was
+# `ui/grid-mirror.ts` and once `rules/difficulty.ts`; each time it was found by `git status` minutes
+# later, and each time it could as easily have been committed.
+#
+# `MUTATING` names the file that is mutated RIGHT NOW, or is empty between mutations. `restore` is
+# idempotent, which matters because an `exit` inside the INT handler fires the EXIT trap as well.
+MUTATING=""
+restore() {
+  if [ -n "$MUTATING" ] && [ -f "$MUTATING.bak" ]; then
+    mv "$MUTATING.bak" "$MUTATING"
+    echo
+    echo "interrupted - restored $MUTATING"
+  fi
+  MUTATING=""
+  rm -f "$TO_FILE"
+}
+trap 'restore' EXIT
+trap 'restore; exit 130' INT
+trap 'restore; exit 143' TERM
 
 # ⚠️ THE BASELINE MUST BE GREEN, and this check exists because its absence produced a lie.
 # A run with one already-failing test reported 58 of 58 mutations "caught" — every mutation looked
@@ -762,6 +803,9 @@ escaped=0
 for i in "${!NAMES[@]}"; do
   f="${FILES[$i]}"
   cp "$f" "$f.bak"
+  # Set AFTER the copy: a trap that fires between the two would otherwise try to restore from a
+  # `.bak` that does not exist yet. `restore` checks for the file anyway, and both guards are cheap.
+  MUTATING="$f"
 
   # The replacement goes through a FILE, never through argv: a multi-line argument is truncated
   # at the first newline on the way to a Windows node process, and when the surviving line equals
@@ -771,6 +815,7 @@ for i in "${!NAMES[@]}"; do
   if ! node tests/mutate.cjs "$f" "${FROMS[$i]}" --to-file "$TO_FILE"; then
     echo "SKIP  (anchor drifted) - ${NAMES[$i]}"
     mv "$f.bak" "$f"
+    MUTATING=""
     escaped=$((escaped + 1))
     continue
   fi
@@ -783,8 +828,13 @@ for i in "${!NAMES[@]}"; do
     caught=$((caught + 1))
   fi
   mv "$f.bak" "$f"
+  MUTATING=""
 done
 
 echo
 echo "mutations caught: $caught   escaped: $escaped"
+# A SKIP counts as an escape on purpose. An anchor that no longer matches its file is a gate that
+# has stopped being checked, and it fails silently in both directions: the mutation is never
+# applied, so the suite stays green, so the run looks clean. Five of these had been skipping since
+# the palette was re-measured and the mat turned 4x5.
 [ "$escaped" -eq 0 ]
