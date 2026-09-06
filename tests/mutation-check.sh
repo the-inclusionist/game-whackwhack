@@ -247,6 +247,30 @@ add "a lit tile rises by a hairline" \
     "export const TILE_RISE = 7;" \
     "export const TILE_RISE = 0.4;"
 
+# ========================= THE FRAMING =========================
+# The two failures the Dev reported by eye, now reachable by a mutation: a mat that floats in an
+# empty field (spike 0's zoom of 4.4) and a mat whose near row runs off the bottom (5.4 once the
+# board turned four wide and five deep).
+add "the mat floats in an empty field again" \
+    "$RENDER/zdog-stage.ts" \
+    "  zoom: 5.0," \
+    "  zoom: 3.6,"
+
+add "the near row runs off the bottom of the frame" \
+    "$RENDER/zdog-stage.ts" \
+    "  zoom: 5.0," \
+    "  zoom: 6.2,"
+
+add "the mat slides back under the HUD column" \
+    "$RENDER/zdog-stage.ts" \
+    "  offsetX: -17," \
+    "  offsetX: 0,"
+
+add "the mat is lifted off centre for a HUD that is no longer at the bottom" \
+    "$RENDER/zdog-stage.ts" \
+    "  offsetY: 0," \
+    "  offsetY: -6,"
+
 add "the camera pitch flattens the mat" \
     "$RENDER/zdog-stage.ts" \
     "  pitch: -0.9," \
