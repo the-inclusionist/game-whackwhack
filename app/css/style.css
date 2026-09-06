@@ -164,38 +164,79 @@ body {
   border: 0;
   gap: 1.2em;
 }
+/* ========================= THE TWO TYPEFACES =========================
+   ⚠️ VENDORED, not linked from Google Fonts. This game is offline-first — it ships as a PWA to
+   school hardware — and a `<link>` to fonts.googleapis.com makes the title depend on a network
+   the classroom may not have. Both faces are OFL, so carrying the files is permitted; together
+   they are 49 KB, which is less than one of the engine's own text faces. */
+@font-face {
+  font-family: 'Press Start 2P';
+  src: url('../vendor/fonts/press-start-2p-400.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Playwrite BR';
+  src: url('../vendor/fonts/playwrite-br-400.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+
 .screen--title .screen-title {
-  font-size: clamp(2rem, 7vw, 4.2rem);
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  line-height: 0.95;
-  /* ⚠️ The name is TWO LINES and the break lives in the catalogue as a newline, not as markup.
-     A `<br>` would mean building the heading from HTML, and a title that arrives as a string is
-     the reason `t()` can stay a plain string lookup. `pre-line` is what renders it. */
-  white-space: pre-line;
-  color: var(--tile-lit);
-  /* Two shadows in the original's own magenta and cyan: the DDR chromatic-aberration look, and
-     the reason the accent may be used here — this is large type. */
-  text-shadow: 0.05em 0.05em 0 var(--accent), -0.03em -0.03em 0 #35E7F0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2em;
   animation: title-float 3.2s ease-in-out infinite;
+}
+
+/* "Whack / Whack" — the arcade half. The break is a newline in the catalogue rather than markup,
+   so `t()` stays a plain string lookup; `pre-line` renders it. */
+.title-mark {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(1.4rem, 5.5vw, 3.2rem);
+  line-height: 1.35;
+  text-align: center;
+  white-space: pre-line;
+  /* ⚠️ THE OUTLINE CARRIES THE CONTRAST, NOT THE FILL. Blue on this ground measures 1.27:1 — very
+     nearly invisible, for everyone. White on it is 19.37:1. So the blue is decoration sitting
+     inside a stroke that does the legibility work, and `paint-order` is what keeps the stroke
+     OUTSIDE the letterform instead of eating half of it. */
+  color: #2B4CFF;
+  -webkit-text-stroke: 0.09em #FFFFFF;
+  paint-order: stroke fill;
+}
+
+/* "Schoolution" — the handwriting half. The joke of the name is the swap: the same word, moved
+   from the wall to the blackboard. */
+.title-school {
+  font-family: 'Playwrite BR', cursive;
+  font-size: clamp(1.6rem, 6vw, 3.6rem);
+  line-height: 1.1;
+  color: #FFFFFF;
+  text-shadow: 0.04em 0.04em 0 var(--accent);
 }
 @keyframes title-float {
   0%, 100% { transform: translateY(-0.06em); }
   50%      { transform: translateY(0.06em); }
 }
 
+/* ⚠️ A WORD, NOT A BUTTON — in appearance only. It is still a `<button>`, so Enter, Space, the
+   focus ring and the announced role come from the platform; only the chrome is removed. Building
+   it as a div would mean re-implementing all four, and the usual result is that Enter works and
+   Space does not. The tap target stays 44 px (WCAG 2.5.5) through the padding. */
 .title-play {
-  font-size: clamp(1.2rem, 3vw, 2rem);
-  font-weight: 800;
-  letter-spacing: 0.25em;
-  padding: 0.5em 1.6em;
-  color: var(--ground);
-  background: var(--tile-lit);
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(0.8rem, 2vw, 1.2rem);
+  letter-spacing: 0.15em;
+  padding: 0.7em 1.2em;
+  color: #FFFFFF;
+  background: none;
   border: 0;
-  border-radius: 999px;
   cursor: pointer;
   animation: play-pulse 1.6s ease-in-out infinite;
 }
+.title-play:hover { color: var(--tile-lit); }
 /* ⚠️ A pulse in SIZE, never in brightness, and never a blink. The original blinks its slabs with
    no guard at all, which is a photosensitivity risk under WCAG 2.3.1; a slow scale is the same
    invitation without the flash. The reduced-motion block at the bottom stops even this. */
@@ -252,6 +293,32 @@ body {
 }
 .screen button:focus-visible,
 .screen select:focus-visible { outline: 3px solid var(--tile-lit); outline-offset: 2px; }
+
+/* ========================= THE POINTER IS A BLUE BALL =========================
+   As in the original. ⚠️ It is drawn ON TOP of the real cursor rather than replacing it: hiding
+   the system cursor with `cursor: none` would take away the one pointer a player with low vision
+   may have enlarged in their own operating system, and no page-drawn dot can restore that. So the
+   system cursor stays and the ball follows it — decoration over a control, never instead of one.
+
+   `pointer-events: none` is load-bearing: without it the ball sits under the mouse and eats every
+   click meant for the mat. */
+.pointer-ball {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border-radius: 50%;
+  background: #2B4CFF;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 0 12px 2px rgba(43, 76, 255, 0.7);
+  pointer-events: none;
+  z-index: 20;
+  will-change: transform;
+}
+/* A pointing device is what this is for. A touch screen has no hovering pointer to decorate, and
+   a drawn dot there would be a mark that never moves. */
+@media (hover: none) { .pointer-ball { display: none; } }
 
 /* ========================= REDUCED MOTION =========================
    There is nothing here that pulses or blinks, and that is the point: the original game signals a

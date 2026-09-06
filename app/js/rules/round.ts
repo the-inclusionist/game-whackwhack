@@ -79,6 +79,14 @@ export interface Round {
   advance(dtMs: number): RoundEvent[];
   /** The one door in, for the pointer and the keyboard alike. */
   hit(cell: number): RoundEvent[];
+  /**
+   * How much of the current wave's deadline is still unspent, 1 down to 0. `1` when no wave is up.
+   *
+   * ⚠️ This is the only way OUT of the round for the countdown, and it is deliberately a fraction
+   * rather than the milliseconds: the renderer needs "how far through", not "how long", and giving
+   * it the raw number would invite a second copy of the deadline on the other side to divide by.
+   */
+  timeLeftFraction(): number;
 }
 
 /**
@@ -208,6 +216,11 @@ export function createRound(options: RoundOptions): Round {
 
     view: () => ({ category: options.category, wave, hits, focus }),
     setFocus(at) { focus = at; },
+
+    timeLeftFraction() {
+      if (!wave || wave.deadlineMs <= 0) return 1;
+      return Math.min(1, Math.max(0, timeLeft / wave.deadlineMs));
+    },
 
     advance(dtMs: number): RoundEvent[] {
       const out: RoundEvent[] = [];

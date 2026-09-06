@@ -232,6 +232,18 @@ function boot(): void {
     const now = performance.now();
 
     mat.setLit(live.map((t) => t.cell));
+
+    // ⚠️ THE COLOUR IS THE CLOCK. Height says a tile is in play; cooling says for how much longer,
+    // which nothing said before — a player could only learn the deadline by losing to it. And the
+    // tile settles as it cools, so the fact has a non-colour channel too (WCAG 1.4.1).
+    const heat = round?.timeLeftFraction() ?? 1;
+    for (const tile of live) {
+      // ⚠️ RAISE FIRST. `setRaise` also writes the colour — it has to, so a sinking tile cools back
+      // to idle — so calling it after `setHeat` would throw the cooling away every frame.
+      mat.setRaise(tile.cell, 0.75 + 0.25 * heat);
+      mat.setHeat(tile.cell, heat);
+    }
+
     // A tile that has just been answered sinks as its number fades, so the change is something a
     // child SEES happen rather than something they find already done.
     for (const leaving of fades.active(now)) mat.setRaise(leaving.cell, leaving.alpha);
@@ -317,6 +329,37 @@ function boot(): void {
     invalidate();
   }
 
+  /**
+   * ========================= THE MAT LEANS TOWARDS THE POINTER =========================
+   * The original's signature, restored — and ADDED to the keyboard nudge rather than replacing it.
+   *
+   * ⚠️ That distinction is the whole accessibility argument. The original tilts with `mousemove`
+   * alone, which excludes a keyboard and a touch screen entirely; removing the tilt to satisfy
+   * WCAG 2.5.7 was the mistake I made first, and it made the game poorer for everyone instead of
+   * better for anyone. Two ways into one control is what the guideline actually asks for.
+   *
+   * The pointer sets the lean ABSOLUTELY — it is a position, not a gesture — so it does not
+   * accumulate against the nudge; the last input to speak wins, which is what a hand expects.
+   */
+  const ball = doc.createElement('div');
+  ball.className = 'pointer-ball';
+  ball.setAttribute('aria-hidden', 'true');
+  doc.body.appendChild(ball);
+
+  window.addEventListener('pointermove', (event: PointerEvent) => {
+    // `transform` rather than left/top: it stays on the compositor and cannot force a layout on
+    // every mouse move, which on school hardware is the difference between smooth and not.
+    ball.style.transform = `translate(${event.clientX}px, ${event.clientY}px)`;
+
+    if (screen) return;   // the mat is not the subject while a screen is up
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    // −1 … 1 across the canvas, clamped: a pointer outside it should lean no further than its edge.
+    const nx = Math.max(-1, Math.min(1, ((event.clientX - rect.left) / rect.width) * 2 - 1));
+    const ny = Math.max(-1, Math.min(1, ((event.clientY - rect.top) / rect.height) * 2 - 1));
+    applyCamera(camera.point(-nx, -ny));
+  });
+
   // 8. LAYOUT, and the resize that keeps the scale a whole number of physical pixels.
   applyLayout({ doc, win: window });
   window.addEventListener('resize', () => { applyLayout({ doc, win: window }); invalidate(); });
@@ -328,8 +371,9 @@ function boot(): void {
     // behind a result screen would charge a player for a mistake they were not allowed to make.
     if (round && !screen) handle(round.advance(dt * FRAME_MS));
     // A fade in progress is a reason to draw even when nothing else changed — the dirty flag is
-    // about STATE, and an animation is state changing continuously.
-    if (fades.busy(performance.now())) invalidate();
+    // about STATE, and an animation is state changing continuously. So is a wave's countdown: the
+    // tiles cool every frame, and without this they would cool only when something else happened.
+    if (fades.busy(performance.now()) || round?.wave()) invalidate();
     if (!dirty) return;
     dirty = false;
     draw();

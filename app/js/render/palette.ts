@@ -82,6 +82,39 @@ export const INK = '#1C041B';
 export const ACCENT = '#C933FF';
 
 /**
+ * ========================= A LIT TILE COOLS AS ITS TIME RUNS OUT =========================
+ * The original animates its slab's colour over the slab's lifetime, and it is the only thing on
+ * screen that says how long is left. This game had NO visual channel for that at all — the tile
+ * rose and then simply vanished — so a player could only learn the deadline by losing to it.
+ *
+ * ⚠️ AND COLOUR IS NOT THE ONLY CHANNEL CARRYING IT. Height carries "this tile is in play" and
+ * cooling carries "and not for much longer"; WCAG 1.4.1 is about not encoding information in
+ * colour ALONE, and the tile also sinks as it cools. Someone who cannot see the hue shift still
+ * sees the tile settle.
+ *
+ * ⚠️ THE COLD END IS BOUNDED BY THE NUMBER, NOT BY TASTE. Every value along the way still has to
+ * carry the digit at the 7:1 this game holds itself to, and that is what stops the cooling being
+ * dramatic: the darkest colour that keeps 7:1 measures exactly 7.00, so this one sits just inside
+ * it at 7.87 and the whole hot-to-cold journey is a 1.34:1 shift. Visible, and no more.
+ *
+ * ⚠️ AND IT IS DELIBERATELY NOT NEAR THE IDLE COLOUR. Distinguishing "in play" from "not" is
+ * HEIGHT's job — the tile is raised the whole time — so the colour is free to spend its whole
+ * range on TIME. An earlier attempt cooled all the way towards the idle shade and cost the number
+ * its legibility to say something height was already saying.
+ */
+export const TILE_LIT_COLD = '#CC8FF2';
+
+/** Linear mix of two hex colours, `t` from 0 (a) to 1 (b). */
+export function mixHex(a: string, b: string, t: number): string {
+  const x = rgbOf(a);
+  const y = rgbOf(b);
+  const k = Math.min(1, Math.max(0, t));
+  const channel = (i: 0 | 1 | 2): string =>
+    Math.round(x[i] + (y[i] - x[i]) * k).toString(16).padStart(2, '0');
+  return `#${channel(0)}${channel(1)}${channel(2)}`.toUpperCase();
+}
+
+/**
  * Stroke width in world units.
  *
  * Carried from the chess game's measured knee. Canvas2D antialiases every path and gives no way

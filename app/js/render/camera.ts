@@ -48,6 +48,15 @@ export const NUDGE_PITCH = Math.PI / 36;
 /** Three nudges either side of square-on. See the note above on why this is bounded at all. */
 export const YAW_LIMIT = NUDGE_YAW * 3;
 
+/**
+ * How far the pointer may tip the mat from its default pitch, either way.
+ *
+ * Three nudges' worth, so the two ways of holding this control reach the same place — a player who
+ * learns the lean with a mouse and then uses the keyboard should not find a view they cannot get
+ * back to, and the reverse.
+ */
+export const POINT_PITCH_RANGE = NUDGE_PITCH * 3;
+
 export interface CameraState {
   readonly pitch: number;
   readonly yaw: number;
@@ -57,6 +66,14 @@ export type NudgeDirection = 'left' | 'right' | 'up' | 'down';
 
 export interface Camera {
   nudge(direction: NudgeDirection): CameraState;
+  /**
+   * Leans towards a pointer, in NORMALISED coordinates: −1 … 1 on each axis, 0 being square-on.
+   *
+   * ⚠️ ABSOLUTE, not relative — it is a position, not a gesture. That is what keeps it from
+   * accumulating against `nudge`: whichever input spoke last decides where the mat is, which is
+   * what a hand expects of a control it can reach two ways.
+   */
+  point(x: number, y: number): CameraState;
   set(state: CameraState): CameraState;
   reset(): CameraState;
   snapshot(): CameraState;
@@ -92,6 +109,16 @@ export function createCamera(initial: CameraState = { pitch: PITCH_DEFAULT, yaw:
       else if (direction === 'right') yaw = clampYaw(yaw - NUDGE_YAW);
       else if (direction === 'up') pitch = clampPitch(pitch + NUDGE_PITCH);
       else pitch = clampPitch(pitch - NUDGE_PITCH);
+      return snapshot();
+    },
+
+    point(x, y) {
+      const nx = Math.max(-1, Math.min(1, x));
+      const ny = Math.max(-1, Math.min(1, y));
+      // The pointer reaches the SAME limits the keyboard does, so neither way of holding the
+      // control shows the player something the other cannot.
+      yaw = clampYaw(nx * YAW_LIMIT);
+      pitch = clampPitch(PITCH_DEFAULT + ny * POINT_PITCH_RANGE);
       return snapshot();
     },
 

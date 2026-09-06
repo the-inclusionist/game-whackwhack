@@ -129,6 +129,36 @@ export function createTitleScreen(deps: TitleScreenDeps): Screen {
   // nearly opaque.
   root.dataset.veil = 'thin';
 
+  /**
+   * ========================= THE NAME IS TWO TYPEFACES =========================
+   * "Whack / Whack" in Press Start 2P — the arcade face the original's parody lives in — and
+   * "Schoolution" in Playwrite BR, which is the handwriting a Brazilian child is taught to form.
+   * The joke of the name is the swap: the same word, moved from the wall to the blackboard.
+   *
+   * ⚠️ The heading keeps its ACCESSIBLE name from `game.title` on one line. Splitting the visible
+   * text into two spans is a typographic decision, and a screen reader should not have to hear it.
+   */
+  heading.textContent = '';
+  heading.setAttribute('aria-label', i18n.t('game.title'));
+
+  const mark = doc.createElement('span');
+  mark.className = 'title-mark';
+  mark.textContent = i18n.t('title.mark');
+
+  const school = doc.createElement('span');
+  school.className = 'title-school';
+  school.textContent = i18n.t('title.school');
+
+  heading.append(mark, school);
+
+  /**
+   * ⚠️ STILL A BUTTON, and it only stops LOOKING like one.
+   *
+   * The word "Jogar" is what the original shows, and a `<div>` with a click handler would match it
+   * exactly — while losing Enter, Space, the focus ring, the role a screen reader announces and the
+   * place it takes in the tab order. Every one of those would then have to be re-implemented here,
+   * and the usual outcome is that Enter works and Space does not.
+   */
   const play = doc.createElement('button');
   play.type = 'button';
   play.className = 'title-play';

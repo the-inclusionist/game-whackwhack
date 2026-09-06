@@ -23,7 +23,7 @@
 
 import Zdog, { type Anchor, type Rect } from 'zdog';
 import { MAT_CELLS, MAT_COLS, MAT_ROWS } from '../rules/grid.ts';
-import { STROKE, TILE_IDLE, TILE_LIT } from './palette.ts';
+import { STROKE, TILE_IDLE, TILE_LIT, TILE_LIT_COLD, mixHex } from './palette.ts';
 import { TILE } from './resolution.ts';
 import { TILE_RISE } from './zdog-stage.ts';
 import type { Quad } from './picking.ts';
@@ -40,6 +40,14 @@ export interface MatView {
    * instead of blinking out of existence between two frames.
    */
   setRaise(cell: number, fraction: number): void;
+  /**
+   * How much of this tile's time is left, 1 down to 0. Cools its colour towards `TILE_LIT_COLD`.
+   *
+   * Separate from `setRaise` because they answer different questions — raise says whether the tile
+   * is in play, heat says for how much longer — and a tile that is fading out after being answered
+   * changes one without the other.
+   */
+  setHeat(cell: number, fraction: number): void;
   /** The projected quads, in cell order. Valid after the stage has run `update()`. */
   quads(): Quad[];
   destroy(): void;
@@ -94,9 +102,14 @@ export function createMat(parent: Anchor): MatView {
       if (!anchor) return;
       const amount = Math.min(1, Math.max(0, fraction));
       anchor.translate.y = -TILE_RISE * amount;
-      // The colour follows the height, so a sinking tile also cools back to the idle shade rather
-      // than staying gold until the instant it lands.
       faces[cell].color = amount > 0 ? TILE_LIT : TILE_IDLE;
+    },
+
+    setHeat(cell: number, fraction: number) {
+      const face = faces[cell];
+      if (!face) return;
+      // `1 - heat` because the mix runs from the hot colour towards the cold one as time is spent.
+      face.color = mixHex(TILE_LIT, TILE_LIT_COLD, 1 - Math.min(1, Math.max(0, fraction)));
     },
 
     quads(): Quad[] {

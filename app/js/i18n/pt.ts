@@ -9,7 +9,7 @@
 import type { Catalog } from './types.ts';
 
 export const pt: Catalog = {
-  'game.title': 'WhackWhack\nSchoolution',
+  'game.title': 'WhackWhack Schoolution', 'title.mark': 'Whack\nWhack', 'title.school': 'Schoolution',
 
   'mat.label': 'Tapete do jogo',
   'mat.cell': 'coluna {col}, linha {row}, {content}',
