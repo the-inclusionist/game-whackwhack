@@ -25,7 +25,7 @@ export const en: Catalog = {
   'hud.suddenDeath': 'Sudden death',
   'hud.collect': 'Collect: {what}', 'hud.help': 'Arrows move · Enter whacks · Shift+arrows lean the mat',
 
-  'say.waveLit': 'Lit up: {values}. Collect {what}.',
+  'say.tileLit': '{value} is up. Collect {what}.',
   'say.hit': 'Right, {value}.',
   'say.wrongTile': 'Wrong, {value} is not what was asked.',
   'say.missed': 'Missed: {value}.',

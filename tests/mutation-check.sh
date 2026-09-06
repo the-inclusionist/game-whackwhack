@@ -21,36 +21,6 @@ I18N=app/js/i18n
 NAMES=(); FILES=(); FROMS=(); TOS=()
 add() { NAMES+=("$1"); FILES+=("$2"); FROMS+=("$3"); TOS+=("$4"); }
 
-add "levelAt drops the clamp to one" \
-    "$RULES/difficulty.ts" \
-    "return Math.max(1, Math.ceil(elapsedMs / LEVEL_MS));" \
-    "return Math.ceil(elapsedMs / LEVEL_MS);"
-
-add "the decay factor shifts off the original curve" \
-    "$RULES/difficulty.ts" \
-    "return Math.max(0, 9000 - 9000 * 0.22 * level) + 5000;" \
-    "return Math.max(0, 9000 - 9000 * 0.2 * level) + 5000;"
-
-add "waveDeadlineMs loses its five-second floor" \
-    "$RULES/difficulty.ts" \
-    "return Math.max(0, 9000 - 9000 * 0.22 * level) + 5000;" \
-    "return 9000 - 9000 * 0.22 * level + 5000;"
-
-add "a rounding call is put back to absorb drift" \
-    "$RULES/difficulty.ts" \
-    "return Math.max(0, 9000 - 9000 * 0.22 * level) + 5000;" \
-    "return Math.round(Math.max(0, 9000 - 9000 * 0.219 * level) + 5000);"
-
-add "the level turns every second instead of every fifteen" \
-    "$RULES/difficulty.ts" \
-    "export const LEVEL_MS = 15_000;" \
-    "export const LEVEL_MS = 1_000;"
-
-add "the hardest wave lights only one tile" \
-    "$RULES/difficulty.ts" \
-    "  hard: 4," \
-    "  hard: 1,"
-
 add "outcomeOf lets a win beat a loss" \
     "$RULES/defeat.ts" \
     "  if (tally.errors > errorBudget(mode)) return 'lost';" \
@@ -75,58 +45,6 @@ add "the pool grows past two digits" \
     "$RULES/category.ts" \
     "export const POOL_MAX = 20;" \
     "export const POOL_MAX = 200;"
-
-add "the wave stops shuffling before pairing" \
-    "$RULES/wave.ts" \
-    "  const placed = shuffled(values, rnd);" \
-    "  const placed = values;"
-
-add "the correct count loses its lower bound" \
-    "$RULES/wave.ts" \
-    "  const minCorrect = Math.max(1, litCount - wrong.length);" \
-    "  const minCorrect = 1;"
-
-add "the correct count loses its upper bound" \
-    "$RULES/wave.ts" \
-    "  const maxCorrect = Math.min(litCount - 1, right.length);" \
-    "  const maxCorrect = litCount - 1;"
-
-add "every lit tile becomes correct" \
-    "$RULES/wave.ts" \
-    "  const correctCount = minCorrect + Math.floor(rnd() * (maxCorrect - minCorrect + 1));" \
-    "  const correctCount = litCount;"
-
-add "take draws with replacement, so a value can repeat" \
-    "$RULES/wave.ts" \
-    "    const j = i + Math.floor(rnd() * (pool.length - i));" \
-    "    const j = Math.floor(rnd() * pool.length);"
-
-add "the wave accepts a single lit tile" \
-    "$RULES/wave.ts" \
-    "  if (!Number.isInteger(litCount) || litCount < 2) {" \
-    "  if (litCount < 0) {"
-
-add "the wave accepts a deadline that already passed" \
-    "$RULES/wave.ts" \
-    "  if (!(deadlineMs > 0)) {" \
-    "  if (deadlineMs < 0) {"
-
-add "a tile lies about being correct" \
-    "$RULES/wave.ts" \
-    "    ...take(wrong, litCount - correctCount, rnd).map((value) => ({ value, correct: false }))," \
-    "    ...take(wrong, litCount - correctCount, rnd).map((value) => ({ value, correct: true })),"
-
-add "a rules module reaches for the engine" \
-    "$RULES/category.ts" \
-    "import { LIT_PER_WAVE } from './difficulty.ts';" \
-    "import { rnd } from '@the-inclusionist/engine/core/rng.js';
-import { LIT_PER_WAVE } from './difficulty.ts';"
-
-add "a rules module reaches for the renderer" \
-    "$RULES/wave.ts" \
-    "import type { Category } from './category.ts';" \
-    "import type { Category } from './category.ts';
-import { CAMERA } from '../render/zdog-stage.ts';"
 
 add "a rules module names a browser global" \
     "$RULES/defeat.ts" \
@@ -303,11 +221,6 @@ add "the gutter between tiles disappears" \
     "const GUTTER = 1.5;" \
     "const GUTTER = 0;"
 
-add "setLit stops clearing the previous wave" \
-    "$RENDER/mat.ts" \
-    "        anchors[cell].translate.y = on ? -TILE_RISE : 0;" \
-    "        if (on) anchors[cell].translate.y = -TILE_RISE;"
-
 add "the glyph is drawn at fractional coordinates, so it blurs" \
     "$RENDER/glyph-pass.ts" \
     "    const x0 = Math.round(centre.x + Math.min(stroke.from.x, stroke.to.x));" \
@@ -327,61 +240,6 @@ add "the projected centre is read without the zoom" \
     "$RENDER/picking.ts" \
     "    x: point.x * viewport.zoom + viewport.width / 2," \
     "    x: point.x + viewport.width / 2,"
-
-add "letting a WRONG tile expire becomes a mistake" \
-    "$RULES/round.ts" \
-    "      if (!tile.resolved && tile.correct) {" \
-    "      if (!tile.resolved) {"
-
-add "letting a CORRECT tile expire stops costing anything" \
-    "$RULES/round.ts" \
-    "      if (!tile.resolved && tile.correct) {" \
-    "      if (false) {"
-
-add "a second hit on the same tile charges again" \
-    "$RULES/round.ts" \
-    "      const tile = tiles.find((t) => t.cell === cell && !t.resolved);" \
-    "      const tile = tiles.find((t) => t.cell === cell);"
-
-add "hitting a dark tile becomes a mistake" \
-    "$RULES/round.ts" \
-    "      if (!tile) return out;   // dark, or already answered. Neither is a mistake." \
-    "      if (!tile) { errors += 1; return out; }"
-
-add "the wave waits out the clock even when every tile is answered" \
-    "$RULES/round.ts" \
-    "      if (tiles.every((t) => t.resolved)) clearWave(out);" \
-    "      void 0;"
-
-add "the wave deadline shrinks every frame again" \
-    "$RULES/round.ts" \
-    "    wave = { tiles, deadlineMs };" \
-    "    wave = { tiles, get deadlineMs() { return timeLeft; } } as unknown as Wave;"
-
-add "the level stops being announced" \
-    "$RULES/round.ts" \
-    "        out.push({ kind: 'level-up', level });" \
-    "        void level;"
-
-add "the end of the round is announced on every later frame" \
-    "$RULES/round.ts" \
-    "    if (ended) return true;" \
-    "    if (false) return true;"
-
-add "a long frame swallows the wave that opened inside it" \
-    "$RULES/round.ts" \
-    "      while (remaining > 0 && !ended) {" \
-    "      if (remaining > 0 && !ended) {"
-
-add "the gap is not restarted after a wave clears" \
-    "$RULES/round.ts" \
-    "    gapLeft = waveGapMs(level);" \
-    "    void level;"
-
-add "the round keeps running after it is over" \
-    "$RULES/round.ts" \
-    "      if (ended || dtMs <= 0) return out;" \
-    "      if (dtMs <= 0) return out;"
 
 add "the result screen loses its way forward" \
     "$UI/screens.ts" \
@@ -483,16 +341,6 @@ add "a bad starting state is trusted instead of clamped" \
     "  let pitch = clampPitch(initial.pitch);" \
     "  let pitch = initial.pitch;"
 
-add "the new wave names only the CORRECT values" \
-    "$UI/announce.ts" \
-    "          values: event.wave.tiles.map((t) => t.value).join(', ')," \
-    "          values: event.wave.tiles.filter((t) => t.correct).map((t) => t.value).join(', '),"
-
-add "the wave announcement drops what to collect" \
-    "$UI/announce.ts" \
-    "          what: context.collecting," \
-    "          what: ''," \
-
 add "a hit is announced without saying which tile" \
     "$UI/announce.ts" \
     "      return { text: i18n.t('say.hit', { value: event.value }), urgent: false };" \
@@ -512,11 +360,6 @@ add "every announcement interrupts" \
     "$UI/announce.ts" \
     "      return { text: i18n.t('say.hit', { value: event.value }), urgent: false };" \
     "      return { text: i18n.t('say.hit', { value: event.value }), urgent: true };"
-
-add "clearing a wave becomes an announcement" \
-    "$UI/announce.ts" \
-    "      return null;" \
-    "      return { text: 'wave cleared', urgent: false };"
 
 add "winning and losing read the same" \
     "$UI/announce.ts" \
@@ -719,6 +562,183 @@ add "the keyboard help offers the mat while there is no mat" \
     "$UI/hud.ts" \
     "      help.hidden = choosing;" \
     "      help.hidden = false;"
+
+# ========================= THE INDEPENDENT SPAWN =========================
+# ⚠️ 34 mutations were retired with the wave model, and they are not a loss to mourn: every one of
+# them proved a gate on a mechanic that was mine rather than the game's. What replaces them is
+# below, and it is a larger set, because a level that is a budget of tiles has invariants a
+# simultaneous set never had -- a ceiling on how many are up, distinct values ACROSS that ceiling,
+# and a level that ends by being played rather than by the clock running out.
+
+add "the tile deadline loses its five-second floor" \
+    "$RULES/difficulty.ts" \
+    "  return Math.max(0, 9000 - 9000 * 0.22 * level) + 5000;" \
+    "  return 9000 - 9000 * 0.22 * level + 5000;"
+
+add "the decay factor shifts off the original curve" \
+    "$RULES/difficulty.ts" \
+    "  return Math.max(0, 9000 - 9000 * 0.22 * level) + 5000;" \
+    "  return Math.max(0, 9000 - 9000 * 0.2 * level) + 5000;"
+
+add "a rounding call is put back to absorb drift" \
+    "$RULES/difficulty.ts" \
+    "  return Math.max(0, 9000 - 9000 * 0.22 * level) + 5000;" \
+    "  return Math.round(Math.max(0, 9000 - 9000 * 0.219 * level) + 5000);"
+
+add "the hardest setting allows only one tile on the mat" \
+    "$RULES/difficulty.ts" \
+    "  hard: 4," \
+    "  hard: 1,"
+
+add "the spawn gap loses the floor that keeps the frame loop moving" \
+    "$RULES/difficulty.ts" \
+    "  return Math.max(1, Math.round((1000 * 3) / level));" \
+    "  return Math.round((1000 * 3) / level);"
+
+add "a level stops being four tiles at the bottom" \
+    "$RULES/spawn.ts" \
+    "  return Math.max(MIN_TILES_PER_LEVEL, Math.floor(level));" \
+    "  return Math.floor(level);"
+
+add "every level is the floor, so level twenty is still four tiles" \
+    "$RULES/spawn.ts" \
+    "  return Math.max(MIN_TILES_PER_LEVEL, Math.floor(level));" \
+    "  return MIN_TILES_PER_LEVEL;"
+
+add "the correct share loses its lower bound" \
+    "$RULES/spawn.ts" \
+    "  const minRight = Math.max(1, Math.floor(count / 3));" \
+    "  const minRight = 1;"
+
+add "the correct share loses its upper bound, so a level can be all right" \
+    "$RULES/spawn.ts" \
+    "  const maxRight = Math.min(count - 1, Math.ceil((count * 2) / 3));" \
+    "  const maxRight = count;"
+
+add "a level stops being shuffled, so position teaches the answer" \
+    "$RULES/spawn.ts" \
+    "  return shuffled(out, rnd);" \
+    "  return out;"
+
+add "take draws with replacement, so a value can repeat" \
+    "$RULES/spawn.ts" \
+    "    const j = i + Math.floor(rnd() * (pool.length - i));" \
+    "    const j = Math.floor(rnd() * pool.length);"
+
+add "a level of one tile is accepted" \
+    "$RULES/spawn.ts" \
+    "  if (!Number.isInteger(count) || count < 2) {" \
+    "  if (!Number.isInteger(count) || count < 1) {"
+
+add "a value lies about being correct" \
+    "$RULES/spawn.ts" \
+    "    out.push({ value: right[Math.floor(rnd() * right.length)], correct: true });" \
+    "    out.push({ value: right[Math.floor(rnd() * right.length)], correct: false });"
+
+add "a category that cannot discriminate is composed anyway" \
+    "$RULES/spawn.ts" \
+    "  if (right.length === 0 || wrong.length === 0) {" \
+    "  if (false) {"
+
+add "a rules module reaches for the renderer" \
+    "$RULES/spawn.ts" \
+    "import type { Category } from './category.ts';" \
+    "import type { Category } from './category.ts'; import { TILE } from '../render/resolution.ts';"
+
+add "letting a WRONG tile expire becomes a mistake" \
+    "$RULES/round.ts" \
+    "          if (tile.correct) {" \
+    "          if (!tile.correct) {"
+
+add "an expiring tile costs nothing at all" \
+    "$RULES/round.ts" \
+    "            errors += 1;" \
+    "            errors += 0;"
+
+add "the mat may hold more tiles than the difficulty allows" \
+    "$RULES/round.ts" \
+    "    if (live.length >= atOnce || live.length >= cellCount) return -1;" \
+    "    if (live.length >= cellCount) return -1;"
+
+add "two tiles may show the same value at once" \
+    "$RULES/round.ts" \
+    "    return queue.findIndex((v) => !onMat.has(v.value));" \
+    "    return queue.length > 0 ? 0 : -1;"
+
+add "two tiles may land on the same cell" \
+    "$RULES/round.ts" \
+    "    const taken = new Set(live.map((t) => t.cell));" \
+    "    const taken = new Set<number>();"
+
+add "the first tile waits a full gap after Play is pressed" \
+    "$RULES/round.ts" \
+    "  let spawnLeft = 0;" \
+    "  let spawnLeft = 3000;"
+
+add "the level never advances, so the budget means nothing" \
+    "$RULES/round.ts" \
+    "    level += 1;" \
+    "    level += 0;"
+
+add "the level stops being announced" \
+    "$RULES/round.ts" \
+    "    out.push({ kind: 'level-up', level });" \
+    "    void level;"
+
+add "a long frame swallows everything that happened inside it" \
+    "$RULES/round.ts" \
+    "      while (remaining > 0 && !ended) {" \
+    "      if (remaining > 0 && !ended) {"
+
+add "the round keeps running after it is over" \
+    "$RULES/round.ts" \
+    "      if (ended || dtMs <= 0) return out;" \
+    "      if (dtMs <= 0) return out;"
+
+add "a judged tile stays on the mat, so it can be hit twice" \
+    "$RULES/round.ts" \
+    "      const [tile] = live.splice(index, 1);" \
+    "      const tile = live[index];"
+
+add "hitting a dark tile becomes a mistake" \
+    "$RULES/round.ts" \
+    "      if (index < 0) return out;   // dark, or already taken. Neither is a mistake." \
+    "      if (index < 0) { errors += 1; return out; }"
+
+add "the end of the round is announced on every later frame" \
+    "$RULES/round.ts" \
+    "    if (ended) return true;" \
+    "    if (false) return true;"
+
+add "every tile reports full heat, so the countdown is invisible" \
+    "$RULES/round.ts" \
+    "      heat: t.deadlineMs > 0 ? Math.min(1, Math.max(0, t.leftMs / t.deadlineMs)) : 0," \
+    "      heat: 1,"
+
+add "the level is checked only when the frame has time left over" \
+    "$RULES/round.ts" \
+    "        if (live.length === 0 && queue.length === 0) {" \
+    "        if (live.length === 0 && queue.length === 0 && remaining < 0) {"
+
+add "a lit tile is announced without saying which number" \
+    "$UI/announce.ts" \
+    "          value: event.value," \
+    "          value: 0,"
+
+add "the announcement drops what to collect" \
+    "$UI/announce.ts" \
+    "          what: context.collecting," \
+    "          what: ''," \
+
+add "a rules module reaches for the engine" \
+    "$RULES/category.ts" \
+    "import { LIT_AT_ONCE } from './difficulty.ts';" \
+    "import { LIT_AT_ONCE } from './difficulty.ts'; import { TILE } from '@the-inclusionist/engine/core/constants.js';"
+
+add "setLit stops clearing the tiles that were up before" \
+    "$RENDER/mat.ts" \
+    "        anchors[cell].translate.y = on ? -TILE_RISE : 0;" \
+    "        if (on) anchors[cell].translate.y = -TILE_RISE;"
 
 TO_FILE="$(mktemp)"
 trap 'rm -f "$TO_FILE"' EXIT

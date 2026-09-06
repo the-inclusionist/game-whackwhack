@@ -74,10 +74,11 @@ function boot(): void {
 
   // The declaration is built ONCE and reads through the variables above, so a new round does not
   // need a new declaration — and the engine, which was handed this object at boot, never sees a
-  // stale one. A round that ended leaves `wave: null`, which the contract already treats as "no
-  // targets", so the title and result screens are conformant states rather than special cases.
+  // stale one. Before the first round there is no round to ask, and the stand-in is an EMPTY mat
+  // — which the contract already treats as "nothing to aim at", so the title and result screens
+  // are conformant states rather than special cases.
   const declaration = createWhackDeclaration({
-    view: () => round?.view() ?? { category: choice.category, wave: null, hits: 0, focus: null },
+    view: () => round?.view() ?? { category: choice.category, tiles: [], hits: 0, focus: null },
     t: (key) => i18n.t(key),
   });
 
@@ -252,25 +253,26 @@ function boot(): void {
 
   // 5. THE PICTURE, ONCE PER FRAME THAT NEEDS ONE.
   //
-  // ⚠️ `!t.resolved` IS THE BUG THAT WAS REPORTED. This lit every tile of the wave and stamped
-  // every number, answered or not, so a tile you had just hit stayed on the mat with its number
-  // on it. The score went up and nothing moved, which reads as a game that ignores you.
+  // ⚠️ Nothing here filters anything out any more, and that is the point of the model change. It
+  // used to read a whole wave and skip the tiles marked `resolved`, and the bug that was reported
+  // is what happens when a reader forgets: an answered tile stayed lit with its number on it, the
+  // score went up and nothing moved. `round.tiles()` is only what is on the mat.
   function draw(): void {
-    const wave = round?.wave() ?? null;
-    const live = wave ? wave.tiles.filter((t) => !t.resolved) : [];
+    const live = round?.tiles() ?? [];
     const now = performance.now();
 
     mat.setLit(live.map((t) => t.cell));
 
-    // ⚠️ THE COLOUR IS THE CLOCK. Height says a tile is in play; cooling says for how much longer,
-    // which nothing said before — a player could only learn the deadline by losing to it. And the
-    // tile settles as it cools, so the fact has a non-colour channel too (WCAG 1.4.1).
-    const heat = round?.timeLeftFraction() ?? 1;
+    // ⚠️ THE COLOUR IS THE CLOCK, AND EACH TILE CARRIES ITS OWN. Height says a tile is in play;
+    // cooling says for how much longer. It was one heat for the whole wave, which the independent
+    // model makes meaningless — two tiles that arrived seconds apart do not share a countdown, and
+    // reading one number for both would have shown a tile that had just lit as nearly spent.
+    // The tile also settles as it cools, so the fact has a non-colour channel (WCAG 1.4.1).
     for (const tile of live) {
       // ⚠️ RAISE FIRST. `setRaise` also writes the colour — it has to, so a sinking tile cools back
       // to idle — so calling it after `setHeat` would throw the cooling away every frame.
-      mat.setRaise(tile.cell, 0.75 + 0.25 * heat);
-      mat.setHeat(tile.cell, heat);
+      mat.setRaise(tile.cell, 0.75 + 0.25 * tile.heat);
+      mat.setHeat(tile.cell, tile.heat);
     }
 
     // A tile that has just been answered sinks as its number fades, so the change is something a
@@ -404,7 +406,7 @@ function boot(): void {
     // A fade in progress is a reason to draw even when nothing else changed — the dirty flag is
     // about STATE, and an animation is state changing continuously. So is a wave's countdown: the
     // tiles cool every frame, and without this they would cool only when something else happened.
-    if (fades.busy(performance.now()) || round?.wave()) invalidate();
+    if (fades.busy(performance.now()) || round?.tiles().length) invalidate();
     if (!dirty) return;
     dirty = false;
     draw();

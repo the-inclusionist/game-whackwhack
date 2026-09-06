@@ -48,35 +48,64 @@ the score rather than the game.
 
 ### The tiles carry content
 
-The central change. A tile shows a **number**, and the round names a category — evens, multiples of
-three, multiples of four. The child collects the **correct** ones. This turns a purely motor task
-into a discrimination task, which is what earns the game its place in an educational engine.
+The central change. A tile shows a **number**, and the round names a category — multiples of two
+through nine, offered as a row of eight chips in the HUD. The child collects the **correct** ones.
+This turns a purely motor task into a discrimination task, which is what earns the game its place in
+an educational engine.
 
 Categories are data (`app/js/rules/category.ts`): a predicate and a pool. Adding one is a data
-change, and `tests/rules-boundary.node.test.ts` is what keeps that true.
+change, and `tests/rules-boundary.node.test.ts` is what keeps that true. The pool grows with the
+factor rather than being fixed at 1..20 — multiples of nine inside twenty are 9 and 18, and four
+tiles can be up at once with no two carrying the same value.
 
-### The wave replaces the loose tile
+### Tiles arrive one at a time, as in the original
 
-In the original, tiles light independently and the count on screen drifts. That is right for "hit
-what is lit" and wrong for "hit the correct one among what is lit": the child must know **which set**
-they are choosing between, and two overlapping sets are ambiguous rather than hard.
+> ⚠️ **CORRECTED.** This section used to describe a **wave**: N tiles lighting together as a set to
+> compare, N being the difficulty. That was an invention of this reimplementation, not a rule of
+> the original, and it was wrong. The argument for it was that a child choosing between items needs
+> to know which set they are choosing between — which does not survive contact with the task. The
+> question is not "which of these three" but "does THIS one belong", asked of each tile as it
+> appears. Per-tile discrimination is the same educational content and a simpler question, and it is
+> the one the original's own shape already supports.
 
-So the unit is the **wave** — N tiles light together, resolve together, and always contain at least
-one correct and at least one incorrect value. N is the difficulty: 2 easy, 3 medium, 4 hard.
+Tiles light **independently**, each on its own timer, appearing and vanishing at random — the
+original's behaviour. Difficulty is a **ceiling on how many are up at once**: 2 easy, 3 medium,
+4 hard. Two tiles never share a cell, and never carry the same value at the same time.
 
 | Event | Effect |
 |---|---|
-| Hit a **correct** tile | +1, tile goes dark |
+| Hit a **correct** tile | +1, tile leaves the mat |
 | Hit an **incorrect** tile | error |
 | A **correct** tile expires | error |
-| An **incorrect** tile expires | the right move — goes dark, no penalty |
+| An **incorrect** tile expires | the right move — leaves in silence, no penalty |
 
-### The timing curve is kept
+### A level is a budget of tiles
 
-`levelAt`, `waveDeadlineMs` and `waveGapMs` in `app/js/rules/difficulty.ts` are the original's own
-formulas. A weekend game people actually played is better evidence of a ramp that feels right than
-anything derived at a desk. Two corrections: the level is clamped to 1 (the original's level 0 makes
-the gap infinite), and the timing now lives in exactly one file.
+Level N asks about **N tiles**, with a floor of four for the first four levels, and it ends when all
+of them have been judged. `app/js/rules/spawn.ts` composes the whole level up front, guaranteeing at
+least one correct and one incorrect value and weighting the correct share between a third and two
+thirds — an unweighted coin over twenty tiles produces near-all-wrong levels often enough that a
+child would learn the game was broken rather than that they were careful.
+
+### The timing curve is kept, but the level is no longer a clock
+
+`tileDeadlineMs` and `spawnGapMs` in `app/js/rules/difficulty.ts` are the original's own formulas,
+and they still take a level and still produce its numbers. A weekend game people actually played is
+better evidence of a ramp that feels right than anything derived at a desk.
+
+⚠️ What is **not** kept is `levelAt(elapsedMs)` — the original raised the level every fifteen
+seconds. A budget of tiles and a clock cannot both decide when a level ends, and the budget is the
+one that can be watched: at level twenty, twenty tiles appear and vanish to be judged. The side
+effect is one the original could not offer: a child who works slowly is no longer hurried by a clock
+they were never shown. Two other corrections stand: the level starts at 1, so the original's level 0
+(which makes the gap infinite) never exists, and the timing lives in exactly one file.
+
+### Each tile carries its own countdown
+
+The colour is the clock: a tile lights white and cools towards pink over **its own** deadline, and
+settles as it cools so the fact has a non-colour channel too (WCAG 1.4.1). One countdown per tile
+rather than one per set is what the independent model requires — two tiles that arrived seconds
+apart do not share a deadline.
 
 ### Three defeat modes, and the player picks
 
@@ -84,8 +113,8 @@ the gap infinite), and the timing now lives in exactly one file.
 Every mode has a goal of 20 correct hits, because the engine's `objectiveOf` owes the HUD and the
 sonar a "how many of how many".
 
-⚠️ Difficulty (how many tiles light) is **orthogonal** to the engine's EASY (how wide the timing
-is). One is a curricular dial, the other a motor accommodation. Folding them together would offer
+⚠️ Difficulty (how many tiles may be up at once) is **orthogonal** to the engine's EASY (how wide
+the timing is). One is a curricular dial, the other a motor accommodation. Folding them together would offer
 accessibility as though it were a baby mode.
 
 ### The lit tile rises

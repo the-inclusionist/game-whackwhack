@@ -12,22 +12,42 @@
 //
 //  1. LEVEL ZERO IS GONE. The original computes `Math.ceil(timeLapsed / 15)`, which is 0 before any
 //     time passes, and then divides by it — `1000 * (3 / 0)` is Infinity. It survives only because
-//     a counter happens to tick before anything reads it. `levelAt` clamps to 1 so the invariant is
-//     stated rather than inherited from the order two timers fire in.
+//     a counter happens to tick before anything reads it. Here the level starts at 1 and only ever
+//     goes up by one, so the state that produced the division never exists.
 //  2. ONE SOURCE OF TRUTH. The original states the durations TWICE — computed in `Slab.vue`, and
 //     again as CSS animation lengths in `_gamepad.scss` with comments reading "12 sec", "10 sec".
 //     The two do not agree. Here the timing lives only in this file and the presentation reads it.
 //
 // ========================= DIFFICULTY IS NOT AN ACCOMMODATION =========================
-// `LIT_PER_WAVE` is a CURRICULAR dial: more lit tiles means more values to compare under time.
-// It is orthogonal to the engine's EASY, which widens what a slower hand can hit. Folding the two
-// together would offer accessibility as though it were a baby mode, and a child who needs the
-// motor accommodation would have to give up the maths to get it.
+// `LIT_AT_ONCE` is a CURRICULAR dial: more tiles up together means more values to judge under
+// time. It is orthogonal to the engine's EASY, which widens what a slower hand can hit. Folding
+// the two together would offer accessibility as though it were a baby mode, and a child who needs
+// the motor accommodation would have to give up the maths to get it.
+//
+// ========================= THE LEVEL IS A COUNT OF TILES, NOT A STRETCH OF CLOCK ==========
+// ⚠️ `levelAt(elapsedMs)` AND `LEVEL_MS` ARE GONE, and this is the one place the original's rule
+// was dropped rather than corrected. It raised the level every fifteen seconds; the Dev's spec
+// raises it when its tiles have been judged -- "no nível 20 devem aparecer e sumir 20 tiles para
+// julgar" -- and the two cannot both hold, because a clock would cut a budget short or leave it
+// running past its end.
+//
+// What survives is everything downstream. The curves below still take a level and still produce
+// the original's numbers; only the way a level is REACHED changed, from waiting to playing. The
+// side effect is one the original could not offer: a child who works slowly is no longer hurried
+// by a clock they were never shown.
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
-/** How many tiles light at once. Never below two: one tile cannot be discriminated. */
-export const LIT_PER_WAVE: Readonly<Record<Difficulty, number>> = {
+/**
+ * How many tiles may be up at the same time.
+ *
+ * ⚠️ It was `LIT_PER_WAVE`, and the rename is the whole model change in one word. It used to be
+ * how many tiles lit TOGETHER as a set to compare; it is now a CEILING on how many independent
+ * tiles are on the mat at once. Two is still the floor, but for a different reason: with tiles
+ * arriving one at a time the floor is about the mat feeling alive, not about there being
+ * something to compare against.
+ */
+export const LIT_AT_ONCE: Readonly<Record<Difficulty, number>> = {
   easy: 2,
   medium: 3,
   hard: 4,
@@ -41,16 +61,8 @@ export const LIT_PER_WAVE: Readonly<Record<Difficulty, number>> = {
  */
 export const ROUND_GOAL = 20;
 
-/** How long a level lasts. */
-export const LEVEL_MS = 15_000;
-
-/** The level after `elapsedMs` of play. One-based — see correction 1 above. */
-export function levelAt(elapsedMs: number): number {
-  return Math.max(1, Math.ceil(elapsedMs / LEVEL_MS));
-}
-
 /**
- * How long a wave stays lit, in milliseconds.
+ * How long ONE tile stays lit, in milliseconds.
  *
  * 12020 → 10040 → 8060 → 6080 → 5000, then flat. The floor is what keeps the round playable
  * rather than merely fast: below about five seconds the task stops being "which of these is even"
@@ -65,11 +77,18 @@ export function levelAt(elapsedMs: number): number {
  * changed 0.22 to a factor that does not divide cleanly, and the exact-value tests would keep
  * passing while the curve quietly moved.
  */
-export function waveDeadlineMs(level: number): number {
+export function tileDeadlineMs(level: number): number {
   return Math.max(0, 9000 - 9000 * 0.22 * level) + 5000;
 }
 
-/** The pause between one wave resolving and the next lighting. */
-export function waveGapMs(level: number): number {
-  return Math.round((1000 * 3) / level);
+/**
+ * The pause between one tile lighting and the next.
+ *
+ * 3000 → 1500 → 1000 → 750 … ⚠️ FLOORED AT ONE MILLISECOND, which is not cosmetic: `round.advance`
+ * walks from one scheduled event to the next, and a gap of zero would be a boundary that consumes
+ * no time and never moves, which is an infinite loop inside a frame. The floor bites only above
+ * level 3000, so it is a guard rather than a change to the curve.
+ */
+export function spawnGapMs(level: number): number {
+  return Math.max(1, Math.round((1000 * 3) / level));
 }

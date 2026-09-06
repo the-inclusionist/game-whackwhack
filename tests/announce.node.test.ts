@@ -10,16 +10,6 @@ import { describe, expect, it } from 'vitest';
 import { announcementFor, type AnnounceContext } from '../app/js/ui/announce.ts';
 import { createI18n } from '../app/js/i18n/index.ts';
 import type { RoundEvent } from '../app/js/rules/round.ts';
-import type { RoundWave } from '../app/js/rules/round.ts';
-
-const WAVE: RoundWave = {
-  deadlineMs: 12_020,
-  tiles: [
-    { cell: 0, value: 4, correct: true, resolved: false },
-    { cell: 7, value: 7, correct: false, resolved: false },
-    { cell: 13, value: 11, correct: false, resolved: false },
-  ],
-};
 
 function context(over: Partial<AnnounceContext> = {}): AnnounceContext {
   return { i18n: createI18n('pt'), collecting: 'números pares', hits: 5, ...over };
@@ -27,31 +17,33 @@ function context(over: Partial<AnnounceContext> = {}): AnnounceContext {
 
 const say = (event: RoundEvent, ctx = context()) => announcementFor(event, ctx);
 
-describe('[Right] a new wave names every value on it', () => {
-  const said = say({ kind: 'wave-lit', wave: WAVE })!;
+describe('[Right] every tile that lights is named, one at a time', () => {
+  // ⚠️ It was one sentence per WAVE, listing three or four values at once. That was quieter, and
+  // it only worked because the tiles arrived together; they arrive singly now. Announcing some of
+  // them and not others would leave a blind player charged for missing a tile they were never
+  // told about, so every arrival gets its own sentence and `srSay` queues them politely.
+  const said = say({ kind: 'tile-lit', cell: 0, value: 4 })!;
 
-  it('says all three numbers', () => {
+  it('says the number that lit', () => {
     expect(said.text).toContain('4');
-    expect(said.text).toContain('7');
-    expect(said.text).toContain('11');
   });
 
-  it('names the WRONG ones too', () => {
-    // ⚠️ THE PROPERTY THE WHOLE GAME RESTS ON. Announcing only the correct values would hand a
-    // blind player the answer — they would hear "4" and hit it without comparing anything. The
-    // task is discrimination; naming only the goals deletes the task while looking like a
-    // kindness.
-    const values = [...said.text.matchAll(/\d+/g)].map((m) => m[0]);
-    expect(values).toContain('7');
-    expect(values).toContain('11');
+  it('says a WRONG value exactly as readily as a right one', () => {
+    // ⚠️ THE PROPERTY THE WHOLE GAME RESTS ON. Announcing only the correct values — or marking
+    // them apart — would hand a blind player the answer: they would hear a number and hit it
+    // without comparing anything. The task is discrimination, and naming only the goals deletes
+    // the task while looking like a kindness. The event carries no `correct` field AT ALL, which
+    // is the strongest possible form of this guarantee: the sentence cannot depend on something
+    // it is never given.
+    const wrong = say({ kind: 'tile-lit', cell: 7, value: 7 })!;
+    const right = say({ kind: 'tile-lit', cell: 0, value: 4 })!;
+    expect(wrong.text.replace('7', 'N')).toBe(right.text.replace('4', 'N'));
   });
 
   it('says what to collect, so the question is complete', () => {
+    // Repeated with every tile, because it IS the question — and a player who has just been read
+    // four numbers in a row needs it again to know what they were for.
     expect(said.text).toContain('números pares');
-  });
-
-  it('keeps the wave order, which is the order the mat is read in', () => {
-    expect(said.text.indexOf('4')).toBeLessThan(said.text.indexOf('7'));
   });
 
   it('is polite, not assertive', () => {
@@ -98,7 +90,7 @@ describe('[Right] only the end of the round interrupts', () => {
   });
 
   it.each([
-    { kind: 'wave-lit', wave: WAVE },
+    { kind: 'tile-lit', cell: 0, value: 4 },
     { kind: 'hit', cell: 0, value: 4 },
     { kind: 'mistake', cell: 7, value: 7, reason: 'wrong-tile' },
     { kind: 'level-up', level: 2 },
@@ -115,16 +107,18 @@ describe('[Right] only the end of the round interrupts', () => {
 });
 
 describe('[Zero] silence is a legitimate answer', () => {
-  it('says nothing when a wave is merely cleared', () => {
-    // Bookkeeping. A word here would land between the child answering one wave and the next
-    // arriving, which is the moment they most need quiet.
-    expect(say({ kind: 'wave-cleared' })).toBeNull();
+  it('says nothing for an event it does not know', () => {
+    // ⚠️ `wave-cleared` used to be here, and it is gone with the wave — but the DEFAULT arm that
+    // handled it has to stay covered, or a future event added to `RoundEvent` would fall through
+    // it and be silently swallowed rather than fail a test. Cast because the whole point is to
+    // pass something the union does not contain.
+    expect(say({ kind: 'not-a-real-event' } as unknown as RoundEvent)).toBeNull();
   });
 });
 
 describe('[Interface] every sentence is translated, none is built by hand', () => {
   const events: RoundEvent[] = [
-    { kind: 'wave-lit', wave: WAVE },
+    { kind: 'tile-lit', cell: 0, value: 4 },
     { kind: 'hit', cell: 0, value: 4 },
     { kind: 'mistake', cell: 7, value: 7, reason: 'wrong-tile' },
     { kind: 'mistake', cell: 0, value: 4, reason: 'missed' },

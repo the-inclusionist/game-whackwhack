@@ -32,7 +32,7 @@ export const pt: Catalog = {
   'hud.suddenDeath': 'Morte súbita',
   'hud.collect': 'Colete: {what}', 'hud.help': 'Setas navegam · Enter martela · Shift+setas inclinam o tapete',
 
-  'say.waveLit': 'Acenderam: {values}. Colete {what}.',
+  'say.tileLit': 'Acendeu {value}. Colete {what}.',
   'say.hit': 'Certo, {value}.',
   'say.wrongTile': 'Errado, {value} não é o que se pede.',
   'say.missed': 'Passou: {value}.',

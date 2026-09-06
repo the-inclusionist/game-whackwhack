@@ -3,12 +3,19 @@
 //
 // The timing numbers are not invented. They are the original whackwhack's own curve, kept because
 // a weekend game that people actually played is better evidence of a playable ramp than anything
-// derived at a desk. What is NOT kept is the original's level 0 — see the [Zero] block below.
+// derived at a desk.
+//
+// ⚠️ What is NOT kept is the original's clock-driven level. `levelAt(elapsedMs)` used to live in
+// rules/difficulty and had eleven assertions here; it is gone, because the Dev's spec makes a
+// level a COUNT of tiles ("no nivel 20 devem aparecer e sumir 20 tiles para julgar") and the two
+// rules cannot both hold. The curves below still take a level and still produce the original's
+// numbers -- only the way a level is reached moved, from waiting to playing. What replaced those
+// assertions is tests/spawn.node.test.ts plus the level-up block of tests/round.node.test.ts.
 
 import { describe, expect, it } from 'vitest';
 import { EVEN, MULTIPLE_OF_3, MULTIPLE_OF_4, multipleOf } from '../app/js/rules/category.ts';
 import {
-  LIT_PER_WAVE, ROUND_GOAL, levelAt, waveDeadlineMs, waveGapMs,
+  LIT_AT_ONCE, ROUND_GOAL, spawnGapMs, tileDeadlineMs,
 } from '../app/js/rules/difficulty.ts';
 import { LIVES, outcomeOf } from '../app/js/rules/defeat.ts';
 
@@ -44,7 +51,7 @@ describe('[Interface] every category can actually be played', () => {
   });
 
   it('has enough of each to fill the hardest wave', () => {
-    const hardest = LIT_PER_WAVE.hard;
+    const hardest = LIT_AT_ONCE.hard;
     for (const c of all) {
       expect(c.pool.filter((n) => c.isCorrect(n)).length).toBeGreaterThanOrEqual(hardest);
       expect(c.pool.filter((n) => !c.isCorrect(n)).length).toBeGreaterThanOrEqual(hardest);
@@ -68,27 +75,24 @@ describe('[Interface] every category can actually be played', () => {
   });
 });
 
-describe('[Zero] the clock starts at level one, not level zero', () => {
-  // The original computes `Math.ceil(timeLapsed / 15)`, which is 0 on the first frame,
-  // and then divides by it: `1000 * (3 / level)` is Infinity at level 0. It survives only
-  // because the counter is incremented before anything reads it. Clamping to 1 states the
-  // intent instead of relying on the order two timers happen to fire in.
-  it('is level one before any time has passed', () => {
-    expect(levelAt(0)).toBe(1);
-  });
-
-  it('never returns a gap of Infinity', () => {
-    for (const t of [0, 1, 14_999, 15_000, 60_000]) {
-      expect(Number.isFinite(waveGapMs(levelAt(t)))).toBe(true);
+describe('[Zero] there is no level zero for the curves to divide by', () => {
+  // The original computes `Math.ceil(timeLapsed / 15)`, which is 0 on the first frame, and then
+  // divides by it: `1000 * (3 / level)` is Infinity at level 0. It survives only because the
+  // counter is incremented before anything reads it. Here the level starts at 1 and only ever
+  // goes up by one, so the state never exists -- but the curves are asked anyway, because the
+  // guarantee belongs to them and not to the caller that happens to be careful today.
+  it('never produces an infinite or zero gap, at any level a round can reach', () => {
+    for (const level of [1, 2, 5, 20, 500, 5_000]) {
+      expect(Number.isFinite(spawnGapMs(level)), String(level)).toBe(true);
+      expect(spawnGapMs(level), String(level)).toBeGreaterThan(0);
     }
   });
-});
 
-describe('[Boundary] the level turns exactly every fifteen seconds', () => {
-  it('is still level one at 14.999 s', () => expect(levelAt(14_999)).toBe(1));
-  it('is still level one at exactly 15 s', () => expect(levelAt(15_000)).toBe(1));
-  it('is level two one millisecond later', () => expect(levelAt(15_001)).toBe(2));
-  it('is level three at exactly 30.001 s', () => expect(levelAt(30_001)).toBe(3));
+  it('answers Infinity honestly rather than silently, if a level of zero ever reached it', () => {
+    // Not a supported input -- it is the ONE value the original got wrong, and pinning what
+    // happens means a future caller that lets a zero through fails loudly here first.
+    expect(spawnGapMs(0)).toBe(Infinity);
+  });
 });
 
 describe('[Right] the deadline shrinks on the original curve', () => {
@@ -100,16 +104,16 @@ describe('[Right] the deadline shrinks on the original curve', () => {
     [4, 6_080],
     [5, 5_000],
   ])('gives level %i a deadline of %i ms', (level, expected) => {
-    expect(waveDeadlineMs(level)).toBe(expected);
+    expect(tileDeadlineMs(level)).toBe(expected);
   });
 
   it('never drops below the five-second floor, however long the round runs', () => {
-    for (const level of [5, 6, 20, 500]) expect(waveDeadlineMs(level)).toBe(5_000);
+    for (const level of [5, 6, 20, 500]) expect(tileDeadlineMs(level)).toBe(5_000);
   });
 
   it('is monotonically non-increasing', () => {
     for (let level = 2; level <= 30; level++) {
-      expect(waveDeadlineMs(level)).toBeLessThanOrEqual(waveDeadlineMs(level - 1));
+      expect(tileDeadlineMs(level)).toBeLessThanOrEqual(tileDeadlineMs(level - 1));
     }
   });
 
@@ -118,35 +122,35 @@ describe('[Right] the deadline shrinks on the original curve', () => {
     // cleanly this is the assertion that says so, instead of a rounding call absorbing it in
     // silence while the exact-value cases above keep passing.
     for (let level = 1; level <= 30; level++) {
-      expect(Number.isInteger(waveDeadlineMs(level))).toBe(true);
+      expect(Number.isInteger(tileDeadlineMs(level))).toBe(true);
     }
   });
 });
 
-describe('[Right] the gap between waves shrinks too', () => {
+describe('[Right] the gap between tiles shrinks too', () => {
   it.each([[1, 3_000], [2, 1_500], [3, 1_000], [4, 750]])(
     'gives level %i a gap of %i ms', (level, expected) => {
-      expect(waveGapMs(level)).toBe(expected);
+      expect(spawnGapMs(level)).toBe(expected);
     },
   );
 
   it('stays positive so the round can never stall', () => {
-    for (const level of [1, 10, 1_000]) expect(waveGapMs(level)).toBeGreaterThan(0);
+    for (const level of [1, 10, 1_000]) expect(spawnGapMs(level)).toBeGreaterThan(0);
   });
 });
 
-describe('[Interface] difficulty is how MANY tiles light, not how fast', () => {
+describe('[Interface] difficulty is how many tiles are up AT ONCE, not how fast', () => {
   // Difficulty is a curricular dial: more lit tiles means more values to compare. It is
   // deliberately orthogonal to the engine's EASY, which is a motor accommodation. Folding
   // them together would offer accessibility as if it were a baby mode.
-  it('lights two, three and four tiles', () => {
-    expect(LIT_PER_WAVE.easy).toBe(2);
-    expect(LIT_PER_WAVE.medium).toBe(3);
-    expect(LIT_PER_WAVE.hard).toBe(4);
+  it('allows two, three and four tiles on the mat at once', () => {
+    expect(LIT_AT_ONCE.easy).toBe(2);
+    expect(LIT_AT_ONCE.medium).toBe(3);
+    expect(LIT_AT_ONCE.hard).toBe(4);
   });
 
-  it('never lights fewer than two, because one tile cannot be discriminated', () => {
-    for (const n of Object.values(LIT_PER_WAVE)) expect(n).toBeGreaterThanOrEqual(2);
+  it('never allows fewer than two, or the mat reads as empty between arrivals', () => {
+    for (const n of Object.values(LIT_AT_ONCE)) expect(n).toBeGreaterThanOrEqual(2);
   });
 });
 

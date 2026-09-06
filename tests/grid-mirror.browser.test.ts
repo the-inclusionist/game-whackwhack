@@ -10,15 +10,13 @@ import { MAT_CELLS, MAT_COLS, MAT_ROWS, spotOfCell } from '../app/js/rules/grid.
 import { createGridMirror, step, type MirrorDeclaration } from '../app/js/ui/grid-mirror.ts';
 import { createWhackDeclaration } from '../app/js/declaration/whack-declaration.ts';
 import { EVEN } from '../app/js/rules/category.ts';
-import type { RoundWave } from '../app/js/rules/round.ts';
+import type { RoundTile } from '../app/js/rules/round.ts';
 
-const WAVE: RoundWave = {
-  deadlineMs: 12_020,
-  tiles: [
-    { cell: 0, value: 4, correct: true, resolved: false },
-    { cell: 7, value: 7, correct: false, resolved: false },
-  ],
-};
+/** Two tiles on the mat: one to collect at cell 0, one to leave alone at cell 7. */
+const TILES: RoundTile[] = [
+  { cell: 0, value: 4, correct: true, heat: 1 },
+  { cell: 7, value: 7, correct: false, heat: 0.5 },
+];
 
 /** Echoes the key and its params, so a test can see a real lookup rather than a hardcoded string. */
 const echo = (key: string, params?: Record<string, string | number>): string =>
@@ -26,10 +24,10 @@ const echo = (key: string, params?: Record<string, string | number>): string =>
 
 const made: { destroy(): void }[] = [];
 
-function mirror(over: { wave?: RoundWave | null } = {}) {
-  let wave: RoundWave | null = over.wave === undefined ? WAVE : over.wave;
+function mirror(over: { tiles?: readonly RoundTile[] } = {}) {
+  let tiles: readonly RoundTile[] = over.tiles ?? TILES;
   const declaration: MirrorDeclaration = createWhackDeclaration({
-    view: () => ({ category: EVEN, wave, hits: 0, focus: null }),
+    view: () => ({ category: EVEN, tiles, hits: 0, focus: null }),
     t: echo,
   });
   const onActivate = vi.fn();
@@ -37,7 +35,7 @@ function mirror(over: { wave?: RoundWave | null } = {}) {
   const m = createGridMirror({ doc: document, declaration, t: echo, onActivate, onCursor });
   document.body.appendChild(m.root);
   made.push(m);
-  return { m, onActivate, onCursor, setWave: (next: RoundWave | null) => { wave = next; } };
+  return { m, onActivate, onCursor, setTiles: (next: readonly RoundTile[]) => { tiles = next; } };
 }
 
 function buttons(m: { root: HTMLElement }): HTMLButtonElement[] {
@@ -148,7 +146,7 @@ describe('[Right] the arrows walk the mat and stop at its edges', () => {
     // exactly the player who most depends on it. Not moving the cursor is not enough; the event
     // has to stay usable.
     const declaration: MirrorDeclaration = createWhackDeclaration({
-      view: () => ({ category: EVEN, wave: WAVE, hits: 0, focus: null }),
+      view: () => ({ category: EVEN, tiles: TILES, hits: 0, focus: null }),
       t: echo,
     });
     const m = createGridMirror({
@@ -183,7 +181,7 @@ describe('[Right] the arrows walk the mat and stop at its edges', () => {
     // The engine's keyboard runtime is remappable and saved. A grid that only listened for
     // ArrowRight would ignore the remapping a child depends on.
     const declaration: MirrorDeclaration = createWhackDeclaration({
-      view: () => ({ category: EVEN, wave: WAVE, hits: 0, focus: null }),
+      view: () => ({ category: EVEN, tiles: TILES, hits: 0, focus: null }),
       t: echo,
     });
     const m = createGridMirror({
@@ -251,11 +249,11 @@ describe('[Right] the labels come from the declaration, not a second table', () 
     expect(spotOfCell(MAT_COLS + 2)).toEqual({ x: 2, y: 1 });
   });
 
-  it('re-labels when the wave changes', () => {
-    // Built once and consulted for the life of the round: a mirror that kept the first wave's
-    // labels would read out a board that ended minutes ago, with nothing to indicate it.
-    const { m, setWave } = mirror();
-    setWave({ deadlineMs: 5_000, tiles: [{ cell: 1, value: 16, correct: true, resolved: false }] });
+  it('re-labels when the mat changes', () => {
+    // Built once and consulted for the life of the round: a mirror that kept the first labels
+    // would read out a board that emptied minutes ago, with nothing to indicate it.
+    const { m, setTiles } = mirror();
+    setTiles([{ cell: 1, value: 16, correct: true, heat: 1 }]);
     m.refresh();
     expect(buttons(m)[1].getAttribute('aria-label')).toContain('content=16');
     expect(buttons(m)[0].getAttribute('aria-label')).toContain('content=mat.empty');
@@ -287,9 +285,9 @@ describe('[Right] state travels as ARIA, not as a word in the label', () => {
   });
 });
 
-describe('[Zero] with no wave up, the mat is still navigable', () => {
+describe('[Zero] with an empty mat, it is still navigable', () => {
   it('labels every cell empty and stays focusable', () => {
-    const { m } = mirror({ wave: null });
+    const { m } = mirror({ tiles: [] });
     for (const button of buttons(m)) {
       expect(button.getAttribute('aria-label')).toContain('content=mat.empty');
       expect(button.disabled).toBe(false);

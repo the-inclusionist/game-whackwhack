@@ -25,7 +25,7 @@ export const es: Catalog = {
   'hud.suddenDeath': 'Muerte súbita',
   'hud.collect': 'Recoge: {what}', 'hud.help': 'Flechas navegan · Enter martilla · Shift+flechas inclinan el tapete',
 
-  'say.waveLit': 'Se encendieron: {values}. Recoge {what}.',
+  'say.tileLit': 'Se encendio {value}. Recoge {what}.',
   'say.hit': 'Correcto, {value}.',
   'say.wrongTile': 'Incorrecto, {value} no es lo que se pide.',
   'say.missed': 'Se escapó: {value}.',

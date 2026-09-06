@@ -16,22 +16,28 @@ import { conformanceProblems, speakableProblems } from '@the-inclusionist/engine
 import { EVEN, MULTIPLE_OF_3 } from '../app/js/rules/category.ts';
 import { MAT_CELLS, MAT_COLS, MAT_ROWS, cellOfSpot, inBounds, spotOfCell } from '../app/js/rules/grid.ts';
 import { ROUND_GOAL } from '../app/js/rules/difficulty.ts';
-import type { RoundWave } from '../app/js/rules/round.ts';
+import type { RoundTile } from '../app/js/rules/round.ts';
 import { createWhackDeclaration, type RoundView } from '../app/js/declaration/whack-declaration.ts';
 
-const WAVE: RoundWave = {
-  deadlineMs: 12_020,
-  tiles: [
-    { cell: 0, value: 4, correct: true, resolved: false },    // spot 0,0
-    { cell: 7, value: 7, correct: false, resolved: false },   // spot 2,1
-    { cell: 13, value: 10, correct: true, resolved: false },  // spot 3,2
-  ],
-};
+/**
+  * Three tiles on the mat, each with its own heat.
+  *
+  * ⚠️ There is no `resolved` flag and no wrapping wave any more. A judged tile LEAVES this list,
+  * so "answered but still in the array" is not a state the declaration can be handed — which is
+  * what makes the `!t.resolved` filters this file used to check for unnecessary rather than
+  * merely absent. The bug they existed for (the sonar aiming at a collected tile) cannot be
+  * written now.
+  */
+const TILES: RoundTile[] = [
+  { cell: 0, value: 4, correct: true, heat: 1 },      // spot 0,0
+  { cell: 7, value: 7, correct: false, heat: 0.6 },   // spot 2,1
+  { cell: 13, value: 10, correct: true, heat: 0.2 },  // spot 3,2
+];
 
 function view(over: Partial<RoundView> = {}): RoundView {
   return {
     category: EVEN,
-    wave: WAVE,
+    tiles: TILES,
     hits: 3,
     focus: { x: 2, y: 1 },
     ...over,
@@ -64,10 +70,11 @@ describe('[Interface] the declaration is well formed', () => {
     expect(declOf().decl.tick).toBe('clock');
   });
 
-  it('is still conformant with no wave in play', () => {
-    // Between waves is a real state, and a contract that only holds mid-wave would throw during
-    // the gap the engine is most likely to ask about.
-    expect(conformanceProblems(declOf({ wave: null }).decl)).toEqual([]);
+  it('is still conformant with an empty mat', () => {
+    // An empty mat is a real state — between one tile leaving and the next arriving — and a
+    // contract that only held while something was lit would throw during the very gap the engine
+    // is most likely to ask about.
+    expect(conformanceProblems(declOf({ tiles: [] }).decl)).toEqual([]);
   });
 });
 
@@ -90,8 +97,8 @@ describe('[Right] roleAt is the whole accessibility mapping', () => {
     expect(decl.roleAt(spotOfCell(19))).toBe('free');
   });
 
-  it('calls everything free when no wave is up', () => {
-    expect(declOf({ wave: null }).decl.roleAt(spotOfCell(0))).toBe('free');
+  it('calls everything free when the mat is empty', () => {
+    expect(declOf({ tiles: [] }).decl.roleAt(spotOfCell(0))).toBe('free');
   });
 
   it('answers for a spot off the mat instead of throwing', () => {
@@ -163,8 +170,8 @@ describe('[Right] targetsOf points only at what is worth hitting', () => {
     expect(declOf().decl.targetsOf(0)).not.toContainEqual(spotOfCell(7));
   });
 
-  it('is empty between waves, which is an answer and not an error', () => {
-    expect(declOf({ wave: null }).decl.targetsOf(0)).toEqual([]);
+  it('is empty on an empty mat, which is an answer and not an error', () => {
+    expect(declOf({ tiles: [] }).decl.targetsOf(0)).toEqual([]);
   });
 });
 
@@ -182,14 +189,28 @@ describe('[Right] focusOf reports where the keyboard cursor is', () => {
 });
 
 describe('[Simple] the declaration reads live state, it does not snapshot it', () => {
-  it('follows the wave as it changes', () => {
+  it('follows the mat as it changes', () => {
     // Built once at boot and consulted every frame. A declaration that closed over the first
-    // wave would answer about a wave that ended minutes ago, and nothing would report it.
+    // tiles would answer about a mat that emptied minutes ago, and nothing would report it.
     const { decl, set } = declOf();
     expect(decl.roleAt(spotOfCell(0))).toBe('goal');
-    set({ wave: { deadlineMs: 5_000, tiles: [{ cell: 0, value: 3, correct: false, resolved: false }] } });
+    set({ tiles: [{ cell: 0, value: 3, correct: false, heat: 1 }] });
     expect(decl.roleAt(spotOfCell(0))).toBe('hazard');
     expect(decl.nameAt(spotOfCell(0))?.text).toBe('3');
+  });
+
+  it('stops naming a tile the instant it leaves the mat', () => {
+    // ⚠️ This WAS a reported bug, under the old model, and it took three copies of one rule to
+    // cause: a judged tile stayed in the wave marked `resolved`, and the renderer, `targetsOf`
+    // and `nameAt` each had to remember to skip it. Two of the three did not, so the sonar kept
+    // aiming a blind player at a tile they had already collected. The rule lives in the round
+    // now — a judged tile is simply not in the list — and this is the assertion that says so.
+    const { decl, set } = declOf();
+    expect(decl.targetsOf(0)).toContainEqual(spotOfCell(0));
+    set({ tiles: TILES.filter((t) => t.cell !== 0) });
+    expect(decl.nameAt(spotOfCell(0))).toBeNull();
+    expect(decl.roleAt(spotOfCell(0))).toBe('free');
+    expect(decl.targetsOf(0)).not.toContainEqual(spotOfCell(0));
   });
 
   it('follows the score', () => {

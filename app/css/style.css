@@ -371,7 +371,13 @@ body {
      inside a stroke that does the legibility work, and `paint-order` is what keeps the stroke
      OUTSIDE the letterform instead of eating half of it. */
   color: #2B4CFF;
-  -webkit-text-stroke: 0.07em #FFFFFF;
+  /* ⚠️ THE OUTLINE CARRIES THE CONTRAST AND IT IS TWICE AS THICK, on the Dev's call -- three
+     times first, then two after they looked at it.
+     `paint-order: stroke fill` draws the stroke first and the fill over it, so only the OUTER
+     half of the stroke is ever visible: 0.14em of stroke shows as 0.07em of white, twice the
+     0.035em it showed at 0.07em. That paint order is also what keeps the blue from being eaten --
+     without it a stroke this heavy would take half the letterform with it. */
+  -webkit-text-stroke: 0.14em #FFFFFF;
   paint-order: stroke fill;
   /* The original's own wobble, read from its `@keyframes hover`. */
   animation: title-float 4s ease-in-out infinite;
@@ -430,7 +436,15 @@ body {
    Space does not. The tap target stays 44 px (WCAG 2.5.5) through the padding. */
 .title-play {
   font-family: 'Press Start 2P', monospace;
-  font-size: clamp(0.8rem, 2vw, 1.2rem);
+  /* ⚠️ SIZED OFF THE LOGO, not off the root. It was `clamp(0.8rem, 2vw, 1.2rem)` -- a ceiling of
+     about 19 px, so on a classroom projector the one word a player has to find rendered smaller
+     than the HUD's help text. Everything else on this screen scales with `--logo-track`, and this
+     was the one thing that did not.
+
+     0.45 of "Schoolution", which is itself half of one "Whack": slightly under half, as asked.
+     Written as that same expression halved and then trimmed, so the relationship survives a
+     change to the logo instead of becoming two numbers that used to agree. */
+  font-size: calc(var(--logo-track) * 0.15 / 2 * 0.45);
   letter-spacing: 0.15em;
   padding: 0.7em 1.2em;
   color: #FFFFFF;
@@ -457,9 +471,19 @@ body {
 }
 .title-options > summary:focus-visible { outline: 3px solid var(--tile-lit); }
 .title-options[open] > summary { margin-bottom: 0.6em; }
-/* The heading takes focus so a reader announces WHAT this screen is before what can be done on
-   it. It is not interactive, so it gets a focus ring and nothing else. */
-.screen-title:focus-visible { outline: 3px solid var(--tile-lit); outline-offset: 4px; }
+/* ========================= THE HEADING TAKES FOCUS AND DOES NOT SHOW IT =========================
+   ⚠️ It used to draw a white box round the whole logo on load and on every F5, which is what the
+   Dev saw: a title that looked selected before anything had been touched. The focus move itself
+   STAYS -- it is what makes a reader announce which screen this is before offering what can be
+   done on it -- and only the ring goes.
+
+   That is not a hole in WCAG 2.4.7. The guideline is about the element a keyboard user has
+   ARRIVED at, and this heading has `tabindex="-1"`: it is not in the tab order and cannot be
+   reached by tabbing. Nobody can navigate to it, so nobody can lose track of where they are on
+   it. `:focus` as well as `:focus-visible`, because the browser's heuristic counts a page loaded
+   by pressing F5 as a keyboard interaction -- which is exactly the case reported. */
+.screen-title:focus,
+.screen-title:focus-visible { outline: none; }
 .screen[data-outcome="lost"] .screen-title { color: #E9A2A2; }
 .screen-lead { margin: 0; color: #C9D1D9; font-size: 0.8em; line-height: 1.7; }
 .screen-sub { margin: 0; color: #8B949E; font-size: 0.9em; }

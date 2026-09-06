@@ -17,7 +17,7 @@
 // compose a wave at all. Throwing at construction beats throwing inside a round already in play:
 // the first is a mistake by whoever added the category, the second is a crash in a classroom.
 
-import { LIT_PER_WAVE } from './difficulty.ts';
+import { LIT_AT_ONCE } from './difficulty.ts';
 
 export interface Category {
   /** Stable id, used for persistence and telemetry. Never shown to anyone. */
@@ -55,8 +55,11 @@ export const POOL_MAX = 20;
  */
 export const VALUE_MAX = 99;
 
-/** A wave at the hardest setting could ask for this many of one kind, so a pool must hold them. */
-const MIN_PER_SIDE = LIT_PER_WAVE.hard;
+/**
+  * The hardest setting can have this many tiles up at once, and no two of them may carry the same
+  * value -- so a category has to be able to supply this many DISTINCT values of each kind.
+  */
+const MIN_PER_SIDE = LIT_AT_ONCE.hard;
 
 function range(lo: number, hi: number): number[] {
   const out: number[] = [];
@@ -113,7 +116,7 @@ export function multipleOf(factor: number, options: CategoryOptions): Category {
   if (right < MIN_PER_SIDE || wrong < MIN_PER_SIDE) {
     throw new Error(
       `category "${options.id}": pool holds ${right} correct and ${wrong} incorrect values, ` +
-      `but a wave can need ${MIN_PER_SIDE} of each. Widen the pool or drop the category.`,
+      `but ${MIN_PER_SIDE} tiles can be up at once. Widen the pool or drop the category.`,
     );
   }
 

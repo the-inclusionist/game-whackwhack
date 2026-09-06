@@ -45,9 +45,11 @@ export interface AnnounceContext {
 /**
  * The sentence for one event, or `null` when there is nothing to say.
  *
- * `wave-cleared` returns null on purpose: it is bookkeeping, and announcing it would put a word
- * between the child answering a wave and the next one arriving, which is the moment they most
- * need quiet.
+ * ⚠️ EVERY tile that lights is announced, one by one, and that is a deliberate acceptance of
+ * chatter. It was one sentence per WAVE, which was quieter and which only worked because the
+ * tiles arrived together; they arrive singly now, and a blind player who is told about some of
+ * them is worse off than one told about all of them. `srSay` is polite, so the sentences queue
+ * behind each other rather than cutting the player off mid-word.
  */
 export function announcementFor(
   event: RoundEvent,
@@ -55,12 +57,14 @@ export function announcementFor(
 ): Announcement | null {
   const { i18n } = context;
   switch (event.kind) {
-    case 'wave-lit':
-      // Every value, correct and incorrect alike, in the order they sit in the wave. Naming only
-      // the correct ones would hand a blind player the answer and dissolve the task.
+    case 'tile-lit':
+      // ⚠️ The value is said WITHOUT saying whether it is the one to collect. Naming only the
+      // correct ones — or marking them — would hand a blind player the answer and dissolve the
+      // task into a reaction test. What to collect is repeated with each tile because it is the
+      // question being asked, and a player who has just been read four numbers needs it again.
       return {
-        text: i18n.t('say.waveLit', {
-          values: event.wave.tiles.map((t) => t.value).join(', '),
+        text: i18n.t('say.tileLit', {
+          value: event.value,
           what: context.collecting,
         }),
         urgent: false,

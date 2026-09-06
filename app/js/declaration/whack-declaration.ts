@@ -20,22 +20,29 @@
 //
 // ========================= IT READS LIVE STATE =========================
 // Built once at boot and consulted every frame, so it takes a GETTER rather than a snapshot. A
-// declaration that closed over the first wave would keep answering about a wave that ended
+// declaration that closed over the first tiles would keep answering about a mat that emptied
 // minutes ago, and nothing would report it — the engine would simply narrate the wrong board.
 
 import type {
   Focus, GameDeclaration, Objective, Role, Speakable, Spot, Topology,
 } from '@the-inclusionist/engine/core/contract.js';
 import type { Category } from '../rules/category.ts';
-import type { RoundWave } from '../rules/round.ts';
+import type { RoundTile } from '../rules/round.ts';
 import { ROUND_GOAL } from '../rules/difficulty.ts';
 import { MAT_COLS, MAT_ROWS, cellOfSpot } from '../rules/grid.ts';
 
 /** The slice of the round the declaration needs. Read-only, and deliberately small. */
 export interface RoundView {
   readonly category: Category;
-  /** The wave currently up, or `null` in the gap between waves. */
-  readonly wave: RoundWave | null;
+  /**
+   * What is on the mat right now. EMPTY between tiles, which is an ordinary state and not an
+   * absence to special-case.
+   *
+   * ⚠️ It was `wave: RoundWave | null`, and the null was doing two jobs at once — "no round" and
+   * "the gap between waves" — so every reader had to guard it before touching anything. An empty
+   * array needs no guard, and the three `if (!view.wave) return` lines below went with it.
+   */
+  readonly tiles: readonly RoundTile[];
   /** Correct tiles hit so far this round. */
   readonly hits: number;
   /** Where the keyboard cursor sits, or `null` when nothing has focus. */
@@ -55,25 +62,24 @@ const TOPOLOGY: Topology = { kind: 'grid', cols: MAT_COLS, rows: MAT_ROWS };
 
 export function createWhackDeclaration(deps: DeclarationDeps): GameDeclaration {
   /**
-   * The LIVE tile at `at`, or undefined. Off-mat spots resolve to cell -1 and match nothing.
+   * The tile at `at`, or undefined. Off-mat spots resolve to cell -1 and match nothing.
    *
-   * ⚠️ UNRESOLVED ONLY, and it was not. A tile that has been answered is no longer on the mat, and
-   * treating it as though it were is what made `targetsOf` keep aiming the sonar at something the
-   * player had already collected, and `nameAt` keep announcing a number that had gone. Both were
-   * silent: the score was right, so nothing looked wrong.
+   * ⚠️ There used to be a `!t.resolved` filter here, and forgetting it was a reported bug: the
+   * sonar kept aiming a blind player at a tile they had already collected and `nameAt` kept
+   * announcing a number that had gone. The filter is not here any more because the CONDITION is
+   * not: a judged tile leaves `round.tiles()` outright, so there is no stale entry to skip. The
+   * same rule was being restated in three files, and now it is enforced in the one that owns it.
    */
   function tileAt(at: Spot) {
-    const view = deps.view();
-    if (!view.wave) return undefined;
     const cell = cellOfSpot(at);
     if (cell < 0) return undefined;
-    return view.wave.tiles.find((t) => t.cell === cell && !t.resolved);
+    return deps.view().tiles.find((t) => t.cell === cell);
   }
 
   return {
     topology: TOPOLOGY,
 
-    // The clock owns the tick: a wave expires whether or not anyone acts.
+    // The clock owns the tick: a tile expires whether or not anyone acts.
     tick: 'clock',
 
     roleAt(at: Spot): Role {
@@ -117,10 +123,9 @@ export function createWhackDeclaration(deps: DeclarationDeps): GameDeclaration {
     },
 
     targetsOf(): readonly Spot[] {
-      const view = deps.view();
-      if (!view.wave) return [];   // between waves. Empty is an answer, not an error.
-      return view.wave.tiles
-        .filter((t) => t.correct && !t.resolved)
+      // An empty mat gives an empty list, which is an answer and not an error.
+      return deps.view().tiles
+        .filter((t) => t.correct)
         .map((t) => ({ x: t.cell % MAT_COLS, y: Math.floor(t.cell / MAT_COLS) }));
     },
   };
