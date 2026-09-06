@@ -16,14 +16,19 @@
   /* The original's signature magenta. 3.69:1 on the ground: LARGE type and focus rings only,
      never body text. Measured in render/palette. */
   --accent: #C933FF;
-  /* The Dev asked for "pink bem brilhante" on "Schoolution".
+  /* "Schoolution" is a NEON pink, and neon is two colours rather than one: a bright tube and a
+     saturated halo around it. Both are measured.
 
-     MEASURED, like every other colour here: 7.21:1 on the ground, which clears the palette's
-     ENHANCED text target of 7 (WCAG 1.4.6) rather than merely the 4.5 a display size this large
-     would be allowed. It is the most saturated pink that does -- #FF4FD8 is one step more vivid
-     and falls to 6.80, and every brighter option (#FFA6E9 at 10.98) buys the ratio by washing the
-     colour out. Brilliance up to the point where it starts costing legibility. */
-  --title-pink: #FF5FD1;
+     The tube is 8.00:1 on the ground -- past the palette's ENHANCED text target of 7 (WCAG 1.4.6),
+     where a display size this large would only have owed 4.5. It went #FF5FD1 (7.21) first and
+     brightened on the Dev's second reading; the ceiling on brightening further is that saturation
+     falls away with it, and #FF9BEF reaches 10.33 by being pale rather than by being brilliant.
+
+     The halo is the most saturated magenta there is at full red and full blue. On its own it
+     measures 6.08:1 and would NOT be allowed to carry text -- it never does. It is blurred light
+     AROUND the letterform, so it only ever adds to what the tube already earns. */
+  --title-pink: #FF6FE5;
+  --title-glow: #FF10F0;
 
   /* ========================= THE ONE PLACE THE COLUMN'S WIDTH IS WRITTEN =========================
      The HUD owns this share of the region, and the title screen has to leave exactly that much
@@ -339,9 +344,10 @@ body {
   align-items: center;
   gap: 0.2em;
   /* The original's own value. It is what makes the rotateY in the wobble read as depth rather
-     than as a squash. */
+     than as a squash. It stays on the PARENT: a CSS perspective applies to an element's children,
+     so one declaration here gives both words the same vanishing point — which is what keeps them
+     looking like two slabs in one space rather than two unrelated animations. */
   perspective: 500px;
-  animation: title-float 4s ease-in-out infinite;
 }
 
 /* "Whack / Whack" — the arcade half. The break is a newline in the catalogue rather than markup,
@@ -367,6 +373,8 @@ body {
   color: #2B4CFF;
   -webkit-text-stroke: 0.07em #FFFFFF;
   paint-order: stroke fill;
+  /* The original's own wobble, read from its `@keyframes hover`. */
+  animation: title-float 4s ease-in-out infinite;
 }
 
 /* "Schoolution" — the handwriting half. The joke of the name is the swap: the same word, moved
@@ -381,9 +389,20 @@ body {
   /* The Dev's call, and it is the better half of the joke: the arcade word stays cold blue and
      the schoolroom word is the one carrying the colour. */
   color: var(--title-pink);
-  /* The GROUND's own colour, so the shadow reads as an edge rather than as a second hue. It was
-     the accent purple, which behind white was decoration; behind pink it would be mud. */
-  text-shadow: 0.035em 0.035em 0 var(--ground);
+  /* ⚠️ THE GLOW IS LIGHT, NOT AN OUTLINE, which is why it is allowed to be a colour that could
+     not carry text on its own. Three layers: a tight one in the tube's own colour that thickens
+     the stroke the way a lit tube blooms, then two wide ones in the saturated magenta. Nothing
+     here sits BETWEEN the reader and the letterform — an outline would, and a dark one fighting a
+     glow is what makes cheap neon type look muddy. */
+  text-shadow:
+    0 0 0.06em var(--title-pink),
+    0 0 0.28em var(--title-glow),
+    0 0 0.7em var(--title-glow);
+  /* ⚠️ ITS OWN ANIMATION, and a deliberately co-prime period. Both words used to hang off one
+     `animation` on the heading, so they moved as one rigid sign; the Dev asked them to float
+     separately. 5.5s against the mark's 4s means they drift through every phase relation instead
+     of locking into step every few seconds, which is what a shared or halved period would do. */
+  animation: school-float 5.5s ease-in-out infinite;
 }
 /* The original's own wobble, read from its `@keyframes hover`: a fixed rotateX with rotateY
    swinging ±3° and a ±3% vertical drift. It is a 3D sway, not a bob, and that is what makes the
@@ -393,6 +412,16 @@ body {
   25%  { transform: rotateX(10deg) rotateY(3deg)  translateY(3%); }
   75%  { transform: rotateX(10deg) rotateY(-3deg) translateY(-3%); }
   100% { transform: rotateX(10deg) rotateY(0deg)  translateY(0); }
+}
+
+/* The handwritten word's own drift. Same shape, opposite sense and a wider swing: it is script
+   rather than pixels, so it can lean further without reading as broken, and starting where the
+   mark's swing ends is what makes the two look independent rather than out of sync. */
+@keyframes school-float {
+  0%   { transform: rotateX(6deg) rotateY(-4deg) translateY(2%); }
+  30%  { transform: rotateX(6deg) rotateY(2deg)  translateY(-3%); }
+  70%  { transform: rotateX(6deg) rotateY(5deg)  translateY(2%); }
+  100% { transform: rotateX(6deg) rotateY(-4deg) translateY(2%); }
 }
 
 /* ⚠️ A WORD, NOT A BUTTON — in appearance only. It is still a `<button>`, so Enter, Space, the
