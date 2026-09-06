@@ -11,9 +11,16 @@
 // structural typing means the declaration can hand these straight across the boundary anyway.
 // The duplication is the price of the layer staying testable in milliseconds, and it is cheap.
 
-/** 5 by 4: the original's twenty slabs, in the landscape orientation. */
-export const MAT_COLS = 5;
-export const MAT_ROWS = 4;
+/**
+ * 4 by 5 — read off the original's own stylesheet rather than chosen: its `.gamepad__surface` is
+ * `grid-template-columns: repeat(4, 1fr)` over `grid-template-rows: repeat(5, 1fr)`.
+ *
+ * ⚠️ I had it 5 by 4, reasoning from a 16:9 canvas, AFTER the Dev had already said "4x5 azulejos".
+ * The mat is deeper than it is wide, and that costs vertical room the framing has to give back —
+ * see CAMERA in render/zdog-stage, where the mat now sits above centre to clear the HUD.
+ */
+export const MAT_COLS = 4;
+export const MAT_ROWS = 5;
 export const MAT_CELLS = MAT_COLS * MAT_ROWS;
 
 /** A place on the mat. Structurally the engine's `Spot`; see the note above. */

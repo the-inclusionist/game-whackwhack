@@ -7,7 +7,7 @@
   color-scheme: dark;
   --ground: #1C041B;
   --tile-idle: #8A4AA6;
-  --tile-lit: #FAAAFA;
+  --tile-lit: #FFFFFF;
   --ink: #1C041B;
   /* The original's signature magenta. 3.69:1 on the ground: LARGE type and focus rings only,
      never body text. Measured in render/palette. */
@@ -51,23 +51,32 @@ body {
   touch-action: none;
 }
 
-/* ========================= THE HUD IS A BAND, NOT A COLUMN =========================
-   The chess game gives its HUD a side column because a 8×8 board is square and leaves width. This
-   mat is 5×4 — wider than it is deep — so what it leaves is HEIGHT. Same reasoning, opposite axis. */
+/* ========================= THE HUD IS A COLUMN AGAIN =========================
+   ⚠️ It was a bottom band, and the reasoning was right for a mat that was 5 wide by 4 deep: a
+   landscape mat leaves height, so the HUD took height. The mat is now 4 by 5 — the shape the
+   ORIGINAL uses — which leaves WIDTH instead, and a band across the bottom was eating the very
+   room the deeper mat needs. Same sentence, opposite axis, because the shape changed under it.
+
+   The near row was being cut off, which is what that costs when it is wrong. */
 .hud {
   position: absolute;
-  inset: auto 0 0 0;
+  inset: 0 0 0 auto;
+  width: 27.5%;
   box-sizing: border-box;
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: calc(var(--ui-fs, 16px) * 0.9);
-  padding: calc(var(--ui-fs, 16px) * 0.45);
-  font-size: var(--ui-fs, 16px);
-  line-height: 1.25;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(var(--ui-fs, 16px) * 0.5);
+  padding: calc(var(--ui-fs, 16px) * 0.4);
+  font-size: calc(var(--ui-fs, 16px) * 0.8);
+  line-height: 1.3;
   color: #FFFFFF;
   background: rgba(28, 4, 27, 0.94);
-  border-top: 1px solid #6B2E80;
+  border-left: 1px solid #6B2E80;
+  /* A column that cannot scroll is a column that hides its last line on a small screen — the
+     chess game learned this by losing a settings switch off the bottom. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 /* ⚠️ `hidden` sets `display: none` from the BROWSER's stylesheet, and an author rule beats it —
    so `.hud { display: flex }` above kept the bar on screen behind the title with the attribute
@@ -121,7 +130,7 @@ body {
 .hud-help {
   color: #8B949E;
   font-size: 0.85em;
-  margin-left: auto;
+  margin-top: auto;
 }
 
 /* ========================= THE TITLE AND RESULT SCREENS =========================
@@ -142,15 +151,24 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 0.9em;
-  min-width: min(90vw, 26em);
+  min-width: min(92vw, 30em);
   padding: 1.6em;
   background: rgba(28, 4, 27, 0.6);
   border: 1px solid #6B2E80;
   border-radius: 4px;
 }
+/* The result screen wears the arcade face too — it is the same game, and a system font there was
+   the seam the Dev noticed. */
+.screen-title,
+.screen-action,
+.screen-secondary,
+.screen-lead {
+  font-family: 'Press Start 2P', monospace;
+}
 .screen-title {
   margin: 0;
-  font-size: 1.8em;
+  font-size: 1.4em;
+  line-height: 1.5;
   text-align: center;
   color: var(--tile-lit);
 }
@@ -162,7 +180,12 @@ body {
 .screen--title .screen-card {
   background: none;
   border: 0;
-  gap: 1.2em;
+  gap: 0.6em;
+  /* The card must not constrain the logo: at 15vw the name is wider than any sensible card, and a
+     `min-width` was making it overflow to one side instead of centring. */
+  min-width: 0;
+  width: 100%;
+  padding: 0;
 }
 /* ========================= THE TWO TYPEFACES =========================
    ⚠️ VENDORED, not linked from Google Fonts. This game is offline-first — it ships as a PWA to
@@ -171,13 +194,13 @@ body {
    they are 49 KB, which is less than one of the engine's own text faces. */
 @font-face {
   font-family: 'Press Start 2P';
-  src: url('../vendor/fonts/press-start-2p-400.woff2') format('woff2');
+  src: url('./fonts/press-start-2p-400.woff2') format('woff2');
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
   font-family: 'Playwrite BR';
-  src: url('../vendor/fonts/playwrite-br-400.woff2') format('woff2');
+  src: url('./fonts/playwrite-br-400.woff2') format('woff2');
   font-weight: 400;
   font-display: swap;
 }
@@ -187,15 +210,22 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 0.2em;
-  animation: title-float 3.2s ease-in-out infinite;
+  /* The original's own value. It is what makes the rotateY in the wobble read as depth rather
+     than as a squash. */
+  perspective: 500px;
+  animation: title-float 4s ease-in-out infinite;
 }
 
 /* "Whack / Whack" — the arcade half. The break is a newline in the catalogue rather than markup,
    so `t()` stays a plain string lookup; `pre-line` renders it. */
 .title-mark {
   font-family: 'Press Start 2P', monospace;
-  font-size: clamp(1.4rem, 5.5vw, 3.2rem);
-  line-height: 1.35;
+  /* ⚠️ 15vw BECAUSE "Whack" IS FIVE CHARACTERS AND THIS FACE IS MONOSPACED at 1em of advance.
+     Five characters at 15vw is 75vw — the logo width the Dev asked for, derived rather than
+     dialled in. The original does the same thing a different way: `width: 80rem; max-width: 100%`
+     on an SVG logo, which is "as wide as it is allowed to be". */
+  font-size: 15vw;
+  line-height: 1.15;
   text-align: center;
   white-space: pre-line;
   /* ⚠️ THE OUTLINE CARRIES THE CONTRAST, NOT THE FILL. Blue on this ground measures 1.27:1 — very
@@ -203,7 +233,7 @@ body {
      inside a stroke that does the legibility work, and `paint-order` is what keeps the stroke
      OUTSIDE the letterform instead of eating half of it. */
   color: #2B4CFF;
-  -webkit-text-stroke: 0.09em #FFFFFF;
+  -webkit-text-stroke: 0.07em #FFFFFF;
   paint-order: stroke fill;
 }
 
@@ -211,14 +241,21 @@ body {
    from the wall to the blackboard. */
 .title-school {
   font-family: 'Playwrite BR', cursive;
-  font-size: clamp(1.6rem, 6vw, 3.6rem);
+  /* Half of one "Whack", as asked — 15vw ÷ 2. Written as the division so the relationship survives
+     a change to the line above instead of becoming two numbers that used to agree. */
+  font-size: calc(15vw / 2);
   line-height: 1.1;
   color: #FFFFFF;
   text-shadow: 0.04em 0.04em 0 var(--accent);
 }
+/* The original's own wobble, read from its `@keyframes hover`: a fixed rotateX with rotateY
+   swinging ±3° and a ±3% vertical drift. It is a 3D sway, not a bob, and that is what makes the
+   logo read as a slab hanging in space rather than a heading bouncing. */
 @keyframes title-float {
-  0%, 100% { transform: translateY(-0.06em); }
-  50%      { transform: translateY(0.06em); }
+  0%   { transform: rotateX(10deg) rotateY(0deg)  translateY(0); }
+  25%  { transform: rotateX(10deg) rotateY(3deg)  translateY(3%); }
+  75%  { transform: rotateX(10deg) rotateY(-3deg) translateY(-3%); }
+  100% { transform: rotateX(10deg) rotateY(0deg)  translateY(0); }
 }
 
 /* ⚠️ A WORD, NOT A BUTTON — in appearance only. It is still a `<button>`, so Enter, Space, the
@@ -258,7 +295,7 @@ body {
    it. It is not interactive, so it gets a focus ring and nothing else. */
 .screen-title:focus-visible { outline: 3px solid var(--tile-lit); outline-offset: 4px; }
 .screen[data-outcome="lost"] .screen-title { color: #E9A2A2; }
-.screen-lead { margin: 0; color: #C9D1D9; }
+.screen-lead { margin: 0; color: #C9D1D9; font-size: 0.8em; line-height: 1.7; }
 .screen-sub { margin: 0; color: #8B949E; font-size: 0.9em; }
 
 .screen-row { display: flex; flex-direction: column; gap: 0.25em; margin: 0; }

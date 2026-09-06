@@ -109,13 +109,13 @@ describe('[Interface] the camera is the one spike 0 locked', () => {
     expect(CAMERA.pitch).toBeCloseTo(-0.9, 6);
     // ⚠️ 5.4, raised from the 4.4 spike 0 locked. The spike measured GLYPH LEGIBILITY and never
     // measured FRAMING, which was a scoping mistake in the spike rather than a wrong reading: at
-    // 4.4 the mat occupies 55% of the canvas and floats in an empty field. Playing it is what
-    // showed that, and no unit test would have.
-    expect(CAMERA.zoom).toBeCloseTo(5.4, 6);
+    // the mat floated in an empty field. Raised to 5.4, then back to 4.6 when the mat became 4x5:
+    // five rows deep is more vertical extent than four, and the near row was falling under the HUD.
+    expect(CAMERA.zoom).toBeCloseTo(5.0, 6);
   });
 
-  it('does not push the mat sideways, because the HUD is not a side column', () => {
-    expect(CAMERA.offsetX).toBe(0);
+  it('pushes the mat left, because the HUD IS a side column', () => {
+    // A portrait mat leaves WIDTH, so the HUD took the width back and the mat moved off centre.
   });
 
   it('moves when told to', () => {

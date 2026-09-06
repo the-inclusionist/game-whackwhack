@@ -67,7 +67,7 @@ export const GROUND = '#1C041B';
 /** An unlit tile: on the mat, not in play. */
 export const TILE_IDLE = '#8A4AA6';
 /** A lit tile: in play, and risen. */
-export const TILE_LIT = '#FAAAFA';
+export const TILE_LIT = '#FFFFFF';
 /**
  * The number on a lit tile — the GROUND colour, so the digit reads as a hole punched through the
  * tile rather than as paint laid on it. It is also what buys the 10.53:1.
@@ -92,17 +92,21 @@ export const ACCENT = '#C933FF';
  * colour ALONE, and the tile also sinks as it cools. Someone who cannot see the hue shift still
  * sees the tile settle.
  *
- * ⚠️ THE COLD END IS BOUNDED BY THE NUMBER, NOT BY TASTE. Every value along the way still has to
- * carry the digit at the 7:1 this game holds itself to, and that is what stops the cooling being
- * dramatic: the darkest colour that keeps 7:1 measures exactly 7.00, so this one sits just inside
- * it at 7.87 and the whole hot-to-cold journey is a 1.34:1 shift. Visible, and no more.
+ * ⚠️ THE TILE LIGHTS TO WHITE AND COOLS TO PINK, and that direction is not the one I built first.
+ * I had it lighting to the pink and cooling to a slightly darker pink, which measured worse on
+ * every axis. Starting at white is strictly better and it was the Dev's call:
  *
- * ⚠️ AND IT IS DELIBERATELY NOT NEAR THE IDLE COLOUR. Distinguishing "in play" from "not" is
- * HEIGHT's job — the tile is raised the whole time — so the colour is free to spend its whole
- * range on TIME. An earlier attempt cooled all the way towards the idle shade and cost the number
- * its legibility to say something height was already saying.
+ *   number on the hot tile (white)   19.37    was 10.53
+ *   number on the cold tile (pink)   10.53    was  7.87
+ *   hot → cold, as the eye reads it   1.72    was  1.34   ← the cooling is MORE visible
+ *   cold tile vs idle                 3.38    floor 3
+ *
+ * The lesson is worth keeping: I had reasoned the cold end down towards the idle colour to make
+ * the change dramatic, and that spent the number's legibility to say something HEIGHT was already
+ * saying. Anchoring the HOT end at white instead buys the same drama out of the bright end, where
+ * there was room to spare.
  */
-export const TILE_LIT_COLD = '#CC8FF2';
+export const TILE_LIT_COLD = '#FAAAFA';
 
 /** Linear mix of two hex colours, `t` from 0 (a) to 1 (b). */
 export function mixHex(a: string, b: string, t: number): string {

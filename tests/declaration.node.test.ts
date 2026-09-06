@@ -204,17 +204,20 @@ describe('[Right] the mat is the original\'s twenty slabs', () => {
   // MAT_CELLS, which means they hold for a mat of any size — a 4x4 mat passed all of them. The
   // twenty slabs are a product fact carried over from si-em/whackwhack, not an implementation
   // detail, so one test has to state the numbers rather than refer to them.
-  it('is five columns by four rows', () => {
-    expect(MAT_COLS).toBe(5);
-    expect(MAT_ROWS).toBe(4);
+  it('is four columns by five rows', () => {
+    // ⚠️ Read off the ORIGINAL's stylesheet, not chosen: `.gamepad__surface` is
+    // `repeat(4, 1fr)` columns over `repeat(5, 1fr)` rows. I had this the other way round,
+    // reasoning from a 16:9 canvas, after being told "4x5 azulejos".
+    expect(MAT_COLS).toBe(4);
+    expect(MAT_ROWS).toBe(5);
   });
 
   it('has twenty cells', () => {
     expect(MAT_CELLS).toBe(20);
   });
 
-  it('is wider than it is deep, which is the landscape orientation', () => {
-    expect(MAT_COLS).toBeGreaterThan(MAT_ROWS);
+  it('is DEEPER than it is wide, which is what costs the framing its vertical room', () => {
+    expect(MAT_ROWS).toBeGreaterThan(MAT_COLS);
   });
 });
 

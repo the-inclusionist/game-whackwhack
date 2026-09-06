@@ -51,23 +51,39 @@ export const CAMERA = {
   /**
    * Pitch in radians. Negative tilts the far edge of the mat away from the viewer.
    *
-   * −0.9 rather than the chess game's −1: shallower, because this mat is 5×4 rather than 8×8 and
-   * a steeper pitch squeezes four rows into too little screen height to keep the tiles apart.
+   * −0.9 rather than the chess game's −1: shallower, because a steeper pitch squeezes five rows
+   * into too little screen height to keep the tiles apart.
    */
   pitch: -0.9,
   yaw: 0,
   /**
-   * ⚠️ RAISED FROM 4.4 AFTER PLAYING IT. Spike 0 fixed 4.4 while measuring GLYPH LEGIBILITY and
-   * never measured FRAMING — a scoping mistake in the spike. At 4.4 the mat occupies 55% of the
-   * canvas width and 61% of its height and floats in an empty field. 5.4 fills it, and the glyph,
-   * which is sized in world units, grows with it.
+   * ⚠️ THIS NUMBER HAS MOVED TWICE, AND BOTH MOVES WERE CORRECTIONS TO A REAL MISTAKE.
+   *
+   * Spike 0 fixed 4.4 while measuring GLYPH LEGIBILITY and never measured FRAMING — a scoping
+   * mistake in the spike, not a wrong reading. At 4.4 the mat floated in an empty field. 5.4 fixed
+   * that for a mat 5 wide and 4 deep.
+   *
+   * Then the mat became 4 wide and 5 DEEP, which is the shape the original's own stylesheet uses,
+   * and depth costs vertical room: five rows at 5.4 ran off the bottom of the frame. 5.0 is what
+   * fits `MAT_ROWS × TILE × sin(pitch) + TILE_RISE × cos(pitch)` inside 360 with margin.
    */
-  zoom: 5.4,
+  zoom: 5.0,
   /**
-   * No offset. The chess game pushes its board left to clear a HUD column; this HUD sits along the
-   * top and bottom instead, because a mat that is wider than it is deep leaves height, not width.
+   * ⚠️ PUSHES THE MAT LEFT to clear the HUD column, which owns 27.5% of the frame.
+   *
+   * It was 0 while the HUD was a bottom band. The mat turning portrait moved the HUD back to a
+   * column — a portrait mat leaves WIDTH, a landscape one leaves height — and this moved with it.
+   *
+   * In WORLD units: the zoom already scales it to the screen, and scaling it here as well is what
+   * pushed the chess board off the left edge the first time anyone tried.
    */
-  offsetX: 0,
+  offsetX: -17,
+  /**
+   * Centred vertically. It was −6 while the HUD was a band across the bottom, lifting the mat so
+   * the near row did not vanish under it — which it had been doing, and was reported as tiles
+   * being cut off. With the HUD in a column there is nothing at the bottom to clear.
+   */
+  offsetY: 0,
 } as const;
 
 /**
@@ -142,7 +158,7 @@ export function createZdogStage(options: ZdogStageOptions = {}): ZdogStage {
 
   // The offset is in WORLD units and the zoom already scales it to the screen. Scaling it here as
   // well double-counts, which is what pushed the chess board off the left edge the first time.
-  const root = new Zdog.Anchor({ addTo: illo, translate: { x: CAMERA.offsetX } });
+  const root = new Zdog.Anchor({ addTo: illo, translate: { x: CAMERA.offsetX, y: CAMERA.offsetY } });
 
   return {
     canvas,
