@@ -24,7 +24,7 @@
 // constants the documents quote would make them agree by construction and prove nothing — the same
 // reason `tests/style-palette` reads `style.css` off disk rather than importing a shared value.
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -129,48 +129,99 @@ describe('[Interface] the documents point at gates that exist', () => {
   });
 });
 
-describe('[Interface] the stopgap for the engine\'s packaging is still needed', () => {
-  const ENGINE = JSON.parse(read('node_modules', '@the-inclusionist', 'engine', 'package.json')) as {
+describe('[Interface] the engine imports nothing it has not declared', () => {
+  /**
+   * ⚠️ THIS IS THE GENERAL FORM OF A DEFECT THAT REALLY SHIPPED. Engine 6.36.1's
+   * `dist-pkg/platform/tts.js` — shipped runtime code — imported `@mintplex-labs/piper-tts-web`,
+   * which the engine declared under `devDependencies`. npm does not install those for a consumer,
+   * so the import resolved to nothing and `npm run build` failed here with
+   *
+   *     Rolldown failed to resolve import "@mintplex-labs/piper-tts-web"
+   *
+   * It broke every consumer, not only this game, and nothing on either side would have caught it:
+   * the engine's own build resolves it from its dev tree, and this repository only found out by
+   * moving off the `file:` symlink. 7.0.1 fixed it by removing the import.
+   *
+   * So the assertion is not about that package. It is about the CLASS: every bare specifier in the
+   * engine's shipped code has to be something a consumer will actually have.
+   */
+  const ENGINE_DIR = join(ROOT, 'node_modules', '@the-inclusionist', 'engine');
+  const ENGINE = JSON.parse(readFileSync(join(ENGINE_DIR, 'package.json'), 'utf8')) as {
+    version: string;
     dependencies?: Record<string, string>;
-    devDependencies?: Record<string, string>;
     peerDependencies?: Record<string, string>;
   };
-  const TTS = '@mintplex-labs/piper-tts-web';
 
-  it('is a workaround for a real defect in the published package', () => {
-    // ⚠️ THE DEFECT: `dist-pkg/platform/tts.js` -- SHIPPED runtime code -- imports this package,
-    // and the engine declares it under `devDependencies`, which npm does not install for a
-    // consumer. So `npm run build` in this repository fails to resolve it, and would fail the
-    // same way for anyone else installing the engine from the registry.
-    //
-    // This repository carries the package as a devDependency of its own purely so it can build.
-    // That is papering over someone else's manifest, and the assertion below is what stops the
-    // paper outliving the crack.
-    expect(ENGINE.devDependencies ?? {}, 'the engine no longer dev-depends on it').toHaveProperty(TTS);
-    expect(ENGINE.dependencies ?? {}).not.toHaveProperty(TTS);
+  /** Every `.js` under dist-pkg, walked rather than globbed so the node project needs no plugin. */
+  function shippedFiles(dir: string): string[] {
+    const out: string[] = [];
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) out.push(...shippedFiles(full));
+      else if (entry.name.endsWith('.js')) out.push(full);
+    }
+    return out;
+  }
+
+  /** Bare specifiers only — a relative path is the package's own business. */
+  function bareImports(code: string): string[] {
+    const out: string[] = [];
+    const patterns = [
+      /\bfrom\s*['"]([^'"]+)['"]/g,
+      /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+      /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+    ];
+    for (const re of patterns) {
+      for (const m of code.matchAll(re)) {
+        const spec = m[1];
+        if (!spec.startsWith('.') && !spec.startsWith('node:')) out.push(spec);
+      }
+    }
+    return out;
+  }
+
+  /** `@scope/name/deep/path` → `@scope/name`. */
+  const packageOf = (spec: string): string =>
+    spec.startsWith('@') ? spec.split('/').slice(0, 2).join('/') : spec.split('/')[0];
+
+  it('declares every package its shipped code imports', () => {
+    const declared = new Set([
+      ...Object.keys(ENGINE.dependencies ?? {}),
+      ...Object.keys(ENGINE.peerDependencies ?? {}),
+    ]);
+    const missing = new Set<string>();
+    for (const file of shippedFiles(join(ENGINE_DIR, 'dist-pkg'))) {
+      for (const spec of bareImports(readFileSync(file, 'utf8'))) {
+        if (!declared.has(packageOf(spec))) missing.add(`${packageOf(spec)} (in ${file.slice(ENGINE_DIR.length + 1)})`);
+      }
+    }
+    expect([...missing], 'the engine ships imports a consumer cannot resolve').toEqual([]);
   });
 
-  it('DELETE THE STOPGAP once the engine declares it as a real dependency', () => {
-    // ⚠️ THIS TEST IS THE REMOVAL INSTRUCTION. The moment the engine moves the package into
-    // `dependencies` and republishes, npm installs it transitively and this repository's copy
-    // becomes dead weight in the lockfile -- the kind nobody ever notices is unnecessary. Failing
-    // here is the notice.
-    const engineDeclaresIt = TTS in (ENGINE.dependencies ?? {});
-    const weCarryIt = TTS in (JSON.parse(read('package.json')) as {
-      devDependencies?: Record<string, string>;
-    }).devDependencies!;
-    expect(
-      engineDeclaresIt && weCarryIt,
-      `the engine now declares ${TTS} as a dependency — remove it from this repo's devDependencies`,
-    ).toBe(false);
+  it('finds shipped code to look at, so the check is not vacuous', () => {
+    // A gate that walks an empty directory reports success. This is the half that says it walked.
+    expect(shippedFiles(join(ENGINE_DIR, 'dist-pkg')).length).toBeGreaterThan(20);
   });
 
-  it('does not let the engine\'s pixi PEER reach the bundle', () => {
+  it('actually EXTRACTS imports, or the check above passes on a broken regex', () => {
+    // ⚠️ THE OTHER WAY THIS GATE COULD BE VACUOUS. Walking a hundred files and matching nothing in
+    // any of them reports "no undeclared imports" just as cheerfully as a clean package would.
+    // `pixi.js` is known to be there — it is the engine's one declared peer and its renderer
+    // imports it — so finding it proves the scanner works before its silence is trusted.
+    const found = new Set<string>();
+    for (const file of shippedFiles(join(ENGINE_DIR, 'dist-pkg'))) {
+      for (const spec of bareImports(readFileSync(file, 'utf8'))) found.add(packageOf(spec));
+    }
+    expect([...found], 'the import scanner found nothing at all').not.toEqual([]);
+    expect(found).toContain('pixi.js');
+  });
+
+  it('does not put the engine\'s pixi PEER into this game\'s own manifest', () => {
     // The engine peer-depends on pixi.js 7.4.2, so npm installs it here even though this game
     // dropped PixiJS entirely (465 KB raw, measured). Installed is not shipped: nothing in this
-    // game's import graph reaches it, and `docs/` claims it was removed. This keeps that true.
+    // game's import graph reaches it, and the built bundle carries none of it.
     expect(ENGINE.peerDependencies ?? {}).toHaveProperty('pixi.js');
-    const bundle = read('package.json');
-    expect(JSON.parse(bundle).dependencies).not.toHaveProperty('pixi.js');
+    const own = JSON.parse(read('package.json')) as { dependencies: Record<string, string> };
+    expect(own.dependencies).not.toHaveProperty('pixi.js');
   });
 });
