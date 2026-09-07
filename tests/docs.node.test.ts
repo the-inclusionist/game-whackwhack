@@ -128,3 +128,49 @@ describe('[Interface] the documents point at gates that exist', () => {
     expect(() => read(path)).not.toThrow();
   });
 });
+
+describe('[Interface] the stopgap for the engine\'s packaging is still needed', () => {
+  const ENGINE = JSON.parse(read('node_modules', '@the-inclusionist', 'engine', 'package.json')) as {
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+    peerDependencies?: Record<string, string>;
+  };
+  const TTS = '@mintplex-labs/piper-tts-web';
+
+  it('is a workaround for a real defect in the published package', () => {
+    // ⚠️ THE DEFECT: `dist-pkg/platform/tts.js` -- SHIPPED runtime code -- imports this package,
+    // and the engine declares it under `devDependencies`, which npm does not install for a
+    // consumer. So `npm run build` in this repository fails to resolve it, and would fail the
+    // same way for anyone else installing the engine from the registry.
+    //
+    // This repository carries the package as a devDependency of its own purely so it can build.
+    // That is papering over someone else's manifest, and the assertion below is what stops the
+    // paper outliving the crack.
+    expect(ENGINE.devDependencies ?? {}, 'the engine no longer dev-depends on it').toHaveProperty(TTS);
+    expect(ENGINE.dependencies ?? {}).not.toHaveProperty(TTS);
+  });
+
+  it('DELETE THE STOPGAP once the engine declares it as a real dependency', () => {
+    // ⚠️ THIS TEST IS THE REMOVAL INSTRUCTION. The moment the engine moves the package into
+    // `dependencies` and republishes, npm installs it transitively and this repository's copy
+    // becomes dead weight in the lockfile -- the kind nobody ever notices is unnecessary. Failing
+    // here is the notice.
+    const engineDeclaresIt = TTS in (ENGINE.dependencies ?? {});
+    const weCarryIt = TTS in (JSON.parse(read('package.json')) as {
+      devDependencies?: Record<string, string>;
+    }).devDependencies!;
+    expect(
+      engineDeclaresIt && weCarryIt,
+      `the engine now declares ${TTS} as a dependency — remove it from this repo's devDependencies`,
+    ).toBe(false);
+  });
+
+  it('does not let the engine\'s pixi PEER reach the bundle', () => {
+    // The engine peer-depends on pixi.js 7.4.2, so npm installs it here even though this game
+    // dropped PixiJS entirely (465 KB raw, measured). Installed is not shipped: nothing in this
+    // game's import graph reaches it, and `docs/` claims it was removed. This keeps that true.
+    expect(ENGINE.peerDependencies ?? {}).toHaveProperty('pixi.js');
+    const bundle = read('package.json');
+    expect(JSON.parse(bundle).dependencies).not.toHaveProperty('pixi.js');
+  });
+});

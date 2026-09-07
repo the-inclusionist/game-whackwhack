@@ -58,7 +58,30 @@ export interface DeclarationDeps {
   readonly t: (key: string) => string;
 }
 
-const TOPOLOGY: Topology = { kind: 'grid', cols: MAT_COLS, rows: MAT_ROWS };
+/**
+ * ⚠️ A GRID IS NOT ONE THING, and the engine stopped pretending it was. `{ cols, rows }` became
+ * `{ size, move, frame }`, and the two new fields are not bookkeeping:
+ *
+ * · `move` decides the METRIC the sonar counts in. A grid used to be Chebyshev always -- "on a
+ *   grid the diagonal costs one step, and that is how a player counts" -- which is true only
+ *   where the diagonal is legal. On this mat it is NOT: `ui/grid-mirror`'s `step` moves the
+ *   cursor by one in one axis and clamps, with no diagonal anywhere. Declaring `diagonal` here
+ *   would under-report distance to a player who cannot see the board, which is not imprecision
+ *   but sending a child confidently the wrong way.
+ *
+ * · `frame` is the vocabulary a direction is SPOKEN in. `compass` for a board seen from above;
+ *   `clock` is for a side-on platformer, where north and south mean nothing. This mat is a
+ *   tilted top-down board, so north is the far row and that is what a player will hear.
+ *
+ * `size` is `[columns, rows]` -- a vector because the dimension varies, and `size.length` is the
+ * only place that lives.
+ */
+const TOPOLOGY: Topology = {
+  kind: 'grid',
+  size: [MAT_COLS, MAT_ROWS],
+  move: 'orthogonal',
+  frame: 'compass',
+};
 
 /**
  * ⚠️ WHICH ELEMENT IS THE WORLD, and it is `#game-region` rather than the canvas.

@@ -1,14 +1,21 @@
 import { defineConfig } from 'vitest/config'; // not 'vite': vitest/config is what types the `test` field
 import { playwright } from '@vitest/browser-playwright';
 
-// ============================ THE ENGINE IS A LINKED DEPENDENCY ============================
-// `file:../SP-the-inclusionist-tracer` makes npm symlink the engine into node_modules, and the
-// engine's `prepare` script builds `dist-pkg/` on install. So the `exports` map resolves to
-// COMPILED `.js` with sibling `.d.ts` — which is why every import here ends in `.js`, never `.ts`.
+// ============================ THE ENGINE COMES FROM THE REGISTRY ============================
+// ⚠️ IT WAS `file:../SP-the-inclusionist-tracer` — a symlink into a sibling working tree — until the
+// engine was published to npm on 2026-09-06. The dependency is now the pinned version `6.36.1`,
+// resolved from the registry with an integrity hash. Its `exports` map points at COMPILED `.js`
+// with sibling `.d.ts`, which is why every import here ends in `.js` and never `.ts`.
 //
-// `exclude` keeps Vite from pre-bundling the linked package. It matters because the symlinked
-// tree is edited in place during development: pre-bundling would freeze a copy and quietly serve
-// stale engine code after the engine is rebuilt.
+// Two things went away with the symlink, and both were hazards rather than conveniences. An
+// `npm install` here used to re-run the ENGINE's `prepare` and rebuild `dist-pkg/` from whatever
+// state another session had that tree in — which is how a contract change once arrived here
+// unannounced, mid-session. And a stale pre-bundle could serve old engine code after a rebuild,
+// which is what `exclude` below was for.
+//
+// `exclude` stays: the engine is ESM that needs no pre-bundling, and excluding it keeps the
+// dependency graph honest at dev time. Its ORIGINAL reason is gone, and saying so here is cheaper
+// than the next reader inferring a symlink that no longer exists.
 export default defineConfig({
   root: 'app',
   build: { outDir: '../dist', emptyOutDir: true, target: 'es2022' },

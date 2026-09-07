@@ -8,17 +8,25 @@
 # ADR-0067 §5 says a repository is created when a RECORD declares its address, and no record
 # declares one for a workflows repository.
 #
-# ========================= ⚠️ THIS CANNOT GO GREEN YET, AND THAT IS THE POINT =========================
-# The gate runs `npm ci`, and this game's engine dependency is `file:../SP-the-inclusionist-tracer`
-# — a sibling directory that exists on the machine this was written on and nowhere else. The
-# lockfile records it as `"resolved": "../SP-the-inclusionist-tracer"`, so the install fails before
-# any gate runs. ADR-0072 settles where the engine comes from instead: public npmjs, because a
-# volunteer without a token cannot install from GitHub Packages. The first green run arrives when
-# the engine is published and this repository's dependency becomes a version rather than a path.
+# ========================= ⚠️ THE PATH DEPENDENCY IS GONE; ONE THING STILL BLOCKS =========
+# This used to say the gate could not go green because the engine was `file:../SP-the-inclusionist-tracer`
+# — a sibling directory that existed on one machine and nowhere else. The engine was published to
+# public npmjs on 2026-09-06 (ADR-0072's answer), the dependency here is now the pinned version
+# `6.36.1`, and `npm ci` on a runner resolves it from the registry with an integrity hash.
 #
-# Writing it red is deliberate, and `game-15puzzle` made the same call for the same reason. A file
-# that says why it fails is a coordination point; an absent workflow is a repository that looks
-# gated and is not. Until then the same four gates run locally through `npm run validate`, plus
+# ⚠️ WHAT STILL BLOCKS IS A DEFECT IN THE PUBLISHED PACKAGE, and it is the engine's to fix:
+# `dist-pkg/platform/tts.js` — shipped runtime code — imports `@mintplex-labs/piper-tts-web`, which
+# the engine declares under `devDependencies`. npm does not install those for a consumer, so the
+# import resolves to nothing and the BUILD fails. Measured here, verbatim:
+#
+#     Rolldown failed to resolve import "@mintplex-labs/piper-tts-web"
+#     from ".../@the-inclusionist/engine/dist-pkg/platform/tts.js"
+#
+# This repository carries that package as a devDependency of its own so it can build today, and
+# tests/docs.node.test.ts fails the moment the engine declares it properly — so the workaround
+# cannot outlive its reason. The runner does the same install, so CI should now reach the gates.
+#
+# Until a run proves it, the same four gates run locally through `npm run validate`, plus
 # `bash tests/mutation-check.sh`, which no runner has ever run.
 #
 # ========================= WHAT THE a11y INPUT MEANS HERE =========================

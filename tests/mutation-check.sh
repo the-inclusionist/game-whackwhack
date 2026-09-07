@@ -95,6 +95,22 @@ add "the topology is answered once and cached, so a resize would go stale" \
     "    topology(): Topology { return TOPOLOGY; }," \
     "    topology(): Topology { return { kind: 'grid', cols: 1, rows: 1 }; },"
 
+# The two fields the published contract added to a grid, and neither is bookkeeping.
+add "the mat claims a diagonal it cannot move along" \
+    "$DECL/whack-declaration.ts" \
+    "  move: 'orthogonal'," \
+    "  move: 'diagonal',"
+
+add "directions are spoken in clock positions, on a board seen from above" \
+    "$DECL/whack-declaration.ts" \
+    "  frame: 'compass'," \
+    "  frame: 'clock',"
+
+add "the mat declares its size the wrong way round" \
+    "$DECL/whack-declaration.ts" \
+    "  size: [MAT_COLS, MAT_ROWS]," \
+    "  size: [MAT_ROWS, MAT_COLS],"
+
 add "the tick goes back to the player" \
     "$DECL/whack-declaration.ts" \
     "    tick: 'clock'," \

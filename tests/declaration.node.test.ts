@@ -65,7 +65,27 @@ describe('[Interface] the declaration is well formed', () => {
     // changed under this game mid-session, on the day the 15-puzzle's three board sizes proved a
     // value could not express a board that resizes. This mat does not resize, so it answers a
     // constant; the shape of the answer is the engine's business, not the mat's.
-    expect(declOf().decl.topology()).toEqual({ kind: 'grid', cols: MAT_COLS, rows: MAT_ROWS });
+    expect(declOf().decl.topology()).toEqual({
+      kind: 'grid',
+      size: [MAT_COLS, MAT_ROWS],
+      move: 'orthogonal',
+      frame: 'compass',
+    });
+  });
+
+  it('declares an ORTHOGONAL metric, because this cursor cannot move diagonally', () => {
+    // ⚠️ NOT COSMETIC. A grid used to be Chebyshev always -- "on a grid the diagonal costs one
+    // step, and that is how a player counts" -- which is true only where the diagonal is legal.
+    // `ui/grid-mirror`'s `step` moves one axis at a time and clamps; there is no diagonal on this
+    // mat. Declaring one would make the sonar under-report distance to a player who cannot see
+    // the board, which is not imprecision but sending a child confidently the wrong way.
+    expect(declOf().decl.topology()).toMatchObject({ move: 'orthogonal' });
+  });
+
+  it('speaks directions by the COMPASS, because the mat is seen from above', () => {
+    // `clock` is for a side-on platformer, where north and south mean nothing to a player looking
+    // at the world from the side. This board has a far row and a near row.
+    expect(declOf().decl.topology()).toMatchObject({ frame: 'compass' });
   });
 
   it('answers the same topology every time it is asked', () => {
