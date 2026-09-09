@@ -118,6 +118,25 @@ describe('[Right] the vendored Press Start 2P can draw the words the game shows'
   });
 });
 
+// ========================= 🔴 AND THIS WHOLE BLOCK IS BLIND ON THE MACHINE IT WAS WRITTEN ON =========
+// Measured on 2026-09-08, after CI ran this repository for the first time ever:
+//
+//   · `HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts` lists «Atkinson Hyperlegible Regular»
+//     among the USER fonts on the Dev's machine.
+//
+// So on Windows the family resolves from the SYSTEM and the vendored `@font-face` is never consulted.
+// Renaming that `@font-face` so it can never match — the exact defect this block exists to catch — leaves
+// all nine cases GREEN here. On a GitHub runner there is no system Atkinson, so the vendored file is the
+// only source, and the same block finally measures what it claims to.
+//
+// ⚠️ THIS IS THE FILE'S OWN LESSON, ONE LEVEL UP. The header explains that `document.fonts.check` looks
+// true and proves nothing because it compares a NAME. This is the same shape: the measurement looks like it
+// reads the file and, on this machine, reads the operating system instead.
+//
+// 📌 CONSEQUENCE, STATED RATHER THAN DISCOVERED: a change to the Atkinson vendoring CANNOT be verified
+// locally. CI is the verifier for this block, and a green run here means nothing about it. Uninstalling the
+// system font would restore local coverage — that is the Dev's machine and his call, so it is written down
+// instead of assumed.
 describe('[Right] the vendored Atkinson Hyperlegible can draw the tile numbers', () => {
   // ⚠️ THE THIRD FACE, AND THE ONE WITH THE SAME TRAP. Google serves this family as two files and
   // the FIRST in the stylesheet is latin-ext. Taking the first `src:` is exactly how Press Start
@@ -126,11 +145,37 @@ describe('[Right] the vendored Atkinson Hyperlegible can draw the tile numbers',
     expect(document.fonts.check(`${SIZE}px "Atkinson Hyperlegible"`)).toBe(true);
   });
 
-  it('draws every digit, and none of them from the fallback', () => {
-    for (const digit of '0123456789') {
-      expect(measure(`${SIZE}px 'Atkinson Hyperlegible', serif`, digit), digit)
-        .not.toBe(measure(`${SIZE}px serif`, digit));
-    }
+  // 🔴 THIS CASE FAILED THE FIRST TIME IT EVER RAN ON LINUX — digit `7`, `expected 24 not to be 24` — and
+  // the face was fine. It passes on Windows and fails on a GitHub runner, which is the shape of a test
+  // measuring the machine rather than the file.
+  //
+  // ⚠️ THE FILE'S OWN ARGUMENT DOES NOT TRANSFER TO THIS FACE, and that is the whole mistake. For Press
+  // Start 2P the reasoning is airtight: it is MONOSPACED and the fallback is PROPORTIONAL, so a fallen-back
+  // glyph cannot coincide. Atkinson Hyperlegible is proportional, and so is `serif` — two proportional faces
+  // WILL agree on some glyph, and which one depends on what `serif` resolves to. On Windows that is Times
+  // New Roman; on the runner it is a Liberation/DejaVu, and there `7` advances 24 px in both.
+  //
+  // 📌 SO THE CLAIM IS SPLIT INTO THE TWO THINGS IT WAS TRYING TO SAY, and each is asserted where it cannot
+  // coincide:
+  //   · THE FACE IS THERE AT ALL — the whole string. Ten digits cannot all coincide by accident; a face
+  //     that did not load makes this exactly equal.
+  //   · NO HOLE IN THE COVERAGE — at least NINE of the ten differ individually. One coincidence between two
+  //     proportional faces is expected; two is not, and a missing subset makes it ten.
+  it('draws the digits itself, and not from the fallback', () => {
+    const digitos = '0123456789';
+    expect(
+      measure(`${SIZE}px 'Atkinson Hyperlegible', serif`, digitos),
+      'the whole run measured the same as serif — the face did not load at all',
+    ).not.toBe(measure(`${SIZE}px serif`, digitos));
+
+    const coincidem = [...digitos].filter(
+      (d) => measure(`${SIZE}px 'Atkinson Hyperlegible', serif`, d) === measure(`${SIZE}px serif`, d),
+    );
+    expect(
+      coincidem.length,
+      `${coincidem.length} digits measured the same as serif (${coincidem.join('')}) — one is a metric `
+      + 'coincidence between two proportional faces, more than one is a hole in the subset',
+    ).toBeLessThanOrEqual(1);
   });
 
   it('is PROPORTIONAL, which is what the tile sizing assumes', () => {
