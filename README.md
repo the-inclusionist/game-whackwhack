@@ -95,5 +95,9 @@ Decidido em: **ADR-0068** (um repositório por jogo) · **ADR-0082** (o nome é 
 espelhando o pacote) · **ADR-0083** (o jogo nasce aqui e consome a engine como PACOTE) ·
 **ADR-0067** (criação) · **ADR-0073** (o slug não deve carregar o renderizador).
 
-Os registros vivem na engine, em `docs/2-Architecture/adr/` — **não** há pasta `adr/` aqui, e isso é
-decisão (**ADR-0068 §5**).
+Os registros vivem em [`the-inclusionist-docs`](https://github.com/the-inclusionist/the-inclusionist-docs),
+em `docs/2-Architecture/adr/` — **não** há pasta `adr/` aqui, e isso é decisão (**ADR-0068 §5**).
+
+⚠️ **A frase dizia «na engine», e deixou de ser verdade em 2026-09-09** (**ADR-0123**): a árvore inteira mudou
+de casa para um repositório só dela, uma para o projecto todo. 📌 A metade do §5 que governa ESTE repositório
+está intacta — um jogo não tem pasta `adr/` e nunca terá; o que mudou foi onde fica a que ele herda.
