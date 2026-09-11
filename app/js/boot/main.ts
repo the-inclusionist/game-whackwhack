@@ -20,7 +20,7 @@
 import { createGame } from '@the-inclusionist/engine';
 import { srAlert, srSay } from '@the-inclusionist/engine/core/a11y-sr.js';
 import { startLoop } from '@the-inclusionist/engine/core/loop.js';
-import { rnd } from '@the-inclusionist/engine/core/rng.js';
+import { createRng } from '@the-inclusionist/engine/core/rng.js';
 
 import { CATEGORIES } from '../rules/category.ts';
 import { comboKeyFor } from '../rules/combo.ts';
@@ -76,6 +76,31 @@ function boot(): void {
   // it on one, and normalising here beats a second catalogue entry that could drift from the
   // first — two spellings of a game's own name is exactly the kind of thing nobody notices.
   doc.title = i18n.t('game.title').replace(/\s+/g, ' ');
+
+  /**
+   * ========================= THIS GAME'S OWN RANDOM STREAM =========================
+   * 🔴 THIS LINE USED TO BE `import { rnd }`, AND ADR-0141 MEASURED IT HERE BY LINE NUMBER.
+   *
+   * `core/rng` exports two things that look identical at the import site: `createRng`, which returns
+   * an INDEPENDENT stream, and `rnd` / `randInt` / `shuffle` / `reseed`, which are all bound to a
+   * `const _padrao` at module scope — engine state, shared by every consumer in the page.
+   *
+   * ⚠️ IN A STANDALONE BUILD THAT IS HARMLESS, which is exactly why it survived: one game, one
+   * stream, nothing to collide with, and every test here passes either way. Inside the platform two
+   * cartridges drawing from `rnd` share ONE stream, so each one's draws depend on how much the other
+   * drew, and a `reseed` in one repositions the other's underneath it. The failure is invisible where
+   * the tests run and shows up as a game that is not reproducible for a reason nowhere in its code.
+   *
+   * 📌 THE ENGINE SOLVED THIS BEFORE ANYONE NEEDED IT. `createRng`'s own doc says of the stream it
+   * returns: «Reposiciona ESTA corrente. Não alcança nenhuma outra.» The defect was never in the
+   * engine — it was in the shorter import.
+   *
+   * ⚠️ AND THE SEED IS DELIBERATELY NOT CHOSEN HERE. ADR-0139 and ADR-0141 both leave the seed policy
+   * open — who picks it, and whether a run is reproducible across shells — so this takes the engine's
+   * default rather than inventing an answer for six repositories. When the cartridge factory arrives,
+   * this line is replaced by `ctx.rng` and nothing else in this file moves.
+   */
+  const rng = createRng();
 
   let choice: RoundChoice = {
     category: CATEGORIES[0], difficulty: 'medium', defeat: 'lives', pace: PACE_DEFAULT,
@@ -374,7 +399,7 @@ function boot(): void {
        * what makes the fifth hit -- and not the sixth -- the one that gets the word.
        */
       if (event.kind === 'hit') {
-        const word = comboKeyFor(round?.hits() ?? 0, rnd);
+        const word = comboKeyFor(round?.hits() ?? 0, rng.rnd);
         feedback.push(i18n.t(word ?? 'feedback.point'));
       }
     }
@@ -458,7 +483,7 @@ function boot(): void {
       difficulty: next.difficulty,
       defeat: next.defeat,
       pace: next.pace,
-      rnd,
+      rnd: rng.rnd,
     });
     fades.clear();
     // A new round starts on a clean footer rather than on the tail of the last one.

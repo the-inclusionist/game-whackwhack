@@ -1106,6 +1106,29 @@ add "Shift+Home stops squaring the mat, stranding a child at an angle" \
     "      applyCamera(camera.reset());" \
     "      applyCamera(camera.snapshot());"
 
+# ========================= THE SHARED RANDOM STREAM (ADR-0141) =========================
+# 🔴 THE WRONG IMPORT IS THE SHORTER ONE, and this repository took it: ADR-0141 measured
+# `app/js/boot/main.ts:23` as `import { rnd }`. The defect is INVISIBLE where the tests run -- a
+# standalone build has one stream and cannot collide with itself -- so the gate is load-bearing.
+add "the shared random stream comes back through the shorter import" \
+    "$BOOT/main.ts" \
+    "import { createRng } from '@the-inclusionist/engine/core/rng.js';" \
+    "import { createRng, rnd } from '@the-inclusionist/engine/core/rng.js';"
+
+# ⚠️ AND THE HOLE A NAMED-BINDING CHECK LEAVES OPEN: a namespace import reaches all four shared
+# functions through a property and past every check on the names.
+add "the rng gate stops seeing a namespace import" \
+    "$TESTS/rng-boundary.node.test.ts" \
+    "        clause.includes('*')," \
+    "        false,"
+
+# ⚠️ A gate over zero imports reports success. This is its vacuity check, mutated.
+# ⚠️ A gate over zero imports reports success. This is its vacuity check, mutated.
+add "the rng gate matches no import at all and passes over nothing" \
+    "$TESTS/rng-boundary.node.test.ts" \
+    "]*core/rng" \
+    "]*core/nope"
+
 # ========================= THE AUDITED MARKUP =========================
 add "the canvas stops hiding itself from a screen reader" \
     "$BOOT/main.ts" \
