@@ -281,3 +281,62 @@ describe('[Right] no comment names an engine version the manifest does not', () 
     expect(found.length, 'no file states a pinned version at all').toBeGreaterThan(0);
   });
 });
+
+describe('[Interface] the two engine gaps this game works around still exist', () => {
+  /**
+   * ⚠️ THESE TESTS FAIL WHEN THE ENGINE IS FIXED, AND THAT IS THE WHOLE POINT.
+   *
+   * `docs/engine-8-consumer-gaps.md` reports two places where engine 8 mounts a surface for every
+   * game and gives the consumer no parameter to fill it. This game works around both — `boot/main`
+   * revives the pause's `resume` item, and `ui/vision` holds the colour-vision state the engine
+   * never asks for. Both are marked for deletion.
+   *
+   * A workaround marked for deletion and never deleted is how a codebase collects permanent
+   * scaffolding. So the deletion date is not a comment: it is a red test. The day an engine upgrade
+   * closes either gap, the assertion below breaks, names the file to delete, and the workaround
+   * goes with it.
+   *
+   * 📌 The same move this repository used for the `piper-tts-web` shim, and for the same reason:
+   * the fix arrives in someone else's release, on a day nobody here is looking for it.
+   */
+  const ENGINE = 'node_modules/@the-inclusionist/engine/dist-pkg';
+
+  it('still actions no `resume`, so `reviveResume` in boot/main is still needed', () => {
+    // `ITENS_DA_ENGINE` is the set the engine dispatches itself; everything else needs
+    // `getPauseActs`, which `createGame` does not pass and `CreateGameOptions` cannot carry.
+    const src = read(...`${ENGINE}/ui/pause-icons.js`.split('/'));
+    const line = src.split('\n').find((l) => l.includes('ITENS_DA_ENGINE = '));
+    expect(line, 'ITENS_DA_ENGINE is gone; re-read the engine before trusting this gate').toBeTruthy();
+    expect(
+      line!.includes("'resume'"),
+      'THE ENGINE NOW ACTIONS `resume`: delete `reviveResume` in app/js/boot/main.ts and its tests',
+    ).toBe(false);
+  });
+
+  it('still passes no visual writers, so ui/vision is still needed', () => {
+    /**
+     * `initPauseIcons` asks `Boolean(ctx.setTemaDoJogador)` / `Boolean(ctx.setCorrecaoDoJogador)`
+     * to decide whether the contrast and colour-vision icons exist at all. `createGame` never
+     * mentions either name — which is the measurement, and this is it held in place.
+     */
+    const src = read(...`${ENGINE}/boot/create-game.js`.split('/'));
+    expect(
+      src.includes('setCorrecaoDoJogador'),
+      'THE ENGINE NOW TAKES A COLOUR-VISION WRITER: delete app/js/ui/vision.ts and hand it over',
+    ).toBe(false);
+    expect(
+      src.includes('setTemaDoJogador'),
+      'THE ENGINE NOW TAKES A THEME WRITER: the contrast icon can be mounted (plan item A1b)',
+    ).toBe(false);
+  });
+
+  it('is reported where a reader will find it, not only in a comment', () => {
+    // ⚠️ A gate that fires with nowhere to read WHY is a puzzle. The document is the why, and this
+    // is what keeps the two from drifting apart — it has been the failure mode here before, when
+    // `style.css` cited a test file nobody had written.
+    const report = read('docs', 'engine-8-consumer-gaps.md');
+    expect(report).toContain('ITENS_DA_ENGINE');
+    expect(report).toContain('setCorrecaoDoJogador');
+    expect(report).toContain('app/js/ui/vision.ts');
+  });
+});

@@ -1184,6 +1184,14 @@ add "a comment names an engine version the manifest does not pin" \
     "the pinned version \`8.0.0\`" \
     "the pinned version \`7.0.1\`"
 
+# ⚠️ THE REPORT AND THE GATE HAVE TO STAY TOGETHER. The two tests above fire on the day an engine
+# upgrade closes either gap, and a gate that fires with nowhere to read WHY is a puzzle. This is the
+# same failure this repository already paid for once, when style.css cited a test nobody had written.
+add "the engine-gap report stops naming what the gate watches" \
+    "$DOCS/engine-8-consumer-gaps.md" \
+    "itself — \`ITENS_DA_ENGINE\` is \`options\`" \
+    "itself — that set is \`options\`"
+
 add "spike 0 stops saying that its conclusions were superseded" \
     "$DOCS/spike-0-symbol-legibility.md" \
     "> ## ⚠️ FIVE OF THIS DOCUMENT'S CONCLUSIONS NO LONGER HOLD" \
