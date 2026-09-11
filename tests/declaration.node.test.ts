@@ -12,6 +12,8 @@
 // result once two presets exist. Chess is the first, with 'player'. This is the second.
 
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { conformanceProblems, speakableProblems } from '@the-inclusionist/engine/core/contract.js';
 import { EVEN, MULTIPLE_OF_3 } from '../app/js/rules/category.ts';
 import { MAT_CELLS, MAT_COLS, MAT_ROWS, cellOfSpot, inBounds, spotOfCell } from '../app/js/rules/grid.ts';
@@ -394,5 +396,31 @@ describe('[Boundary] the grid maps both ways without an off-by-one', () => {
 
   it('rejects a fractional spot', () => {
     expect(inBounds({ x: 1.5, y: 0 })).toBe(false);
+  });
+});
+
+describe('[Right] the pad keeps the engine factory, and says so', () => {
+  it('declares no pad map at all', () => {
+    /**
+     * ⚠️ AN UNWRITTEN "NO" AND A FORGOTTEN FIELD LOOK IDENTICAL, which is the whole reason this
+     * test exists for an ABSENCE. The keyboard needed an opinion because of a collision — the
+     * factory puts `start` on Enter, and Enter already activates the twenty gridcell buttons. The
+     * pad has no such clash: `start` is button 9 and the hammer is a face button.
+     *
+     * So the engine's table is better than anything this game could write, and declaring nothing
+     * is the decision. If this ever becomes `undefined` by accident rather than on purpose, the
+     * comment beside it in the declaration is what a reader will find.
+     */
+    expect(declOf().decl.mapeamentoDoPad).toBeUndefined();
+  });
+
+  it('keeps the reason where a reader will meet it', () => {
+    // The same pairing as the engine-gap report and its gate: a decision recorded only in a test
+    // is a decision nobody editing the declaration will see.
+    const source = readFileSync(
+      resolve(import.meta.dirname, '..', 'app/js/declaration/whack-declaration.ts'),
+      'utf8',
+    );
+    expect(source).toContain('mapeamentoDoPad');
   });
 });

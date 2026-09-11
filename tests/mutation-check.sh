@@ -157,6 +157,15 @@ add "the map answers a different table per seat, in a game that seats one child"
     "    mapeamentoDoTeclado(): Partial<Record<Action, readonly string[] | null>> {" \
     "    mapeamentoDoTeclado(j: number): Partial<Record<Action, readonly string[] | null>> { if (j > 1) return {};"
 
+# ⚠️ AN UNWRITTEN "no" AND A FORGOTTEN FIELD LOOK IDENTICAL IN A DIFF. The pad keeps the engine
+# factory because there is no collision there — `start` is button 9 and the hammer is a face button
+# — and that decision lives in a comment beside the keyboard map. Losing the comment loses the
+# decision and leaves an absence nobody can tell from an oversight.
+add "the pad decision stops being written where an editor of the declaration meets it" \
+    "$DECL/whack-declaration.ts" \
+    "     * ⚠️ \`mapeamentoDoPad\` IS ABSENT, AND THE ABSENCE IS THE ANSWER" \
+    "     * The pad is left alone"
+
 add "the tick goes back to the player" \
     "$DECL/whack-declaration.ts" \
     "    tick: 'clock'," \
@@ -1077,6 +1086,25 @@ add "a missing address goes back to passing quietly" \
     "$TESTS/axe-url.mjs" \
     "  console.log('axe-url: AXE_URL is not set — the BUILT BUNDLE was not audited.');" \
     "  "
+
+# ========================= THE LEAN IS DECORATION, AND TWO CONTRACT ANSWERS DEPEND ON IT =========================
+# ⚠️ `holdsAtOnce` answers 1 and `seguraTeclas` answers false, and both carry the same caveat: the
+# Shift+Arrow lean is a chord a child may not be able to make, which is survivable ONLY because it
+# changes nothing a round is made of. These three are what notice when that stops being true.
+add "the camera lean starts touching the round it is supposed to only look at" \
+    "$BOOT/main.ts" \
+    "    applyCamera(camera.nudge(direction));" \
+    "    applyCamera(camera.nudge(direction)); if (round) handle(round.advance(9000));"
+
+add "the lean goes dead, so the round-did-not-change claim is true for the dullest reason" \
+    "$BOOT/main.ts" \
+    "    if (!event.shiftKey) return;" \
+    "    if (!event.shiftKey || true) return;"
+
+add "Shift+Home stops squaring the mat, stranding a child at an angle" \
+    "$BOOT/main.ts" \
+    "      applyCamera(camera.reset());" \
+    "      applyCamera(camera.snapshot());"
 
 # ========================= THE AUDITED MARKUP =========================
 add "the canvas stops hiding itself from a screen reader" \

@@ -223,6 +223,25 @@ export function createWhackDeclaration(deps: DeclarationDeps): GameDeclaration {
       return KEYBOARD;
     },
 
+    /**
+     * ⚠️ `mapeamentoDoPad` IS ABSENT, AND THE ABSENCE IS THE ANSWER — which is worth a paragraph
+     * precisely because an unwritten "no" and a forgotten field look identical in a diff.
+     *
+     * The keyboard needed an opinion because of a COLLISION: the engine's factory binds `start` to
+     * `KeyH` and `Enter`, and Enter already activates the twenty gridcell buttons natively, so one
+     * press would whack a tile and open the pause over it. There is no such collision on a pad.
+     * The factory puts `start` on button 9 (Start / Menu) and the hammer on a face button, and this
+     * game uses four directions, one verb and the pause — nothing of that overlaps.
+     *
+     * 📌 So the engine's table is not merely acceptable here, it is BETTER than anything this game
+     * could write: a child arrives with the arrangement every other inclusionist game gave her, and
+     * the one she remapped in the assistant wins over both (on the pad the saved map is a whole
+     * BRANCH — if it exists, a game's default is not consulted at all).
+     *
+     * The day this game gains a verb that lands on an occupied button, this is where the answer
+     * goes. Until then the right declaration is none, said out loud.
+     */
+
     // The clock owns the tick: a tile expires whether or not anyone acts.
     tick: 'clock',
 

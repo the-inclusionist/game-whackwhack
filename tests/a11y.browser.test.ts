@@ -423,3 +423,67 @@ describe('[Right] the colour-vision correction the engine mounts for nobody', ()
     }
   });
 });
+
+describe('[Right] the camera lean is decoration, which is what makes two contract answers honest', () => {
+  /**
+   * ⚠️ THIS IS A CLAIM TWO FIELDS OF THE CONTRACT REST ON, and until now it was only a comment.
+   *
+   * `holdsAtOnce` answers 1 and `seguraTeclas` answers false, and both carry the same written
+   * caveat: the lean is Shift+Arrow — two keys held together — so a child who can hold only one
+   * position cannot tilt the mat. That is survivable ONLY because the lean is decoration: it
+   * changes nothing about what is lit, what is worth hitting, or how long it lasts.
+   *
+   * The caveat then says, in both places, that if the lean ever stops being decoration those two
+   * answers are wrong. Nobody is going to remember that. This is what notices instead.
+   *
+   * 📌 Half of it is already structural: `tests/rules-boundary.node.test.ts` locks that the rules
+   * layer imports nothing from `render/`, so the camera cannot reach a round through a module
+   * graph. What that cannot see is the composition root wiring the two together by hand, which is
+   * the only place it could happen — so this half is behavioural and runs against the real boot.
+   */
+  const debug = (): { camera: { snapshot(): { pitch: number; yaw: number } } } =>
+    (window as unknown as { __whack: { camera: { snapshot(): { pitch: number; yaw: number } } } }).__whack;
+
+  const board = (): string =>
+    [...document.querySelectorAll('.grid-mirror button')]
+      .map((b) => b.getAttribute('aria-label')).join('|');
+
+  const lean = (code: string): void => {
+    document.getElementById('game-region')!.dispatchEvent(
+      new KeyboardEvent('keydown', { code, shiftKey: true, bubbles: true }),
+    );
+  };
+
+  it('actually moves the mat, so the assertion below is not about a dead binding', () => {
+    // ⚠️ THE VACUITY HALF, and it is the one that would rot silently. A lean that stopped working
+    // would make "the round did not change" true for the least interesting reason there is.
+    const before = debug().camera.snapshot();
+    lean('ArrowLeft');
+    const after = debug().camera.snapshot();
+    expect(after.yaw, 'Shift+Arrow no longer leans the mat').not.toBe(before.yaw);
+  });
+
+  it('changes nothing a round is made of', () => {
+    const scoreBefore = document.querySelector('.hud-score')?.textContent;
+    const levelBefore = document.querySelector('.hud-level')?.textContent;
+    const boardBefore = board();
+
+    for (const code of ['ArrowLeft', 'ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown']) lean(code);
+
+    expect(board(), 'leaning changed which tiles are lit').toBe(boardBefore);
+    expect(document.querySelector('.hud-score')?.textContent, 'leaning changed the score')
+      .toBe(scoreBefore);
+    expect(document.querySelector('.hud-level')?.textContent, 'leaning changed the level')
+      .toBe(levelBefore);
+  });
+
+  it('puts the mat back square-on, so nobody is stranded at an angle', () => {
+    // Shift+Home is the way back. A child who leaned by accident and could not undo it would be
+    // looking at a board she did not choose for the rest of the round.
+    lean('Home');
+    const home = debug().camera.snapshot();
+    lean('ArrowRight');
+    lean('Home');
+    expect(debug().camera.snapshot()).toEqual(home);
+  });
+});
