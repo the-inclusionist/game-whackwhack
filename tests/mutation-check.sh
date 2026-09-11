@@ -1471,8 +1471,47 @@ echo
 #
 # ⚠️ A FILTERED RUN PROVES ONLY WHAT IT RAN. The exit status still means "nothing escaped",
 # but of a subset, so it is a development tool and not the gate. The gate is the unfiltered run.
+# ========================= THE EVERYDAY RUN IS `--changed` =========================
+# 📏 MEASURED 2026-09-11, and the arithmetic is why this mode exists. A clean `node` suite is
+# 1.8 s and a clean `browser` suite is 5.1 s, but ONE mutation cycle costs 5.7 s to 10 s -- the
+# difference is Vite re-transforming the module graph after the file on disk changes, and no
+# amount of startup tuning touches it. At 228 mutations the whole set is about twenty minutes,
+# and it is a CI or nightly job rather than something anyone waits for.
+#
+# ⚠️ THE DISCIPLINE NEVER ASKED FOR THE WHOLE SET ANYWAY. The rule is «every gate is born red and
+# proven able to fail» -- which is about the gate you just wrote, not about the two hundred that
+# were proven when they were written. `--changed` runs exactly the mutations whose FILE this
+# working tree has touched, so proving what you just changed costs one cycle instead of the set.
+#
+#   bash tests/mutation-check.sh --changed          # vs the last commit, and what is staged
+#   bash tests/mutation-check.sh --since main       # vs any ref
+#   bash tests/mutation-check.sh combo              # by name or path, as before
+#   bash tests/mutation-check.sh                    # the whole set. The gate.
 FILTER="${1:-}"
-if [ -n "$FILTER" ]; then
+CHANGED=""
+
+if [ "$FILTER" = "--changed" ] || [ "$FILTER" = "--since" ]; then
+  if [ "$FILTER" = "--since" ]; then
+    REF="${2:?--since needs a git ref}"
+    CHANGED="$(git diff --name-only "$REF" 2>/dev/null)"
+    echo "CHANGED SINCE $REF:"
+  else
+    # Working tree AND index, so a staged-but-uncommitted change is covered too. `git status`
+    # rather than `git diff` because it sees untracked files, and a new source file with a new
+    # mutation beside it is exactly the case worth catching.
+    CHANGED="$(git status --porcelain | sed 's/^...//' | sed 's/.* -> //')"
+    echo "CHANGED IN THE WORKING TREE:"
+  fi
+  if [ -z "$CHANGED" ]; then
+    echo "  (nothing)"
+    echo
+    echo "no file changed, so no mutation is worth running. Nothing proven, nothing claimed."
+    exit 0
+  fi
+  echo "$CHANGED" | sed 's/^/  /'
+  echo
+  FILTER=""
+elif [ -n "$FILTER" ]; then
   echo "FILTERED to mutations matching: $FILTER"
   echo "(a partial run -- the gate is this script with no argument)"
   echo
@@ -1485,6 +1524,13 @@ for i in "${!NAMES[@]}"; do
   if [ -n "$FILTER" ]; then
     case "${NAMES[$i]} ${FILES[$i]}" in
       *"$FILTER"*) ;;
+      *) skipped=$((skipped + 1)); continue ;;
+    esac
+  fi
+  if [ -n "$CHANGED" ]; then
+    # The mutation runs only if the file it edits is one of the changed ones.
+    case "$CHANGED" in
+      *"${FILES[$i]}"*) ;;
       *) skipped=$((skipped + 1)); continue ;;
     esac
   fi
@@ -1551,7 +1597,10 @@ for i in "${!NAMES[@]}"; do
 done
 
 echo
-if [ -n "$FILTER" ]; then
+if [ -n "$CHANGED" ]; then
+  echo "changed-only: $((caught + escaped)) run, $skipped not run"
+  echo "(the gate is this script with no argument; this proves what you touched)"
+elif [ -n "$FILTER" ]; then
   echo "filtered by \"$FILTER\": $((caught + escaped)) run, $skipped not run"
 fi
 echo "mutations caught: $caught   escaped: $escaped"
