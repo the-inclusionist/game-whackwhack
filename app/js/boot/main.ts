@@ -17,7 +17,7 @@
 // The engine's scene stack is the thing that was going unused. It is used now, and the three
 // scenes it holds are the whole shape of the game.
 
-import { createGame } from '@the-inclusionist/engine';
+import type { Engine } from '@the-inclusionist/engine';
 import { srAlert, srSay } from '@the-inclusionist/engine/core/a11y-sr.js';
 import { createRng } from '@the-inclusionist/engine/core/rng.js';
 
@@ -27,12 +27,15 @@ import { LIVES } from '../rules/defeat.ts';
 import { PACE_DEFAULT, ROUND_GOAL } from '../rules/difficulty.ts';
 import { createRound, type Round, type RoundEvent } from '../rules/round.ts';
 import { spotOfCell } from '../rules/grid.ts';
-import { createWhackDeclaration } from '../declaration/whack-declaration.ts';
-import { PAUSE, actionPreset } from '../input/actions.ts';
+import {
+  createWhackDeclaration, type RoundView,
+} from '../declaration/whack-declaration.ts';
+import { PAUSE } from '../input/actions.ts';
 import { nextVision, readVision, visionCss, writeVision } from '../ui/vision.ts';
 import { PAUSE_ICONS, iconsMarkup } from '@the-inclusionist/engine/ui/pause-icons.js';
 import { CURTO_DA_CORRECAO } from '@the-inclusionist/engine/ui/visual-axes-panel.js';
 import { t as engineT } from '@the-inclusionist/engine/core/i18n.js';
+import type { I18n } from '../i18n/index.ts';
 import { createMat } from '../render/mat.ts';
 import { stampGlyphs } from '../render/glyph-pass.ts';
 import { pickTopmost, toIllustrationSpace } from '../render/picking.ts';
@@ -48,7 +51,6 @@ import { applyLayout } from '../ui/layout.ts';
 import { createOptions, type RoundChoice } from '../ui/options.ts';
 import { createResultScreen, createTitleScreen, type Screen } from '../ui/screens.ts';
 import { readHighScore, recordHighScore } from '../store/high-score.ts';
-import { createI18n, preferredLocale } from '../i18n/index.ts';
 
 /**
  * ⚠️ FRAMES TO MILLISECONDS, and this is the only place the conversion happens.
@@ -80,9 +82,32 @@ const FRAME_MS = 1000 / 60;
 export interface RunningGame {
   /** ⚠️ `dt` in FRAMES, not seconds. */
   update(dt: number): void;
+  /**
+   * ⚠️ THE THREE BELOW EXIST BECAUSE THE ENGINE IS BUILT BEFORE THE GAME IS. `createGame` takes
+   * a declaration and an `isNavigable` as VALUES, and both of this game's read live state that
+   * does not exist until `boot()` has run. So the shell passes DELEGATING versions that forward
+   * here once there is something to forward to — which is ADR-0139 §5's own mechanism, one
+   * level down from the platform.
+   *
+   * 📌 AND IT IS WHY THE SHELL HOLDS THE ONLY MUTABLE POINTER. Spec D14 forbids module state in
+   * a CARTRIDGE; the shell is not one, and something has to know which instance is current.
+   */
+  view(): RoundView;
+  isNavigable(): boolean;
+  pauseKey(event: KeyboardEvent): void;
 }
 
-export function boot(): RunningGame {
+/** What a shell hands the game. The host half of `CreateGameOptions` never appears here. */
+export interface BootDeps {
+  /** Exactly what `createGame` returned. The game never calls it — ADR-0139 §2. */
+  readonly engine: Engine;
+  /** Already built and already filled by the engine; the HUD only decides where it sits. */
+  readonly a11yBar: HTMLElement;
+  readonly i18n: I18n;
+}
+
+export function boot(deps: BootDeps): RunningGame {
+  const { engine, a11yBar, i18n } = deps;
   const doc = document;
   // Narrowed once into a const the closures below can see: TypeScript's narrowing of a `let` does
   // not survive into a function body, and every screen transition touches this element.
@@ -113,8 +138,10 @@ export function boot(): RunningGame {
   const stageWrap: HTMLElement = wrapFound;
 
   // 1. LANGUAGE FIRST. Nothing that carries a word may be built before the locale is known.
-  const i18n = createI18n(preferredLocale(navigator.language));
-  doc.documentElement.lang = i18n.bcp47();
+  // ⚠️ RESOLVED BY THE SHELL NOW, and handed in. The engine needs the locale before the game
+  // exists — `createGame` writes the accessibility bar's labels — so whoever calls `createGame`
+  // has to know it first. `doc.documentElement.lang` went with it: in a platform the document's
+  // language belongs to the platform, not to one of six cartridges.
   // ⚠️ The name carries a NEWLINE so the title screen can set it in two lines. A tab title wants
   // it on one, and normalising here beats a second catalogue entry that could drift from the
   // first — two spellings of a game's own name is exactly the kind of thing nobody notices.
@@ -181,8 +208,9 @@ export function boot(): RunningGame {
    * for and lands this game's bar on top of its difficulty cycler. Taking the fallback id would
    * be taking a LAYOUT with it. Declaring the host is what buys the right to place it.
    */
-  const a11yBar = doc.createElement('div');
-  a11yBar.id = 'a11y-bar';
+  // ⚠️ BUILT BY THE SHELL, because `createGame` fills it and `createGame` runs first. What is
+  // left here is the HUD placing it, which is the half a host cannot decide for a stranger.
+  void a11yBar;
   /**
    * ⚠️ THE ENGINE GETS AN ELEMENT OF ITS OWN INSIDE THE ROW, and that is not ceremony. Its click
    * handler ends with `reflectIconsIn(bar, 0)`, which walks every `.pi-btn` under the host and
@@ -192,31 +220,13 @@ export function boot(): RunningGame {
    *
    * `display: contents` on this wrapper keeps the two halves one visual row.
    */
-  const engineBar = doc.createElement('div');
-  engineBar.id = 'a11y-bar-engine';
-  a11yBar.appendChild(engineBar);
-
   /**
-   * ⚠️ ON THE WINDOW, IN CAPTURE, AND REGISTERED BEFORE `createGame` — three choices, one reason.
-   *
-   * 📏 MEASURED. The pause key first lived on `#game-region` in the bubble phase, and it opened the
-   * card and could never close it. `ui/menu-nav` registers `menuNavKey` on the window in CAPTURE
-   * and calls `stopPropagation()` on Escape — its own comment says so, and says the current
-   * behaviour "depends on a `stopPropagation()`, not on the chain". So the moment `isNavigable()`
-   * turns true, which is the moment the pause opens, the key stopped reaching this file: Escape
-   * went in and never came out, and a child at a keyboard was shut inside the card.
-   *
-   * Two capture listeners on the same target run in REGISTRATION order, so being first is the whole
-   * fix — and being first means being registered before the engine is built. Hence a listener that
-   * closes over `engine` and runs only long after it exists.
-   *
-   * ⚠️ AND IT YIELDS TO ANY OPEN DIALOG, which is what keeps this from being a land grab. A child
-   * who opened Visual Accessibility from the pause presses Escape to leave THAT, not to leave the
-   * pause under it. The two questions are asked of the engine rather than guessed: `escapeTarget()`
-   * is its own registered chain, and `topVisibleOverlay()` covers the dialogs that same comment
-   * records as being outside the chain (`#help`, `#touchcfg`).
+   * ⚠️ THE LISTENER IS THE SHELL'S AND THE DECISION IS THIS GAME'S, and the split is forced by
+   * ORDER. `ui/menu-nav` registers on the window in CAPTURE and calls `stopPropagation()` on
+   * Escape, so whoever wants the key first has to register before `createGame` — which now
+   * happens before this function is ever called. The shell registers; this decides.
    */
-  window.addEventListener('keydown', (event: KeyboardEvent) => {
+  function pauseKey(event: KeyboardEvent): void {
     // ⚠️ THE ENGINE ANSWERS "WHICH POSITION IS THIS KEY", and asking it rather than comparing codes
     // is what makes a remapped pause work. A child who moved the pause to another key in the
     // settings screen moved it here too, and nothing in this file had to know.
@@ -228,56 +238,8 @@ export function boot(): RunningGame {
     event.preventDefault();
     event.stopPropagation();
     setPaused(!paused);
-  }, { capture: true });
+  }
 
-  const engine = createGame({
-    declaration,
-    host: { doc, win: window, cvdHost: doc.getElementById('cvd'), a11yBarHost: engineBar },
-    // ⚠️ THIS GAME USED TO DECLINE THE PAUSE MENU, and engine 8.0.0 took the option away: ADR-0120
-    // made the pause non-declinable, because five of the six games in the catalogue had declined
-    // it and a child who depends on blind mode, TTS or high contrast opened those five and found
-    // nowhere to turn them on. The reasoning that was written here — "the title and result screens
-    // are the only two places the game stops" — was true and was still the wrong conclusion: the
-    // pause is not only a way to stop, it is the DOOR to the accessibility panel.
-    // ⚠️ `semVozNeural` IS A DECLARED DECLINE AND NOT A PREFERENCE, and it costs something real:
-    // without a neural voice a child who does not read gets the system voice, which on a school
-    // Chromebook may not exist in Portuguese. The alternative is
-    // `carregarVozNeural: () => import('@mintplex-labs/piper-tts-web')`, which drags
-    // `onnxruntime-web` in as a non-optional peer — 135 MB in the node_modules of every
-    // consumer, and the exact weight engine 7.0.1 removed to take this game's install from
-    // 28.5 MB to 276 KB. Declaring the absence is what keeps it a decision on the record
-    // instead of an omission, which is the distinction ADR-0106 §2 is entirely about.
-    declines: { semAssistenteDePad: true, semAtorDePausa: true, semVozNeural: true },
-    // Menus are navigable exactly when a screen is up OR the pause is open, which is the boolean
-    // the engine asked for instead of a phase name — the correction the quiz consumer forced.
-    /**
-     * ⚠️ 241 MB THAT NOTHING IN THIS GAME COULD READ. `baixarPesados` defaults to TRUE, and the
-     * default is right for the platform it was written for: pillar 8 is "online on the first day,
-     * offline-first after", and a child who comes back on day two without a network must not find
-     * that the voice was never fetched.
-     *
-     * 📏 WHAT THE CATALOGUE ACTUALLY HOLDS, read rather than assumed: the MediaPipe vision runtime
-     * and its three models (~32 MB), WebGazer (~1.9 MB), the piper runtime with onnxruntime
-     * (~12 MB) and the four neural voices (~190 MB). This game has no camera input, no gaze input,
-     * no gesture input, and — see `semVozNeural` below — no neural voice. Not one of those bytes
-     * has a reader here.
-     *
-     * ⚠️ AND THE ENGINE SAYS THE SAME OF ITSELF, which is what turns this from a trade into simple
-     * waste: `platform/pesados-catalogo` carries "⬜ O que continua por fazer é a FIAÇÃO (issue
-     * #11): estes bytes descem e ainda ninguém os lê." Spending a school's bandwidth on bytes that
-     * nothing reads is not caution, and the connection this targets is often metered.
-     *
-     * 📌 TURN IT BACK ON when either half changes — when this game gains a neural voice, or when
-     * the engine wires the vision runtime. It is one word, and the day it flips is a day somebody
-     * gains something for the download.
-     */
-    baixarPesados: false,
-    isNavigable: () => screen !== null || paused,
-    // ⚠️ HANDED OVER AT LAST. `input/actions` carried this preset for weeks with nowhere to put
-    // it; engine 8.0.0 added the parameter. Without it the engine cannot count how many actions
-    // a transport must reach, so the reach warning of ADR-0079 §3 has nothing to measure.
-    preset: actionPreset((key) => i18n.t(key)),
-  });
   if (engine.problems.length) console.warn('engine:', engine.problems.join('; '));
 
   /**
@@ -798,6 +760,20 @@ export function boot(): RunningGame {
 
   showTitle();
 
+  /**
+   * ⚠️ BUILT BEFORE THE DEBUG HOOK ON PURPOSE, so the hook drives THIS object. A mutation making
+   * `boot()` return a dead `update` escaped once, because every test stepped the game through a
+   * hook that closed over the frame function directly — the thing a SHELL receives was exercised
+   * by nobody. Routing the stepper through the returned object closes that by construction
+   * rather than by one more test remembering to.
+   */
+  const api: RunningGame = {
+    update,
+    view: () => round?.view() ?? { category: choice.category, tiles: [], hits: 0, focus: null },
+    isNavigable: () => screen !== null || paused,
+    pauseKey,
+  };
+
   if (new URLSearchParams(location.search).has('debug')) {
     (window as unknown as Record<string, unknown>).__whack = {
       get round() { return round; },
@@ -811,10 +787,10 @@ export function boot(): RunningGame {
        * and skipping the boundary is BETTER here, because a frame that throws inside a test
        * should fail the test rather than be swallowed and announced.
        */
-      step: (dt = 1) => update(dt),
+      step: (dt = 1) => api.update(dt),
     };
   }
 
-  return { update };
+  return api;
 }
 

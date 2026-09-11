@@ -632,7 +632,10 @@ describe('[Interface] the standalone chain from page to game is unbroken', () =>
      * Stripping comments is what keeps it strict: a commented-out call is not a call.
      */
     const shell = code(read('app', 'js', 'boot', 'standalone.ts'));
-    expect(/\bboot\s*\(\)/.test(shell),
+    // ⚠️ ANY ARGUMENTS. The first version demanded empty parentheses and broke the hour the
+    // shell started passing the engine in — a gate that pins a call's SPELLING fails on the
+    // next honest edit, and the usual repair for that is to weaken it.
+    expect(/\bboot\s*\(/.test(shell),
       'boot/standalone.ts no longer calls boot()').toBe(true);
   });
 

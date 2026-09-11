@@ -92,13 +92,17 @@ beforeAll(async () => {
    * untouched document.» That is the assertion between these two statements.
    */
   const before = document.body.innerHTML;
-  const { boot } = await import('../app/js/boot/main.ts');
+  await import('../app/js/boot/main.ts');
   expect(
     document.body.innerHTML,
     'importing the game changed the document — it boots at module scope again',
   ).toBe(before);
 
-  const game = boot();
+  // ⚠️ AND THE SHELL IS WHAT STARTS IT, which is the other half of the same rule. Importing the
+  // game did nothing; importing the shell does everything, and that is the arrangement a
+  // platform will copy.
+
+  await import('../app/js/boot/standalone.ts');
 
   /**
    * ⚠️ SNAPSHOTTED HERE BECAUSE OF WHEN THE TEST RUNS, NOT FOR CONVENIENCE. The region gate below
@@ -116,7 +120,9 @@ beforeAll(async () => {
    * made `boot()` return `{ update: () => {} }` also escaped: every test drove the game through
    * the debug hook, so the thing a SHELL actually receives was exercised by nobody.
    */
-  step = (dt: number) => game.update(dt);
+  step = (dt: number) => (window as unknown as {
+    __whack: { step(d: number): void };
+  }).__whack.step(dt);
   await document.fonts.ready;
 });
 

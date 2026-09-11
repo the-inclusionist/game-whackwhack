@@ -991,14 +991,14 @@ add "the result screen claims a record on every round" \
 # mounts nothing, and blind mode, TTS, contrast and Libras are reachable from nowhere — which is
 # the measurement that made ADR-0120 take the decline away in the first place.
 add "the accessibility bar loses its host, and the engine mounts it nowhere" \
-    "$BOOT/main.ts" \
-    "    host: { doc, win: window, cvdHost: doc.getElementById('cvd'), a11yBarHost: engineBar }," \
-    "    host: { doc, win: window, cvdHost: doc.getElementById('cvd') },"
+    "$BOOT/standalone.ts" \
+    "  host: { doc, win: window, cvdHost: doc.getElementById('cvd'), a11yBarHost: engineBar }," \
+    "  host: { doc, win: window, cvdHost: doc.getElementById('cvd') },"
 
 add "the neural voice goes back to being an omission rather than a decision" \
-    "$BOOT/main.ts" \
-    "    declines: { semAssistenteDePad: true, semAtorDePausa: true, semVozNeural: true }," \
-    "    declines: { semAssistenteDePad: true, semAtorDePausa: true },"
+    "$BOOT/standalone.ts" \
+    "  declines: { semAssistenteDePad: true, semAtorDePausa: true, semVozNeural: true }," \
+    "  declines: { semAssistenteDePad: true, semAtorDePausa: true },"
 
 # ⚠️ A PAUSE THAT DOES NOT STOP TIME charges a child for the seconds she spent turning the contrast
 # up, and it looks identical to a working one until a tile expires behind the card.
@@ -1010,9 +1010,9 @@ add "the clock keeps running behind the pause card" \
 # ⚠️ REGISTRATION ORDER IS THE WHOLE FIX. `ui/menu-nav` listens on the window in CAPTURE and calls
 # `stopPropagation()` on Escape, so a bubble listener opens the card and can never close it.
 add "the pause key drops to the bubble phase, and Escape can no longer close" \
-    "$BOOT/main.ts" \
-    "  }, { capture: true });" \
-    "  });"
+    "$BOOT/standalone.ts" \
+    "  { capture: true }," \
+    "  { capture: false },"
 
 # ⚠️ AND THE WAY OUT THAT IS NOT A KEY. `createGame` takes no pause actions, so the engine's §5
 # filter hides "Continuar" as a dead button — correctly, and leaving a child on a touch screen
@@ -1156,28 +1156,28 @@ add "the region size stops being published where the screens can read it" \
 # a module that boots on import cannot be one of six on a page.
 add "the game boots again at module scope, the moment it is imported" \
     "$BOOT/main.ts" \
-    "export function boot(): RunningGame {" \
-    "export function boot(): RunningGame { return bootAgain(); }\nfunction bootAgain(): RunningGame {"
+    "export function boot(deps: BootDeps): RunningGame {" \
+    "export function boot(deps: BootDeps): RunningGame { return again(deps); }\nfunction again(deps: BootDeps): RunningGame {"
 
 add "the shell stops calling the game, so nothing runs at all" \
     "$BOOT/standalone.ts" \
-    "boot();" \
-    "// boot();"
+    "current = boot({ engine, a11yBar, i18n });" \
+    "// current = boot({ engine, a11yBar, i18n });"
 
 # ⚠️ ADR-0139 §3: A CARTRIDGE NEVER CALLS `startLoop`. «Six cartridges each opening their own frame
 # callback is six loops competing for one frame», and `aoFalhar` -- where spec D16 lives -- is the
 # shell's to wire. The game owns a FRAME; the loop that drives it is outside.
 add "the frame stops being handed over, so the shell drives nothing" \
     "$BOOT/main.ts" \
-    "  return { update };" \
-    "  return { update: () => {} };"
+    "  return api;" \
+    "  return { ...api, update: () => {} };"
 
 # ⚠️ «one broken game must stay distinguishable from a broken engine» (D16). A frame that throws
 # stops the loop, which is right; stopping in SILENCE is not, because a blind child cannot see a
 # frozen screen.
 add "a frame that throws stops the game without saying so" \
     "$BOOT/standalone.ts" \
-    "    srAlert(say.t('say.crashed'));" \
+    "    srAlert(i18n.t('say.crashed'));" \
     "    "
 
 # ========================= THE AUDITED MARKUP =========================

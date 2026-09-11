@@ -1,53 +1,133 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // boot/standalone — the shell that runs this game as its own page.
 //
-// ========================= WHY THERE IS A SHELL AT ALL =========================
-// ⚠️ THIS FILE IS TWO LINES AND THE POINT IS THAT IT EXISTS. Until now `boot/main.ts` ended with a
-// bare `boot()`: importing the module started the game. ADR-0139 §2 and spec decision D14 both
-// forbid that for a cartridge, and for the same reason — a module that boots on import cannot be
-// one of six on a page. It cannot be instantiated twice, it cannot be torn down, and anything it
-// did at import time has already happened before anyone decided it should.
+// ========================= WHY A SHELL EXISTS AT ALL =========================
+// ⚠️ ADR-0139 §2: A CARTRIDGE NEVER CALLS `createGame`. It mounts the accessibility bar, the pause
+// card, the six colour-vision filters, the TTS, the sonar, the settings panel, the menu navigation
+// and the keyboard runtime — and six cartridges calling it inside one platform would deduplicate
+// the BYTES and multiply the RUNTIME: N accessibility bars, N TTS instances, N keyboard runtimes
+// competing for one document. That failure shows up as broken behaviour rather than as weight.
 //
-// So the side effect moves HERE, and `main.ts` becomes something that has to be called.
+// So the caller lives outside the game, and ADR-0140 §2 is the payoff: because the caller is
+// outside, it is free to DIFFER. This file is one caller; the platform will be another; the game
+// between them is the same file and does not know which one it got.
 //
-// ========================= WHAT THIS WILL GROW INTO =========================
-// 📌 ADR-0140 §2: the standalone shell is «about thirty lines» — it calls `createGame`, builds a
-// `ctx`, calls the game's factory and runs the loop; the platform is simply a different shell around
-// the same factory. Today `main.ts` still does all four itself, so this file only carries the call.
-// The rest moves out of `main.ts` as F1 and F3 proceed, and this is where it lands.
+// ========================= THE SPLIT, READ OFF `CreateGameOptions` =========================
+// ADR-0139 §1 divides that type by asking whether a PAGE could answer the field without knowing
+// which game is running:
 //
-// ⚠️ AND THE ORDER OF THAT MATTERS MORE THAN THE SIZE. Splitting the composition root in one step
-// would mean moving the `createGame` call, the host, the `ctx` and the loop at once, through 788
-// lines of closures that all see each other. One observable change at a time is what keeps the game
-// working while the shape changes underneath it.
+//   THE HOST'S HALF — decided here: `host`, `declines`, `baixarPesados`, `carregarVozNeural`,
+//     `aoProgredirPesados`, `disponibilidade`.
+//   THE GAME'S HALF — from the game: `declaration`, `isNavigable`, `preset`, and the six others
+//     this game does not use.
+//
+// ========================= AND THE ORDER THAT FORCES A DELEGATION =========================
+// ⚠️ `createGame` TAKES THE GAME'S HALF AS VALUES, AND RUNS BEFORE THE GAME EXISTS. This game's
+// declaration reads the live round and its `isNavigable` reads the live screen — neither exists
+// until `boot()` has run, and `boot()` needs the engine that `createGame` returns.
+//
+// 📏 That is not a defect of this game; it is ADR-0139 §5 arriving one level early. The record's own
+// answer for the platform is «a declaration whose members forward to the mounted cartridge», and the
+// answer here is the same: forward to whatever `boot()` returned, and answer safely before it has.
+//
+// 📌 SO THE ONLY MUTABLE POINTER IN THE ARRANGEMENT IS HERE. Spec D14 forbids module state in a
+// CARTRIDGE — it survives `teardown()` and leaks into the next game on the page. A shell is not a
+// cartridge, and something has to know which instance is current. Keeping it here is what keeps the
+// game itself clean.
 
-import { startLoop } from '@the-inclusionist/engine/core/loop.js';
+import { createGame } from '@the-inclusionist/engine';
 import { srAlert } from '@the-inclusionist/engine/core/a11y-sr.js';
+import { startLoop } from '@the-inclusionist/engine/core/loop.js';
 
+import { createWhackDeclaration } from '../declaration/whack-declaration.ts';
+import { createI18n, preferredLocale } from '../i18n/index.ts';
+import { actionPreset } from '../input/actions.ts';
 import { createFrameTicker } from '../render/frame-ticker.ts';
-import { createI18n } from '../i18n/index.ts';
-import { boot } from './main.ts';
+import { CATEGORIES } from '../rules/category.ts';
+import { boot, type RunningGame } from './main.ts';
 
-const game = boot();
+const doc = document;
+
+// 1. THE LANGUAGE, BEFORE ANYTHING THAT CARRIES A WORD. The engine writes the accessibility bar's
+//    labels inside `createGame`, so the locale has to be settled before that call and not after.
+//    ⚠️ `documentElement.lang` moved here with it: in a platform the document's language belongs to
+//    the platform, not to one of six cartridges.
+const i18n = createI18n(preferredLocale(navigator.language));
+doc.documentElement.lang = i18n.bcp47();
+
+// 2. THE ACCESSIBILITY BAR'S HOST. Built here because `createGame` FILLS it; the HUD only places it.
+//    ⚠️ The engine gets an element of its own inside the row: its click handler rewrites the
+//    `aria-label` of every `.pi-btn` under the host from state it holds, and the colour-vision
+//    button this game adds is driven by state the engine was never given.
+const a11yBar = doc.createElement('div');
+a11yBar.id = 'a11y-bar';
+const engineBar = doc.createElement('div');
+engineBar.id = 'a11y-bar-engine';
+a11yBar.appendChild(engineBar);
+
+/** The instance, once there is one. See the note at the top on why this lives in the shell. */
+let current: RunningGame | null = null;
+
+// 3. THE GAME'S HALF, DELEGATED. Before `boot()` returns, the mat is empty — which the contract
+//    already treats as «nothing to aim at», so the title screen is a conformant state rather than a
+//    special case. That is what makes answering safely possible at all.
+const declaration = createWhackDeclaration({
+  view: () => current?.view() ?? { category: CATEGORIES[0], tiles: [], hits: 0, focus: null },
+  t: (key) => i18n.t(key),
+});
+
+// 4. THE PAUSE KEY, REGISTERED BEFORE THE ENGINE IS BUILT — and the order is the whole point.
+//    ⚠️ `ui/menu-nav` registers on the window in CAPTURE and calls `stopPropagation()` on Escape.
+//    Two capture listeners on one target run in REGISTRATION order, so being first means being
+//    registered before `createGame`. A bubble listener opened the pause and could never close it.
+window.addEventListener(
+  'keydown',
+  (event: KeyboardEvent) => current?.pauseKey(event),
+  { capture: true },
+);
+
+// 5. ONE `createGame`, and the host half is all of it this file decides.
+const engine = createGame({
+  declaration,
+  host: { doc, win: window, cvdHost: doc.getElementById('cvd'), a11yBarHost: engineBar },
+  // ⚠️ `semVozNeural` costs something real: without a neural voice a child who does not read gets
+  // the system voice, which on a school Chromebook may not exist in Portuguese. The alternative
+  // drags `onnxruntime-web` in as a non-optional peer — 135 MB in every consumer's node_modules.
+  declines: { semAssistenteDePad: true, semAtorDePausa: true, semVozNeural: true },
+  // ⚠️ 241 MB of vision runtime, gaze and neural voices, none of which this game can read — and
+  // `platform/pesados-catalogo` says the engine cannot read them yet either (issue #11).
+  baixarPesados: false,
+  isNavigable: () => current?.isNavigable() ?? true,
+  preset: actionPreset((key) => i18n.t(key)),
+});
+if (engine.problems.length) console.warn('engine:', engine.problems.join('; '));
+
+// 6. AND ONLY NOW THE GAME.
+current = boot({ engine, a11yBar, i18n });
 
 /**
- * ⚠️ THE LOOP IS THE SHELL'S, AND ADR-0139 §3 IS EXPLICIT ABOUT WHY: «Six cartridges each opening
- * their own frame callback is six loops competing for one frame.» In the platform ONE loop calls
- * each mounted cartridge's `update(dt)`. Here there is one game, so this shell is that loop.
+ * ⚠️ THE DEBUG STEPPER IS RE-POINTED AT WHAT `boot()` RETURNED, and the reason is a mutation
+ * that escaped twice. `boot()` builds the hook itself and closed it over its own object, so a
+ * mutation returning a DIFFERENT object with a dead `update` left every test stepping the live
+ * one — the thing a shell actually drives was exercised by nobody.
  *
- * ⚠️ AND `aoFalhar` IS WHERE SPEC D16 LIVES — «one broken game must stay distinguishable from a
- * broken engine». A frame that throws stops the loop, which is right; what must not happen is it
- * stopping in silence, because a blind child cannot see a frozen screen. The engine's own
- * `main.ts` does not wire this and it should.
- *
- * 📌 The catalogue is not read here: this shell speaks the same language the game booted in, and
- * `createI18n` with no argument resolves it the same way `boot()` does.
+ * 📌 Pointing it here is not a test convenience: it puts the stepper on exactly the path the
+ * loop below uses, so what a test drives and what a child plays are the same object.
  */
-const say = createI18n();
+const dbg = (window as unknown as { __whack?: { step: (dt?: number) => void } }).__whack;
+if (dbg) dbg.step = (dt = 1) => current?.update(dt);
 
-startLoop(createFrameTicker(), (dt: number) => game.update(dt), 2, {
+/**
+ * 7. THE LOOP. ADR-0139 §3: a cartridge never calls `startLoop`, because six cartridges each opening
+ *    their own frame callback is six loops competing for one frame.
+ *
+ * ⚠️ `aoFalhar` IS WHERE SPEC D16 LIVES — «one broken game must stay distinguishable from a broken
+ * engine». A frame that throws stops the loop, which is right; what must not happen is it stopping
+ * in SILENCE, because a blind child cannot see a frozen screen.
+ */
+startLoop(createFrameTicker(), (dt: number) => current?.update(dt), 2, {
   aoFalhar: (error: unknown) => {
-    srAlert(say.t('say.crashed'));
+    srAlert(i18n.t('say.crashed'));
     console.error('frame failed:', error);
   },
 });
