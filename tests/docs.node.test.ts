@@ -543,3 +543,44 @@ describe('[Right] the architecture map describes the tree that exists', () => {
     expect(ARCH).toContain('SOURCE_MULTIPLE = 2');
   });
 });
+
+describe('[Interface] the palette search measures the game that ships', () => {
+  /**
+   * ⚠️ IT DID NOT, FOR MONTHS. `tests/palette-search.cjs` is kept, in its own words, "so the next
+   * person can re-run it instead of trusting the table" — and it carried `#0B0F14` and `#F2D479`,
+   * an EARLIER palette, from before the purple ground. Re-running it would have measured a game
+   * that no longer exists, which is the same defect as a mutation anchor matching nothing: a tool
+   * nobody re-runs cannot tell you it has gone stale.
+   *
+   * It reads `render/palette.ts` now. This is what stops somebody typing the colours back in.
+   */
+  const SEARCH = read('tests', 'palette-search.cjs');
+  const PALETTE = read('app', 'js', 'render', 'palette.ts');
+
+  it('reads the three colours rather than repeating them', () => {
+    for (const name of ['INK', 'TILE_LIT', 'GROUND']) {
+      expect(SEARCH, `${name} is no longer read from the palette`).toContain(`fromPalette('${name}')`);
+    }
+  });
+
+  it('finds them where it looks, so the read is not a broken regex', () => {
+    // ⚠️ The tool throws on a miss rather than falling back, but a throw nobody runs is a throw
+    // nobody sees. This is the same check, in the suite that does run.
+    for (const name of ['INK', 'TILE_LIT', 'GROUND']) {
+      expect(PALETTE, `palette.ts no longer exports ${name} as a hex literal`)
+        .toMatch(new RegExp(`export const ${name} = '#[0-9A-Fa-f]{6}'`));
+    }
+  });
+
+  it('states what the contrast ceiling makes impossible', () => {
+    /**
+     * 📏 The two steps of the mat — ground→unlit and unlit→lit — MULTIPLY to the whole climb,
+     * because the middle luminance cancels. The climb is capped at 21 (white on black), so both
+     * steps clearing 7 would need 49 and cannot happen for any palette, in any hue. It is the
+     * finding that turns "high contrast is a colour decision" into a measured constraint, and it
+     * belongs beside the search rather than in a chat nobody keeps.
+     */
+    expect(SEARCH).toContain('IMPOSSIBLE for any palette');
+    expect(SEARCH).toMatch(/hc7/);
+  });
+});

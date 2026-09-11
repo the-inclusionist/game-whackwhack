@@ -65,6 +65,20 @@ writer it never passes and its options cannot carry. Measured and reported in
 ⚠️ **This is not a contrast FAILURE**: the default palette clears every floor above, measured. What is
 missing is the *choice*, for a child who needs more than the floor.
 
+📏 **And two of the three levels turn out to be arithmetic rather than taste**, measured 2026-09-11 and
+printed by `tests/palette-search.cjs`. The mat is three stacked surfaces, and the two steps —
+ground→unlit and unlit→lit — **multiply to the whole climb**, because the middle luminance cancels:
+`(Li/Lg) × (Ll/Li) = Ll/Lg`. The climb is capped at 21, white on black. So:
+
+| Level | Both steps need | Climb required | Verdict |
+|---|---|---|---|
+| `hc3` | 3:1 | 9.00 | **already met** by the shipped palette — 3.34 and 5.82, climb 19.40 |
+| `hc45` | 4.5:1 | 20.25 | reachable, and it costs the purple: the best balanced candidate is a **grey** mat at 4.40 / 4.41, holding across all three colour-vision matrices, 0.1 short of the target |
+| `hc7` | 7:1 | 49.00 | **impossible for any palette, in any hue** |
+
+That is not a reason to drop `hc7`. It is a measurement saying its distinction must move **off**
+luminance — an outline, a fill pattern — because the two steps compete for one fixed budget.
+
 ### The HUD column scrolls on a small screen
 
 At 800×600 the column needs 99 px more than it has, so the accessibility bar's last row is cut off

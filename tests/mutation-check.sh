@@ -1296,6 +1296,20 @@ add "an engine import drops off the map while the code keeps using it" \
     "| \`platform/storage.js\` |" \
     "| (removed) |"
 
+# ⚠️ THE SEARCH TOOL MEASURED A GAME THAT NO LONGER EXISTED for months, because its colours were
+# typed into it. It reads `render/palette.ts` now, and this is what stops them being typed back.
+add "the palette search goes back to a copy of the colours instead of reading them" \
+    "$TESTS/palette-search.cjs" \
+    "const GROUND = hex(fromPalette('GROUND'));" \
+    "const GROUND = hex('#1C041B');"
+
+# ⚠️ THE FINDING THAT TURNS A COLOUR DECISION INTO A CONSTRAINT: the mat's two contrast steps
+# multiply to the whole climb, and the climb is capped at 21, so hc7 cannot happen in any hue.
+add "the search stops printing which contrast levels are out of reach" \
+    "$TESTS/palette-search.cjs" \
+    "IMPOSSIBLE for any palette" \
+    "hard to reach"
+
 add "spike 0 stops saying that its conclusions were superseded" \
     "$DOCS/spike-0-symbol-legibility.md" \
     "> ## ⚠️ FIVE OF THIS DOCUMENT'S CONCLUSIONS NO LONGER HOLD" \

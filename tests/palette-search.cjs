@@ -40,9 +40,25 @@ function worst(a, b) {
   return w;
 }
 
-const INK = hex('#1A1206');
-const LIT = hex('#F2D479');
-const GROUND = hex('#0B0F14');
+// ⚠️ THESE WERE TYPED HERE AND HAD ROTTED. This file kept `#0B0F14` / `#F2D479` — an EARLIER
+// palette, from before the Dev's purple ground — for long enough that re-running it, which is the
+// entire reason it is kept, would have measured a game that no longer exists. Same defect as a
+// mutation anchor matching nothing: a tool nobody re-runs cannot tell you it has gone stale.
+//
+// So it READS them now. `render/palette.ts` is the source, it is a `.ts` this `.cjs` cannot import,
+// and a regex over three named exports is the smallest thing that cannot drift.
+function fromPalette(name) {
+  const src = require('node:fs').readFileSync(
+    require('node:path').join(__dirname, '..', 'app', 'js', 'render', 'palette.ts'), 'utf8',
+  );
+  const found = new RegExp('export const ' + name + " = '(#[0-9A-Fa-f]{6})'").exec(src);
+  if (!found) throw new Error('palette.ts no longer exports ' + name + ' as a hex literal');
+  return found[1];
+}
+
+const INK = hex(fromPalette('INK'));
+const LIT = hex(fromPalette('TILE_LIT'));
+const GROUND = hex(fromPalette('GROUND'));
 
 // Blue-grey family, so the mat stays cool against the warm lit tile: hue is a second channel on
 // top of the luminance one, which costs nothing and helps anyone who has both.
@@ -93,3 +109,38 @@ if (best) {
   }
   for (const r of rows) console.log(r[0].padEnd(8), r[1].padStart(8), r[2].padStart(10), r[3].padStart(13));
 }
+
+// ========================= AND THE QUESTION A SEARCH CANNOT ANSWER =========================
+// ⚠️ THE ENGINE OFFERS THREE HIGH-CONTRAST LEVELS NAMED AFTER RATIOS — `hc3`, `hc45`, `hc7` — and
+// whether this mat can reach them is arithmetic, not taste. It is printed beside the search because
+// otherwise the search gets run three times to discover it the slow way.
+//
+// The mat is three stacked surfaces: ground, unlit tile, lit tile. Write their luminances
+// Lg < Li < Ll. Then
+//
+//     ratio(unlit, ground) x ratio(lit, unlit)
+//       = ((Li+.05)/(Lg+.05)) x ((Ll+.05)/(Li+.05))
+//       = (Ll+.05)/(Lg+.05)
+//       = ratio(lit, ground)
+//
+// The middle term cancels. The product of the two steps is ALWAYS the whole climb, wherever the
+// middle surface sits — and the whole climb is capped at 21, white on black.
+//
+// So asking both steps to clear N asks the climb to be at least N squared, and the cap decides it.
+// Nothing about hue, and nothing a search could find.
+const CLIMB = ratio(LIT, GROUND);
+console.log();
+console.log('--- can this mat reach the engine\'s contrast levels? ---');
+console.log('climb (lit vs ground):', CLIMB.toFixed(2), '  ceiling (white on black): 21.00');
+for (const [name, floor] of [['hc3', 3], ['hc45', 4.5], ['hc7', 7]]) {
+  const needed = floor * floor;
+  const verdict = needed > 21 ? 'IMPOSSIBLE for any palette'
+    : needed > CLIMB ? 'needs a darker ground or a brighter lit tile'
+      : 'already met by the shipped palette';
+  console.log(name.padEnd(5), 'both steps at', String(floor).padStart(3),
+    '-> climb >=', needed.toFixed(2).padStart(6), ' ', verdict);
+}
+console.log();
+console.log('A level the climb cannot carry is not a level to abandon: it is a level whose');
+console.log('distinction has to move OFF luminance -- an outline, a fill pattern -- because the two');
+console.log('steps compete for one budget and the budget is fixed.');
