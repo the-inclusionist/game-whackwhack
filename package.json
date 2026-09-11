@@ -17,7 +17,7 @@
     "test:watch": "vitest",
     "test:node": "vitest run --project node",
     "test:browser": "vitest run --project browser",
-    "test:a11y": "vitest run --project browser tests/a11y.browser.test.ts",
+    "test:a11y": "vitest run --project browser tests/a11y.browser.test.ts && node tests/axe-url.mjs",
     "validate": "npm run typecheck && vitest run && vite build"
   },
   "dependencies": {

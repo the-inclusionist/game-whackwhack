@@ -28,6 +28,8 @@ CSS=app/css
 DOCS=docs
 # The repository's own config, for the comments in it that make checkable claims.
 CFG=.
+# The test scripts are source too: tests/axe-url.mjs is the only audit of the BUILT bundle.
+TESTS=tests
 # The shipped page. tests/a11y.browser.test.ts reads it with `?raw` rather than imitating it, so
 # the markup createGame requires is gated where it actually lives.
 APP=app
@@ -1049,6 +1051,23 @@ add "the time control leaves the panel" \
     "$UI/options.ts" \
     "  root.append(difficultyButton, defeatButton, paceButton, collect, said);" \
     "  root.append(difficultyButton, defeatButton, collect, said);"
+
+# ⚠️ THE CI HANDED OVER AN ADDRESS AND NOTHING READ IT, for weeks. A workflow input nobody reads
+# looks exactly like coverage, so the wiring is gated rather than trusted.
+add "the built-bundle audit falls out of test:a11y" \
+    "$CFG/package.json" \
+    " && node tests/axe-url.mjs" \
+    ""
+
+add "the audit stops reading the address the workflow passes" \
+    "$TESTS/axe-url.mjs" \
+    "const url = process.env.AXE_URL;" \
+    "const url = 'http://localhost:8199';"
+
+add "a missing address goes back to passing quietly" \
+    "$TESTS/axe-url.mjs" \
+    "  console.log('axe-url: AXE_URL is not set — the BUILT BUNDLE was not audited.');" \
+    "  "
 
 # ========================= THE AUDITED MARKUP =========================
 add "the canvas stops hiding itself from a screen reader" \

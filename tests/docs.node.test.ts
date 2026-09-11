@@ -340,3 +340,39 @@ describe('[Interface] the two engine gaps this game works around still exist', (
     expect(report).toContain('app/js/ui/vision.ts');
   });
 });
+
+describe('[Interface] the CI hands over an address and something reads it', () => {
+  /**
+   * ⚠️ THIS GATE EXISTS BECAUSE THE GAP IT WATCHES WAS OPEN FOR WEEKS AND NOTHING SAID SO. The
+   * reusable workflow builds the game, serves `dist/` on a port and passes the address as
+   * `AXE_URL`; this repository's `test:a11y` simply did not read it, and a CI input nobody reads
+   * is an input that looks like coverage.
+   *
+   * A script dropped from a package script fails nothing — that is exactly how it would go back to
+   * being unread — so the wiring is asserted rather than trusted.
+   */
+  const SCRIPTS = (JSON.parse(read('package.json')) as {
+    scripts: Record<string, string>;
+  }).scripts;
+
+  it('runs the built-bundle audit as part of test:a11y', () => {
+    expect(SCRIPTS['test:a11y'], 'the AXE_URL audit is no longer wired in').toContain('axe-url.mjs');
+  });
+
+  it('the script it names is really there', () => {
+    // The same shape as the citation check above, and for the same reason: `style.css` once named
+    // a test file that had never been written, and nothing noticed for several commits.
+    expect(() => read('tests', 'axe-url.mjs')).not.toThrow();
+  });
+
+  it('reads the variable the workflow actually passes', () => {
+    // ⚠️ A script that audited a hardcoded localhost would pass this file's other two tests and
+    // audit nothing the CI built.
+    expect(read('tests', 'axe-url.mjs')).toContain('process.env.AXE_URL');
+  });
+
+  it('says so when the address is absent, instead of passing quietly', () => {
+    const src = read('tests', 'axe-url.mjs');
+    expect(src).toContain('AXE_URL is not set');
+  });
+});

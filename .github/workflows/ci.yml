@@ -32,13 +32,19 @@
 # `bash tests/mutation-check.sh`, which no runner has ever run.
 #
 # ========================= WHAT THE a11y INPUT MEANS HERE =========================
-# ⚠️ The reusable workflow serves the built game on a port and hands its address to the axe script
-# as `AXE_URL`. This game's `test:a11y` does NOT read that variable: it boots `boot/main` inside a
-# real browser under Vitest, which is stronger in one way — it can drive the game into BOTH of its
-# states, the title and a running mat, where a static URL audit only ever sees the first — and
-# weaker in another, since it audits the module graph rather than the minified bundle. The markup
-# half of that gap is closed already: the test reads `app/index.html` with `?raw` instead of
-# imitating it. The bundle half is open, and is written here rather than left to be discovered.
+# ✅ THE ADDRESS IS READ NOW, and this paragraph used to say it was not. The reusable workflow
+# serves the built game on a port and hands its address over as `AXE_URL`; `test:a11y` runs TWO
+# audits against it, and they cover different things on purpose:
+#
+#   1. `tests/a11y.browser.test.ts` boots `boot/main` inside Vitest. It can drive the game into
+#      BOTH of its states and it reads `app/index.html` with `?raw` rather than imitating it —
+#      but it audits the MODULE GRAPH, not the bundle a child downloads.
+#   2. `tests/axe-url.mjs` audits the BUILT page at `AXE_URL`, in both states as well, driving it
+#      with `?debug=true` so the running mat is real rather than an empty grid wearing its name.
+#
+# ⚠️ AND A MISSING `AXE_URL` IS ANNOUNCED RATHER THAN SWALLOWED. Locally there is no server and
+# the second audit is a no-op — which is right — but a no-op that looked like a pass is how this
+# gap stayed open in the first place. The script prints which of the two happened, every run.
 name: ci
 
 on:
