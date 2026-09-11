@@ -43,7 +43,9 @@
 //     leaves the mat at once rather than lingering as `resolved`.
 
 import type { Category } from './category.ts';
-import { LIT_AT_ONCE, type Difficulty, spawnGapMs, tileDeadlineMs } from './difficulty.ts';
+import {
+  LIT_AT_ONCE, type Difficulty, type Pace, spawnGapMs, tileDeadlineMs,
+} from './difficulty.ts';
 import { outcomeOf, type DefeatMode, type RoundOutcome } from './defeat.ts';
 import { MAT_CELLS } from './grid.ts';
 import { composeLevel, tilesInLevel, type SpawnValue } from './spawn.ts';
@@ -69,6 +71,14 @@ export interface RoundOptions {
   readonly category: Category;
   readonly difficulty: Difficulty;
   readonly defeat: DefeatMode;
+  /**
+   * How much time the child asked for, as a multiplier on every deadline (WCAG 2.2.1).
+   *
+   * ⚠️ REQUIRED, with no default, and that is the decision. A default of `1` would let a caller
+   * forget the accommodation and still compile — and the child who needed it would find the game
+   * exactly as fast as before, with nothing anywhere to say why.
+   */
+  readonly pace: Pace;
   /** Uniform in [0, 1). Injected, so a round is reproducible in a test. */
   readonly rnd: () => number;
   readonly cellCount?: number;
@@ -221,7 +231,7 @@ export function createRound(options: RoundOptions): Round {
     const [next] = queue.splice(index, 1);
     const open = freeCells();
     const cell = open[Math.floor(options.rnd() * open.length)];
-    const deadlineMs = tileDeadlineMs(level);
+    const deadlineMs = tileDeadlineMs(level, options.pace);
     live.push({ cell, value: next.value, correct: next.correct, deadlineMs, leftMs: deadlineMs });
     spawnLeft = spawnGapMs(level);
     out.push({ kind: 'tile-lit', cell, value: next.value });

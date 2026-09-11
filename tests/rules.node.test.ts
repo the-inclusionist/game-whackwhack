@@ -15,7 +15,7 @@
 import { describe, expect, it } from 'vitest';
 import { EVEN, MULTIPLE_OF_3, MULTIPLE_OF_4, multipleOf } from '../app/js/rules/category.ts';
 import {
-  LIT_AT_ONCE, ROUND_GOAL, spawnGapMs, tileDeadlineMs,
+  LIT_AT_ONCE, PACES, PACE_DEFAULT, ROUND_GOAL, type Pace, spawnGapMs, tileDeadlineMs,
 } from '../app/js/rules/difficulty.ts';
 import { LIVES, outcomeOf } from '../app/js/rules/defeat.ts';
 
@@ -108,16 +108,16 @@ describe('[Right] the deadline shrinks on the original curve', () => {
     [4, 6_080],
     [5, 5_000],
   ])('gives level %i a deadline of %i ms', (level, expected) => {
-    expect(tileDeadlineMs(level)).toBe(expected);
+    expect(tileDeadlineMs(level, 1)).toBe(expected);
   });
 
   it('never drops below the five-second floor, however long the round runs', () => {
-    for (const level of [5, 6, 20, 500]) expect(tileDeadlineMs(level)).toBe(5_000);
+    for (const level of [5, 6, 20, 500]) expect(tileDeadlineMs(level, 1)).toBe(5_000);
   });
 
   it('is monotonically non-increasing', () => {
     for (let level = 2; level <= 30; level++) {
-      expect(tileDeadlineMs(level)).toBeLessThanOrEqual(tileDeadlineMs(level - 1));
+      expect(tileDeadlineMs(level, 1)).toBeLessThanOrEqual(tileDeadlineMs(level - 1, 1));
     }
   });
 
@@ -126,7 +126,7 @@ describe('[Right] the deadline shrinks on the original curve', () => {
     // cleanly this is the assertion that says so, instead of a rounding call absorbing it in
     // silence while the exact-value cases above keep passing.
     for (let level = 1; level <= 30; level++) {
-      expect(Number.isInteger(tileDeadlineMs(level))).toBe(true);
+      expect(Number.isInteger(tileDeadlineMs(level, 1))).toBe(true);
     }
   });
 });
@@ -210,5 +210,56 @@ describe('[Interface] a category is data, so a new one costs no surgery', () => 
     // A factor of 1 leaves nothing incorrect, so no wave could ever be composed. Failing at
     // construction beats failing later inside a round the child is already playing.
     expect(() => multipleOf(1, { id: 'x', nameKey: 'obj.x' })).toThrow();
+  });
+});
+
+describe('[Right] the child can ask for more time, which is what WCAG 2.2.1 requires', () => {
+  it('leaves the original curve exactly where it was at the default', () => {
+    // ⚠️ THE DEFAULT IS NOT AN ACCOMMODATION, it is the game the original shipped. A multiplier
+    // that moved the curve at `1` would have changed the game for everyone in order to help some.
+    for (const [level, expected] of [[1, 12_020], [2, 10_040], [5, 5_000]] as const) {
+      expect(tileDeadlineMs(level, PACE_DEFAULT)).toBe(expected);
+    }
+    expect(PACE_DEFAULT).toBe(1);
+  });
+
+  it('multiplies the whole deadline, floor included', () => {
+    // ⚠️ THE FLOOR HAS TO SCALE TOO. Five seconds is where the task stops being "which of these is
+    // even" and becomes "can you click at all"; a child who asked for ten times the time and still
+    // hit a five-second floor at level 5 would have asked for nothing.
+    expect(tileDeadlineMs(1, 2)).toBe(24_040);
+    expect(tileDeadlineMs(5, 2)).toBe(10_000);
+    expect(tileDeadlineMs(500, 10)).toBe(50_000);
+  });
+
+  it('adjusts over a range of at least ten times the default, which IS the criterion', () => {
+    /**
+     * ⚠️ THIS IS THE ASSERTION THAT MAKES THE CONFORMANCE CLAIM TRUE, and it is written as the
+     * criterion rather than as the numbers so that shortening the ring fails here rather than in a
+     * document nobody re-reads. SC 2.2.1 is met by turning the limit off, by extending it on
+     * warning, or by ADJUSTING it "over a wide range that is at least ten times the length of the
+     * default setting". This game takes the third road, so `x10` is load-bearing: trimming the ring
+     * to `x5` to make the button shorter would drop the game out of conformance silently.
+     */
+    const slowest = Math.max(...PACES);
+    for (const level of [1, 3, 9, 40]) {
+      expect(
+        tileDeadlineMs(level, slowest as Pace) / tileDeadlineMs(level, PACE_DEFAULT),
+        `level ${level}`,
+      ).toBeGreaterThanOrEqual(10);
+    }
+  });
+
+  it('offers the default first, so nobody is opted into an accommodation', () => {
+    // The ring starts where the game starts. A child who never touches the button plays the
+    // original curve, and one who needs the ring finds it going only one way: slower.
+    expect(PACES[0]).toBe(PACE_DEFAULT);
+    expect([...PACES]).toEqual([...PACES].sort((a, b) => a - b));
+  });
+
+  it('never shortens the deadline, whatever is chosen', () => {
+    // ⚠️ A ring that could go BELOW 1 would be a difficulty setting wearing an accommodation's
+    // clothes, and the plan is explicit that mixing the two is the thing not to do.
+    for (const pace of PACES) expect(pace).toBeGreaterThanOrEqual(PACE_DEFAULT);
   });
 });

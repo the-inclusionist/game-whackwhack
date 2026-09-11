@@ -662,18 +662,18 @@ add "the keyboard help offers the mat while there is no mat" \
 
 add "the tile deadline loses its five-second floor" \
     "$RULES/difficulty.ts" \
-    "  return Math.max(0, 9000 - 9000 * 0.22 * level) + 5000;" \
-    "  return 9000 - 9000 * 0.22 * level + 5000;"
+    "  return (Math.max(0, 9000 - 9000 * 0.22 * level) + 5000) * pace;" \
+    "  return (9000 - 9000 * 0.22 * level + 5000) * pace;"
 
 add "the decay factor shifts off the original curve" \
     "$RULES/difficulty.ts" \
-    "  return Math.max(0, 9000 - 9000 * 0.22 * level) + 5000;" \
-    "  return Math.max(0, 9000 - 9000 * 0.2 * level) + 5000;"
+    "  return (Math.max(0, 9000 - 9000 * 0.22 * level) + 5000) * pace;" \
+    "  return (Math.max(0, 9000 - 9000 * 0.2 * level) + 5000) * pace;"
 
 add "a rounding call is put back to absorb drift" \
     "$RULES/difficulty.ts" \
-    "  return Math.max(0, 9000 - 9000 * 0.22 * level) + 5000;" \
-    "  return Math.round(Math.max(0, 9000 - 9000 * 0.219 * level) + 5000);"
+    "  return (Math.max(0, 9000 - 9000 * 0.22 * level) + 5000) * pace;" \
+    "  return Math.round((Math.max(0, 9000 - 9000 * 0.219 * level) + 5000) * pace);"
 
 add "the hardest setting allows only one tile on the mat" \
     "$RULES/difficulty.ts" \
@@ -1010,6 +1010,45 @@ add "the resume item goes back to hidden, and a touch screen has no way out" \
     "$BOOT/main.ts" \
     "      reviveResume();" \
     "      "
+
+# ========================= THE TIME A CHILD CAN ASK FOR (WCAG 2.2.1) =========================
+# ⚠️ The plan promised conformance from `endless` PLUS a deadline multiplier, and only the first
+# half existed for weeks. `endless` removes the DEFEAT and leaves the HURRY: every tile still
+# expired on the original curve, so a child who needed longer simply was not punished for never
+# reaching the twenty hits.
+add "the pace stops reaching the deadline, so the ring is a button that does nothing" \
+    "$RULES/difficulty.ts" \
+    "  return (Math.max(0, 9000 - 9000 * 0.22 * level) + 5000) * pace;" \
+    "  return Math.max(0, 9000 - 9000 * 0.22 * level) + 5000;"
+
+# ⚠️ x10 IS THE CRITERION AND NOT A TASTE. SC 2.2.1 is met by adjusting "over a wide range that is
+# at least ten times the length of the default setting". Trimming the ring to make the button
+# shorter drops the game out of conformance in silence.
+add "the ring stops short of ten times the default, losing the conformance claim" \
+    "$RULES/difficulty.ts" \
+    "export const PACES: readonly Pace[] = [1, 2, 5, 10];" \
+    "export const PACES: readonly Pace[] = [1, 2, 5];"
+
+# ⚠️ THE DEFAULT IS THE ORIGINAL GAME. A ring that did not start at 1 would opt every child into an
+# accommodation she did not ask for, and would change the curve for everyone to help some.
+add "the default pace stops being the original curve" \
+    "$RULES/difficulty.ts" \
+    "export const PACE_DEFAULT: Pace = 1;" \
+    "export const PACE_DEFAULT: Pace = 2;"
+
+# ⚠️ ACCEPTED, STORED, AND NEVER READ is the failure this one names: every arithmetic test on
+# `tileDeadlineMs` would still pass while the tile on the mat kept the unaccommodated deadline.
+add "the round keeps the unaccommodated deadline whatever the child chose" \
+    "$RULES/round.ts" \
+    "    const deadlineMs = tileDeadlineMs(level, options.pace);" \
+    "    const deadlineMs = tileDeadlineMs(level, 1);"
+
+# ⚠️ AND THE CONTROL ITSELF. Without the button in the panel the multiplier is reachable only by
+# someone editing the source, which is nobody this criterion is about.
+add "the time control leaves the panel" \
+    "$UI/options.ts" \
+    "  root.append(difficultyButton, defeatButton, paceButton, collect, said);" \
+    "  root.append(difficultyButton, defeatButton, collect, said);"
 
 # ========================= THE AUDITED MARKUP =========================
 add "the canvas stops hiding itself from a screen reader" \

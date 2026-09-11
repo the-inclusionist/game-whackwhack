@@ -40,6 +40,7 @@ function round(over: Partial<Parameters<typeof createRound>[0]> = {}) {
     category: EVEN,
     difficulty: 'medium',
     defeat: 'lives',
+    pace: 1,
     rnd: seeded(7),
     ...over,
   });
@@ -224,7 +225,7 @@ describe('[Right] every tile carries its OWN clock', () => {
   it('expires a tile at its deadline and not one millisecond before', () => {
     const r = round({ defeat: 'endless' });
     r.advance(1);
-    const deadline = tileDeadlineMs(r.level());
+    const deadline = tileDeadlineMs(r.level(), 1);
     const cell = r.tiles()[0].cell;
     r.advance(deadline - 2);
     expect(r.tiles().some((t) => t.cell === cell)).toBe(true);
@@ -235,7 +236,7 @@ describe('[Right] every tile carries its OWN clock', () => {
   it('cools from one to zero over that deadline, not over the round', () => {
     const r = round({ defeat: 'endless' });
     r.advance(1);
-    const deadline = tileDeadlineMs(r.level());
+    const deadline = tileDeadlineMs(r.level(), 1);
     expect(r.tiles()[0].heat).toBeGreaterThan(0.99);
     r.advance(deadline / 2);
     expect(r.tiles()[0].heat).toBeCloseTo(0.5, 1);
@@ -293,7 +294,7 @@ describe('[Right] what is and is not a mistake', () => {
       if (r.tiles().some((t) => t.correct)) break;
     }
     const before = r.errors();
-    const events = play(r, tileDeadlineMs(r.level()) + FRAME);
+    const events = play(r, tileDeadlineMs(r.level(), 1) + FRAME);
     const missed = events.filter((e) => e.kind === 'mistake' && e.reason === 'missed');
     expect(missed.length).toBeGreaterThan(0);
     // ⚠️ THE COUNTER, not just the event. Asserting only that a `missed` was emitted let
@@ -485,5 +486,49 @@ describe('[Interface] the view is what the declaration reads', () => {
 
   it('reports an empty mat rather than a null, so no reader has to guard', () => {
     expect(round().view().tiles).toEqual([]);
+  });
+});
+
+describe('[Right] the extra time a child asked for reaches the mat', () => {
+  /** Runs until a correct tile is up, so the assertion is about one this round can charge for. */
+  function untilCorrect(r: ReturnType<typeof createRound>): void {
+    let guard = 0;
+    while (guard++ < 500) {
+      r.advance(FRAME);
+      if (r.tiles().some((t) => t.correct)) return;
+    }
+    throw new Error('no correct tile appeared in 500 frames');
+  }
+
+  it('does not expire a tile at the unaccommodated deadline', () => {
+    /**
+     * ⚠️ THE END-TO-END HALF OF WCAG 2.2.1, and it is a different claim from the arithmetic in
+     * tests/rules.node.test.ts. That file proves `tileDeadlineMs` multiplies; this one proves the
+     * multiplier is actually CARRIED to the tile — a `pace` accepted by `RoundOptions`, stored, and
+     * never read would pass every test in that file and leave the child exactly as hurried.
+     */
+    const r = createRound({
+      category: EVEN, difficulty: 'medium', defeat: 'endless', pace: 2, rnd: seeded(7),
+    });
+    untilCorrect(r);
+    const before = r.errors();
+
+    // One frame PAST the deadline this tile would have had at pace 1.
+    play(r, tileDeadlineMs(r.level(), 1) + FRAME);
+    expect(r.errors(), 'a tile expired at the pace-1 deadline despite pace 2').toBe(before);
+  });
+
+  it('still expires it once the time she asked for is spent', () => {
+    // ⚠️ THE OTHER SIDE, and without it the test above passes for a round that never expires
+    // anything at all — which is a different game and not an accommodation.
+    const r = createRound({
+      category: EVEN, difficulty: 'medium', defeat: 'endless', pace: 2, rnd: seeded(7),
+    });
+    untilCorrect(r);
+    const before = r.errors();
+
+    play(r, tileDeadlineMs(r.level(), 2) + FRAME);
+    expect(r.errors(), 'the tile never expired, so the clock stopped rather than stretched')
+      .toBeGreaterThan(before);
   });
 });

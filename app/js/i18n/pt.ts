@@ -89,6 +89,11 @@ export const pt: Catalog = {
   'opt.suddenDeath': 'Morte súbita',
   'opt.lives': 'Corações',
   'opt.endless': 'Invencível',
+  'opt.pace': 'Tempo',
+  'opt.pace1': 'normal',
+  'opt.pace2': 'o dobro',
+  'opt.pace5': 'cinco vezes',
+  'opt.pace10': 'dez vezes',
   'opt.cycle': 'toque para mudar',
   'opt.now': '{label}: {value}',
 };

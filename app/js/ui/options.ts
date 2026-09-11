@@ -34,7 +34,7 @@
 
 import type { Category } from '../rules/category.ts';
 import { CATEGORIES, FACTORS } from '../rules/category.ts';
-import type { Difficulty } from '../rules/difficulty.ts';
+import { PACES, type Difficulty, type Pace } from '../rules/difficulty.ts';
 import type { DefeatMode } from '../rules/defeat.ts';
 import type { I18n } from '../i18n/index.ts';
 
@@ -43,6 +43,8 @@ export interface RoundChoice {
   readonly category: Category;
   readonly difficulty: Difficulty;
   readonly defeat: DefeatMode;
+  /** How much time every tile gets, as a multiplier. See `rules/difficulty`. */
+  readonly pace: Pace;
 }
 
 /**
@@ -58,6 +60,18 @@ const DIFFICULTY_MARK: Readonly<Record<Difficulty, string>> = {
 const DEFEAT_MARK: Readonly<Record<DefeatMode, string>> = {
   'sudden-death': '💀', lives: '❤️❤️❤️', endless: '⭐',
 };
+/**
+ * 🔴 CLOCK FACES, AND THE HOUR IS THE MULTIPLIER: 🕐 is one, 🕑 two, 🕔 five, 🕙 ten.
+ *
+ * ⚠️ NOT ANIMALS, and not a tortoise. This ring is an ACCOMMODATION and not a difficulty — the
+ * plan says of the engine's own easy mode that mixing the two is «oferecer acessibilidade como se
+ * fosse modo bebê». A child who needs twelve seconds instead of five is playing the same game,
+ * and a mark that comments on her is the one thing this control must not do. A clock says how
+ * much time and says nothing else.
+ */
+const PACE_MARK: Readonly<Record<Pace, string>> = {
+  1: '🕐', 2: '🕑', 5: '🕔', 10: '🕙',
+};
 
 /** The order the buttons walk, and they wrap: hard goes back to easy, as the Dev specified. */
 const DIFFICULTIES: readonly Difficulty[] = ['easy', 'medium', 'hard'];
@@ -68,6 +82,9 @@ const DIFFICULTY_KEY: Readonly<Record<Difficulty, string>> = {
 };
 const DEFEAT_KEY: Readonly<Record<DefeatMode, string>> = {
   'sudden-death': 'opt.suddenDeath', lives: 'opt.lives', endless: 'opt.endless',
+};
+const PACE_KEY: Readonly<Record<Pace, string>> = {
+  1: 'opt.pace1', 2: 'opt.pace2', 5: 'opt.pace5', 10: 'opt.pace10',
 };
 
 /** `2️⃣` and friends: the digit, then VARIATION SELECTOR-16, then COMBINING ENCLOSING KEYCAP. */
@@ -95,6 +112,7 @@ export function createOptions(deps: OptionsDeps): Options {
   let difficulty = deps.initial.difficulty;
   let defeat = deps.initial.defeat;
   let category = deps.initial.category;
+  let pace = deps.initial.pace;
 
   const root = doc.createElement('section');
   root.className = 'hud-options';
@@ -170,6 +188,15 @@ export function createOptions(deps: OptionsDeps): Options {
     () => defeat, (m) => { defeat = m; },
   );
 
+  // ⚠️ The WCAG 2.2.1 control, and it is a cycler like the other two because it is a choice a
+  // child makes BEFORE the clock starts — which is the form the criterion asks for: adjustable
+  // "before encountering" the limit, not rescued after it.
+  const paceButton = cycler(
+    'opt.pace', PACES,
+    (v) => PACE_MARK[v], (v) => PACE_KEY[v],
+    () => pace, (v) => { pace = v; },
+  );
+
   // ========================= THE EIGHT FACTORS =========================
   const collect = doc.createElement('fieldset');
   collect.className = 'opt-collect';
@@ -217,10 +244,10 @@ export function createOptions(deps: OptionsDeps): Options {
     radios.push(input);
   });
 
-  root.append(difficultyButton, defeatButton, collect, said);
+  root.append(difficultyButton, defeatButton, paceButton, collect, said);
 
   function current(): RoundChoice {
-    return { category, difficulty, defeat };
+    return { category, difficulty, defeat, pace };
   }
 
   return {

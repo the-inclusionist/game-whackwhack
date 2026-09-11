@@ -22,7 +22,9 @@ import { createOptions, type RoundChoice } from '../app/js/ui/options.ts';
 import '../app/css/style.css';
 
 const i18n = createI18n('pt');
-const INITIAL: RoundChoice = { category: CATEGORIES[0], difficulty: 'easy', defeat: 'sudden-death' };
+const INITIAL: RoundChoice = {
+  category: CATEGORIES[0], difficulty: 'easy', defeat: 'sudden-death', pace: 1,
+};
 
 const made: { destroy(): void }[] = [];
 
@@ -257,5 +259,56 @@ describe('[Boundary] the targets are big enough to hit', () => {
     for (const el of targets) {
       expect(el.getBoundingClientRect().height, el.className).toBeGreaterThanOrEqual(44);
     }
+  });
+});
+
+describe('[Right] the time control is a third cycler, and it is an accommodation', () => {
+  const paceButton = () => cyclers()[2];
+
+  it('is there at all, because WCAG 2.2.1 is answered by a control and not by prose', () => {
+    panel();
+    expect(cyclers().length, 'the panel lost a cycler').toBe(3);
+    expect(paceButton().getAttribute('aria-label') ?? '').toContain(i18n.t('opt.pace'));
+  });
+
+  it('walks the ring and wraps back to the default', () => {
+    const { options } = panel();
+    expect(options.choice().pace).toBe(1);
+    paceButton().click();
+    expect(options.choice().pace).toBe(2);
+    paceButton().click();
+    expect(options.choice().pace).toBe(5);
+    paceButton().click();
+    expect(options.choice().pace).toBe(10);
+    paceButton().click();
+    expect(options.choice().pace, 'the ring must come back to the original curve').toBe(1);
+  });
+
+  it('reaches ten times the default, which is the criterion and not a preference', () => {
+    // ⚠️ SC 2.2.1 is met here by ADJUSTING the limit "over a wide range that is at least ten times
+    // the length of the default". A ring trimmed to x5 would still cycle, still read well, still
+    // pass every other test in this file — and would no longer conform.
+    const { options } = panel();
+    const seen: number[] = [];
+    for (let i = 0; i < 4; i++) { paceButton().click(); seen.push(options.choice().pace); }
+    expect(Math.max(...seen)).toBeGreaterThanOrEqual(10);
+  });
+
+  it('says how much time, and never says anything about the child', () => {
+    /**
+     * 🔴 The mark is a clock face whose hour IS the multiplier. It is not a tortoise, and that is
+     * the point: this ring is an accommodation, not a difficulty, and the plan says of the engine's
+     * own easy mode that mixing the two is «oferecer acessibilidade como se fosse modo bebê».
+     */
+    panel({ initial: { ...INITIAL, pace: 10 } });
+    expect(paceButton().textContent).toContain('🕙');
+    expect(paceButton().textContent).toContain(i18n.t('opt.pace10'));
+  });
+
+  it('does not move the other two while it moves itself', () => {
+    const { options } = panel();
+    paceButton().click();
+    expect(options.choice().difficulty).toBe('easy');
+    expect(options.choice().defeat).toBe('sudden-death');
   });
 });

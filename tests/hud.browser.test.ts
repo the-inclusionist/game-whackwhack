@@ -40,7 +40,7 @@ function declaration(have: number): Pick<GameDeclaration, 'objectiveOf'> {
 function hud(over: Partial<Parameters<typeof createHud>[0]> = {}, have = 0) {
   const options = createOptions({
     doc: document, i18n,
-    initial: { category: CATEGORIES[0], difficulty: 'easy', defeat: 'lives' },
+    initial: { category: CATEGORIES[0], difficulty: 'easy', defeat: 'lives', pace: 1 },
   });
   const built = createHud({
     doc: document,

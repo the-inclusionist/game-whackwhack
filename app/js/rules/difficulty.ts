@@ -62,6 +62,36 @@ export const LIT_AT_ONCE: Readonly<Record<Difficulty, number>> = {
 export const ROUND_GOAL = 20;
 
 /**
+ * ========================= HOW MUCH TIME THE CHILD ASKED FOR =========================
+ * A multiplier on every tile's deadline, and the reason it exists is WCAG 2.2.1.
+ *
+ * ⚠️ THIS GAME IS TIMED BY NATURE — `tick: 'clock'` is the contract field that says so — and the
+ * plan for it promised conformance "from `endless` PLUS a configurable deadline multiplier". Only
+ * the first half was ever built, and the first half is not enough: `endless` removes the DEFEAT and
+ * leaves the HURRY. A child who needs longer still watched every tile expire before she reached it;
+ * she simply was not punished for it, and still never reached the twenty hits a round asks for.
+ *
+ * ⚠️ THE RANGE IS TEN TIMES THE DEFAULT, AND THAT NUMBER IS THE CRITERION rather than a guess.
+ * 2.2.1 is satisfied by turning the limit off, by extending it on warning, or by ADJUSTING it
+ * "over a wide range that is at least ten times the length of the default setting". `x10` is what
+ * makes the third of those true, so the top of this ring is load-bearing: trimming it to x5 to make
+ * the button shorter would quietly drop the game out of conformance.
+ *
+ * 🔴 AND IT IS NOT A DIFFICULTY, which is why its marks are clock faces and not animals. The plan
+ * says it in as many words about the engine's own easy mode: mixing accommodation with challenge is
+ * "oferecer acessibilidade como se fosse modo bebê". A child who needs twelve seconds instead of
+ * five is not playing an easier game, she is playing the same one. The clock whose hour IS the
+ * multiplier says how much time, and says nothing about her.
+ */
+export type Pace = 1 | 2 | 5 | 10;
+
+/** The ring the button walks, in order. `1` is the original's own curve, untouched. */
+export const PACES: readonly Pace[] = [1, 2, 5, 10];
+
+/** The default: the curve exactly as the original game shipped it. */
+export const PACE_DEFAULT: Pace = 1;
+
+/**
  * How long ONE tile stays lit, in milliseconds.
  *
  * 12020 → 10040 → 8060 → 6080 → 5000, then flat. The floor is what keeps the round playable
@@ -77,8 +107,8 @@ export const ROUND_GOAL = 20;
  * changed 0.22 to a factor that does not divide cleanly, and the exact-value tests would keep
  * passing while the curve quietly moved.
  */
-export function tileDeadlineMs(level: number): number {
-  return Math.max(0, 9000 - 9000 * 0.22 * level) + 5000;
+export function tileDeadlineMs(level: number, pace: Pace): number {
+  return (Math.max(0, 9000 - 9000 * 0.22 * level) + 5000) * pace;
 }
 
 /**

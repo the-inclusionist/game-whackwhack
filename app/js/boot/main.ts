@@ -25,7 +25,7 @@ import { rnd } from '@the-inclusionist/engine/core/rng.js';
 import { CATEGORIES } from '../rules/category.ts';
 import { comboKeyFor } from '../rules/combo.ts';
 import { LIVES } from '../rules/defeat.ts';
-import { ROUND_GOAL } from '../rules/difficulty.ts';
+import { PACE_DEFAULT, ROUND_GOAL } from '../rules/difficulty.ts';
 import { createRound, type Round, type RoundEvent } from '../rules/round.ts';
 import { spotOfCell } from '../rules/grid.ts';
 import { createWhackDeclaration } from '../declaration/whack-declaration.ts';
@@ -77,7 +77,9 @@ function boot(): void {
   // first — two spellings of a game's own name is exactly the kind of thing nobody notices.
   doc.title = i18n.t('game.title').replace(/\s+/g, ' ');
 
-  let choice: RoundChoice = { category: CATEGORIES[0], difficulty: 'medium', defeat: 'lives' };
+  let choice: RoundChoice = {
+    category: CATEGORIES[0], difficulty: 'medium', defeat: 'lives', pace: PACE_DEFAULT,
+  };
   let round: Round | null = null;
   let screen: Screen | null = null;
 
@@ -455,6 +457,7 @@ function boot(): void {
       category: next.category,
       difficulty: next.difficulty,
       defeat: next.defeat,
+      pace: next.pace,
       rnd,
     });
     fades.clear();
