@@ -1348,6 +1348,23 @@ trap 'restore; exit 143' TERM
 # forma, portanto isto corre o MESMO vitest e não passa por shell nenhuma.
 VITEST="node node_modules/vitest/vitest.mjs"
 
+# ========================= THE FIRST FULL RUN, 2026-09-11 =========================
+# 📏 216 declared, 216 applied, 216 CAUGHT. Zero escaped, zero skipped for a drifted anchor.
+#
+# ⚠️ IT HAD NEVER BEEN DONE BEFORE THAT DAY, in either of two senses, and both are worth keeping:
+# the set had only ever been run FILTERED, and `ci.yml` said in as many words that no runner had
+# ever run it. A gate that has never been run whole is a gate nobody has measured -- every piece
+# was green when it was written, which says nothing about the pieces nobody has touched since.
+#
+# 📏 It took about NINE MINUTES, not the fifty that were feared, because of the cheap-project-first
+# change above: the declaration is 22 mutations in 40 seconds when `node` catches all of them. The
+# fifty-minute estimate was measured on a cold Vite cache and was wrong by a factor of five.
+#
+# 📌 Run in pieces, by directory, and the pieces were then checked to cover the whole exactly
+# once: every declared name appears in the log, no name twice, nothing in the log the script does
+# not declare. A filtered run proves only what it ran -- the UNION of disjoint runs proves all of
+# it, and that union is what was verified rather than assumed.
+
 echo "checking the baseline is green before mutating anything..."
 if ! $VITEST run >/dev/null 2>&1; then
   echo
@@ -1360,8 +1377,8 @@ echo
 
 # ========================= RUNNING IT IN PIECES =========================
 # `bash tests/mutation-check.sh combo` runs only the mutations whose NAME or FILE contains
-# "combo". It exists because the whole set is 155 mutations at about five seconds each -- twelve
-# minutes of silence -- and twelve minutes of silence is how this ended up being run in the
+# "combo". It exists because the whole set was twelve minutes of silence, and twelve minutes of
+# silence is how this ended up being run in the
 # background, out of the Dev's sight, twice. A filtered run is a minute and prints as it goes.
 #
 # ⚠️ A FILTERED RUN PROVES ONLY WHAT IT RAN. The exit status still means "nothing escaped",

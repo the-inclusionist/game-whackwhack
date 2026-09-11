@@ -29,7 +29,9 @@
 # range means the runner and this machine can compile different code from the same commit.
 #
 # The local gates are still the ones with more in them: `npm run validate` plus
-# `bash tests/mutation-check.sh`, which no runner has ever run.
+# `bash tests/mutation-check.sh`, which no runner has ever run — though a human has, in full, on
+# 2026-09-11: 216 of 216 caught, nothing escaped, about nine minutes. The result is recorded at
+# the top of that script.
 #
 # ========================= WHAT THE a11y INPUT MEANS HERE =========================
 # ✅ THE ADDRESS IS READ NOW, and this paragraph used to say it was not. The reusable workflow
