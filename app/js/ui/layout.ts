@@ -69,13 +69,17 @@ export function applyLayout(host: LayoutHost): LayoutResult | null {
   region.style.width = `${width}px`;
   region.style.height = `${height}px`;
 
-  // ⚠️ ALSO ON THE ROOT, because the title screen needs it and cannot reach it. `.screen` is
-  // `position: fixed` and a child of <body>, so it inherits nothing from the region — and the
-  // logo has to know where the HUD column starts or it runs underneath it. It did: at 1280 the
-  // word "Whack" ended 192 px past the column's left edge and the last letters were simply gone.
-  const root = host.doc.documentElement;
-  root.style.setProperty('--region-w', `${width}px`);
-  root.style.setProperty('--region-h', `${height}px`);
+  // ⚠️ ON THE WRAP, AND IT USED TO BE ON THE DOCUMENT ROOT. The reason for the root was real:
+  // the title screen needs these, and `.screen` was `position: fixed` and a child of <body>, so
+  // it inherited nothing from the region — and the logo has to know where the HUD column starts
+  // or it runs underneath it. It did: at 1280 the word "Whack" ended 192 px past the column's
+  // left edge and the last letters were simply gone.
+  //
+  // 📌 The screens live inside `#stage-wrap` now, so they inherit from it — and the document root
+  // was the last thing this game wrote OUTSIDE the element a cartridge may touch (ADR-0139 §4).
+  // The fix for the logo and the fix for the boundary turned out to be the same move.
+  wrap.style.setProperty('--region-w', `${width}px`);
+  wrap.style.setProperty('--region-h', `${height}px`);
 
   // Against the ENGINE's base, not ours: a 44 px target is 44 px whatever this game rasterises at.
   const ui = width / ENGINE_BASE_W;

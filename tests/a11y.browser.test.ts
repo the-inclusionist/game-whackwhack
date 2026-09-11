@@ -487,3 +487,71 @@ describe('[Right] the camera lean is decoration, which is what makes two contrac
     expect(debug().camera.snapshot()).toEqual(home);
   });
 });
+
+describe('[Right] everything this game creates lives inside its region', () => {
+  /**
+   * ⚠️ THIS IS HALF OF ADR-0139's FOURTH GATE, and the half that can run before `teardown()` exists.
+   * The record's wording is «`teardown()` followed by emptying `region` leaves no node the cartridge
+   * created» — which is only enforceable if everything the cartridge created is INSIDE the region in
+   * the first place. That is what this asserts.
+   *
+   * 📏 It was not true until 2026-09-11. The title and result screens went to `document.body`, the
+   * pointer ball went to `document.body`, and `ui/layout` wrote `--region-w` / `--region-h` on the
+   * document root. All three had reasons — `.screen` was `position: fixed` and could not inherit
+   * from the region — and all three would have left something behind for the next game on the page.
+   *
+   * 📌 The element is `#stage-wrap` and not `#game-region`, and that was measured rather than
+   * chosen: the wrap fills the viewport, so a screen moved into it and switched to `absolute` keeps
+   * an identical box, while `#game-region` is the integer-scaled canvas and a title screen has to
+   * cover more than the mat.
+   */
+  const REQUIRED = ['stage-wrap', 'sr-status', 'sr-alert', 'cvd'];
+
+  it('leaves nothing of its own as a child of <body>', () => {
+    const strays = [...document.body.children]
+      .filter((el) => !REQUIRED.includes(el.id))
+      .map((el) => `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}.${el.className}`);
+    expect(strays, 'these would be inherited by the next cartridge on the page').toEqual([]);
+  });
+
+  it('really did create something, so the sweep above is not empty', () => {
+    /**
+     * ⚠️ THE VACUITY HALF, and it asks about the POINTER BALL rather than the screens — which is a
+     * correction. The first version asserted a `.screen` inside the wrap and failed, for a reason
+     * worth keeping: by the time this block runs the earlier ones have clicked "Jogar", so there is
+     * no screen up. The ball is built once at boot and never leaves, so it is the thing that is
+     * always there to find.
+     */
+    const wrap = document.getElementById('stage-wrap')!;
+    expect(wrap.querySelector('.pointer-ball'), 'no pointer ball was built at all').not.toBeNull();
+  });
+
+  it('keeps every screen inside the region, wherever in the run it is', () => {
+    // The screens come and go with the phase, so this asks about whichever exist NOW. Paired with
+    // the strays test above it is complete: that one catches a screen at `<body>` level, this one
+    // catches one anywhere else outside the region.
+    const wrap = document.getElementById('stage-wrap')!;
+    for (const screen of document.querySelectorAll('.screen')) {
+      expect(wrap.contains(screen), `a ${screen.className} is outside the region`).toBe(true);
+    }
+  });
+
+  it('writes no custom property on the document root', () => {
+    // The last thing this game touched outside its element. `--region-w` lived here because the
+    // screens were children of <body> and inherited nothing from the region; they are inside it now.
+    for (const name of ['--region-w', '--region-h']) {
+      expect(
+        document.documentElement.style.getPropertyValue(name),
+        `${name} is set on the document root, which is outside this cartridge's region`,
+      ).toBe('');
+    }
+  });
+
+  it('sets them on the region instead, so the screens still reach them', () => {
+    // ⚠️ Not redundant with the negative above: removing the write entirely would satisfy it, and
+    // the logo would run under the HUD column again — which is the defect the root write fixed.
+    const wrap = document.getElementById('stage-wrap')!;
+    expect(wrap.style.getPropertyValue('--region-w'), '--region-w is set nowhere').not.toBe('');
+    expect(wrap.style.getPropertyValue('--region-h'), '--region-h is set nowhere').not.toBe('');
+  });
+});

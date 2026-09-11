@@ -69,6 +69,28 @@ function boot(): void {
   if (!found) throw new Error('boot: #game-region is missing');
   const region: HTMLElement = found;
 
+  /**
+   * ================== THE ELEMENT THIS GAME IS ALLOWED TO WRITE INSIDE ==================
+   * ⚠️ A CARTRIDGE MAY WRITE INSIDE ITS REGION AND NOWHERE ELSE (ADR-0139 §4), and
+   * `teardown()` is enforceable only because the shell empties that one element afterwards.
+   * Anything left outside it is inherited by the next game on the page.
+   *
+   * 📏 MEASURED 2026-09-11, and it decided WHICH element that is. `#stage-wrap` fills the
+   * viewport exactly, so a `.screen` moved inside it and switched from `fixed` to `absolute`
+   * occupies an IDENTICAL box — 0,0,1280,720 before and after. `#game-region` could not host
+   * them: it is the integer-scaled canvas box, and a title screen has to cover more than the mat.
+   *
+   * 📌 And the platform reading is BETTER than the standalone one rather than merely equal:
+   * there `inset: 0` covers this cartridge's area instead of the whole page, which is what a
+   * game's title screen should do when it is one of six.
+   */
+  // Narrowed into a typed const for the same reason `region` is, six lines up: the narrowing of a
+  // nullable does not survive into a closure, and both the screen switch and the pointer ball
+  // reach this from inside one.
+  const wrapFound = doc.getElementById('stage-wrap');
+  if (!wrapFound) throw new Error('boot: #stage-wrap is missing');
+  const stageWrap: HTMLElement = wrapFound;
+
   // 1. LANGUAGE FIRST. Nothing that carries a word may be built before the locale is known.
   const i18n = createI18n(preferredLocale(navigator.language));
   doc.documentElement.lang = i18n.bcp47();
@@ -430,7 +452,7 @@ function boot(): void {
     // title it shows the choices, which is the point.
     hud.root.hidden = next.modal;
     hud.setPhase('choosing');
-    doc.body.appendChild(next.root);
+    stageWrap.appendChild(next.root);
     next.focus();
   }
 
@@ -681,7 +703,17 @@ function boot(): void {
   const ball = doc.createElement('div');
   ball.className = 'pointer-ball';
   ball.setAttribute('aria-hidden', 'true');
-  doc.body.appendChild(ball);
+  /**
+   * ⚠️ INSIDE THE REGION, AND STILL `position: fixed`. The rule a cartridge owes is about the
+   * DOM — what `teardown()` leaves behind — and a fixed CHILD of the region is still a child of
+   * it, so emptying the region takes it. Making it `absolute` would cost a second
+   * `getBoundingClientRect()` on every pointer move to subtract the region's origin, and the
+   * comment just below is about not doing layout work on that path.
+   *
+   * 📌 OPEN, AND NOT INVENTED HERE: whether a cursor decoration should be visually clipped to
+   * the cartridge in platform mode. No record raises it, and guessing answers it for six.
+   */
+  stageWrap.appendChild(ball);
 
   window.addEventListener('pointermove', (event: PointerEvent) => {
     // `transform` rather than left/top: it stays on the compositor and cannot force a layout on

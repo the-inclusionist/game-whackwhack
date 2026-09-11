@@ -85,6 +85,10 @@ body {
 /* The engine's ui/layout measures THIS element and sizes #game-region from it, locking the scale
    to whole PHYSICAL pixels so the art stays regular at any device pixel ratio. */
 #stage-wrap {
+  /* The containing block for everything this game creates — the screens and the pointer ball.
+     It is the cartridge's region, and `teardown()` is enforceable because emptying it takes
+     them all with it. */
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -386,8 +390,12 @@ body {
    Modal, and covering the whole viewport rather than only the region: the region is `inert` while
    one of these is up, and a dialog that left the dead board visible beside it would read as though
    the game were still going. */
+/* ⚠️ `absolute`, NOT `fixed`, since 2026-09-11: the screens live inside `#stage-wrap`, which is
+   the element a cartridge is allowed to write in (ADR-0139 §4). 📏 Measured identical at
+   1280x720 — the wrap fills the viewport — and BETTER in platform mode, where `inset: 0` then
+   covers this cartridge's area instead of the whole page. */
 .screen {
-  position: fixed;
+  position: absolute;
   inset: 0;
   display: flex;
   align-items: center;

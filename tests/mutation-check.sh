@@ -1129,6 +1129,28 @@ add "the rng gate matches no import at all and passes over nothing" \
     "]*core/rng" \
     "]*core/nope"
 
+# ========================= THE REGION BOUNDARY (ADR-0139 §4) =========================
+# ⚠️ A CARTRIDGE MAY WRITE INSIDE ITS REGION AND NOWHERE ELSE, and `teardown()` is enforceable only
+# because the shell empties that one element. Until 2026-09-11 this game put the screens and the
+# pointer ball in `<body>` and wrote `--region-w` on the document root -- three things the next
+# cartridge on the page would have inherited.
+add "the screens go back to the document body, outside the region" \
+    "$BOOT/main.ts" \
+    "    stageWrap.appendChild(next.root);" \
+    "    doc.body.appendChild(next.root);"
+
+add "the pointer ball goes back outside the region" \
+    "$BOOT/main.ts" \
+    "  stageWrap.appendChild(ball);" \
+    "  doc.body.appendChild(ball);"
+
+# ⚠️ AND THE OTHER DIRECTION: dropping the write entirely satisfies "nothing on the root" and puts
+# the logo back under the HUD column, which is the defect the root write existed to fix.
+add "the region size stops being published where the screens can read it" \
+    "$UI/layout.ts" \
+    "  wrap.style.setProperty('--region-w'," \
+    "  host.doc.documentElement.style.setProperty('--region-w',"
+
 # ========================= THE AUDITED MARKUP =========================
 add "the canvas stops hiding itself from a screen reader" \
     "$BOOT/main.ts" \
