@@ -38,6 +38,11 @@
 import { createGame } from '@the-inclusionist/engine';
 import { srAlert } from '@the-inclusionist/engine/core/a11y-sr.js';
 import { startLoop } from '@the-inclusionist/engine/core/loop.js';
+import { ACTIONS, type Action } from '@the-inclusionist/engine/core/actions.js';
+import { KEYS, set } from '@the-inclusionist/engine/platform/storage.js';
+import { aplicacao, type Correcao, type VisualState } from '@the-inclusionist/engine/render/viz-axes.js';
+import { VIZ_FILTER } from '@the-inclusionist/engine/render/viz-modes.js';
+import { lerVisualGuardado } from '@the-inclusionist/engine/render/viz-setters.js';
 
 import { createWhackDeclaration } from '../declaration/whack-declaration.ts';
 import { createI18n, preferredLocale } from '../i18n/index.ts';
@@ -77,6 +82,70 @@ const stageWrap = doc.getElementById('stage-wrap');
 const gameRegion = doc.getElementById('game-region');
 if (!stageWrap || !gameRegion) throw new Error('standalone: #stage-wrap or #game-region is missing');
 
+/*
+ * ========================= THE SEAT'S VISION, AND WHY IT IS THE SHELL'S =========================
+ * ✅ ENGINE 9.0.0 GAVE THIS A DOOR. Until it did, `createGame` decided whether the 🚥 icon exists by
+ * asking `Boolean(ctx.setCorrecaoDoJogador)` — a writer it never passed and `CreateGameOptions` had
+ * no field for — so the icon was mounted for NO game that booted through it. This game answered by
+ * building the button by hand in `ui/vision.ts` (91 lines) and in `boot/main.ts` (~50 more). Both
+ * are deleted: the engine mounts the icon, rings the correction, and says the sentence.
+ *
+ * ⚠️ WHAT IS LEFT IS THE STATE, AND IT BELONGS TO THE PAGE. A child's colour correction is not one
+ * of six games' business; the key is `KEYS.visualP(0)` — the engine's own — so the choice she makes
+ * in one game is already made in the next on the same origin.
+ *
+ * 🔴 AND THE DOOR IS HALF A DOOR, WHICH IS WORTH REPORTING RATHER THAN WORKING AROUND IN SILENCE.
+ * `ui/pause-icons` rings from `(getPlayers()[i] || {}).visual`, and `createGame` answers
+ * `getPlayers` with `cartucho.players` — but `CreateGameOptions.players` is typed
+ * `{ ctrl: KeyScheme }[]`, with NO `visual`. So the engine READS a field its own type does not let a
+ * consumer WRITE: pass the writer alone and every click computes `proximaCorrecao(PADRAO)`, which is
+ * the same second step forever. The seat below carries `visual` anyway — assignable because excess
+ * property checks do not reach a value passed through a variable — and that is precisely why it must
+ * be said out loud instead of enjoyed quietly.
+ *
+ * 📌 Either `players` grows the field it is already read for, or the ring takes the current state
+ * from the writer's side. Not this repository's to decide (ADR-0068 §5).
+ */
+const SEAT = 0;
+/**
+ * ⚠️ `ctrl` IS REQUIRED AND IMMEDIATELY OVERWRITTEN, which is worth saying rather than hiding
+ * behind a cast. `createGame` calls `keyboard.assignControls()` one line after it reads `players`,
+ * and that replaces every seat's scheme with the real one derived from `mapeamentoDoTeclado()`.
+ * So the honest value here is the engine's own «reaches nothing»: fourteen declared absences, not
+ * an empty object that would make the type claim completeness it does not have.
+ *
+ * 📌 AND THE SEAT COUNT DOES NOT CHANGE. Without `players` the engine substitutes one seat of its
+ * own (`semJogadores`), so this is the same single child it always was — measured, because a second
+ * seat would pull in `setPauseActor` and a `problems` line.
+ */
+const REACHES_NOTHING = Object.fromEntries(
+  ACTIONS.map((a) => [a, null]),
+) as Record<Action, readonly string[] | null>;
+const seats = [{ ctrl: REACHES_NOTHING, visual: lerVisualGuardado(SEAT) }];
+
+/**
+ * The CSS this state asks for, or nothing.
+ *
+ * ⚠️ THROUGH `aplicacao` AND NOT `filtroChave`, because the two axes resolve TOGETHER — that is the
+ * whole of the engine's issue #104. A state carrying both a contrast theme and a correction returns
+ * both halves, and reading one of them is how applying one used to erase the other.
+ */
+function visionCss(v: VisualState): string {
+  const key = aplicacao(v).filtro;
+  if (!key) return '';
+  return VIZ_FILTER[key as keyof typeof VIZ_FILTER] ?? '';
+}
+
+/**
+ * ⚠️ `mundo-e-menus` AND NOT `mundo`, and the two are not interchangeable. A SIMULATION belongs to
+ * the world alone — the engine undoes it over the menus so a blindness simulation cannot trap a
+ * child inside the thing she is trying to leave. A CORRECTION is the opposite: it is how she sees,
+ * and a menu left uncorrected is a menu she cannot read.
+ */
+function applyVision(v: VisualState): void {
+  engine.aplicarFiltroDeVisao(visionCss(v), 'mundo-e-menus');
+}
+
 /** The instance, once there is one. See the note at the top on why this lives in the shell. */
 let current: RunningGame | null = null;
 
@@ -110,9 +179,29 @@ const engine = createGame({
   // `platform/pesados-catalogo` says the engine cannot read them yet either (issue #11).
   baixarPesados: false,
   isNavigable: () => current?.isNavigable() ?? true,
+  // ⚠️ DELEGATED FOR THE SAME REASON `isNavigable` IS: `createGame` runs before the game exists,
+  // and the empty table before it does is the truth — a card that opens over a title screen has
+  // nothing of this game's to offer, and the engine's three items still work.
+  getPauseActs: () => current?.pauseActs() ?? {},
+  // ⚠️ THE ENGINE RINGS AND SAYS; THIS ONLY REMEMBERS AND APPLIES. `proximaCorrecao`, the label and
+  // the `sr.icon.cvd` sentence are all `ui/pause-icons`, which is why handing the writer over deleted
+  // more code than it added. There is no theme writer: high contrast means REPAINTING the mat from
+  // the declared roles, and mounting ⚫ without that is ADR-0106 §5's dead button (plan item A1b).
+  players: seats,
+  setCorrecaoDoJogador: (i: number, correcao: Correcao) => {
+    const seat = seats[i];
+    if (!seat) return;
+    seat.visual = { ...seat.visual, correcao };
+    set(KEYS.visualP(i), JSON.stringify(seat.visual));
+    applyVision(seat.visual);
+  },
   preset: actionPreset((key) => i18n.t(key)),
 });
 if (engine.problems.length) console.warn('engine:', engine.problems.join('; '));
+
+// ⚠️ RESTORED BEFORE THE FIRST FRAME. A correction that only takes effect after the child clicks the
+// icon again is a correction she has to set on every visit.
+applyVision(seats[SEAT]!.visual);
 
 // 7. AND ONLY NOW THE GAME.
 current = boot({ engine, a11yBar, i18n, region: stageWrap, world: gameRegion });

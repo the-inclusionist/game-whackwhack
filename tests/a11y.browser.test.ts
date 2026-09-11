@@ -369,7 +369,8 @@ describe('[Right] Escape opens the pause and Escape closes it again', () => {
 
   it('offers a way out that is not a key', () => {
     // ⚠️ A CHILD ON A TOUCH SCREEN HAS NO ESCAPE. `createGame` gives a consumer no way to supply
-    // the `resume` action, so the engine's §5 filter hides "Continuar" as a dead button — which is
+    // ✅ SINCE ENGINE 9.0.0 THIS IS THE ENGINE'S OWN PATH. `boot/main` answers `getPauseActs` with
+    // the `resume` action, so the engine's §5 filter reveals "Continuar" instead of hiding it as
     // correct of it and leaves a trap. `boot/main` supplies the action; delete both the day
     // `CreateGameOptions` takes pause actions.
     esc();
@@ -432,14 +433,15 @@ describe('[Right] the HUD is a column, and stays one column', () => {
   });
 });
 
-describe('[Right] the colour-vision correction the engine mounts for nobody', () => {
+describe('[Right] the colour-vision correction, mounted by the engine since 9.0.0', () => {
   const cvd = (): HTMLElement =>
     document.querySelector('#a11y-bar [data-pi="cvd"]') as HTMLElement;
 
   it('is in the bar, beside the icons the engine did mount', () => {
-    // ⚠️ `createGame` answers `correcao: Boolean(ctx.setCorrecaoDoJogador)` and never passes that
-    // writer, so this icon exists in NO game booted through it. The palette was measured under
-    // protanopia, deuteranopia and tritanopia; without this button none of that reaches a child.
+    // ⚠️ `createGame` answers `correcao: Boolean(ctx.setCorrecaoDoJogador)`, and until engine 9.0.0
+    // it never passed that writer — so this icon existed in NO game booted through it, and this game
+    // drew its own button beside the engine's. The shell hands the writer over now; the button here
+    // is the engine's, in the engine's own bar, and it looks like every sibling game's.
     expect(cvd(), 'the colour-vision button is not in the bar').toBeTruthy();
     expect(document.querySelectorAll('#a11y-bar .pi-btn').length).toBeGreaterThan(1);
   });
@@ -457,14 +459,45 @@ describe('[Right] the colour-vision correction the engine mounts for nobody', ()
     expect(seen[3], 'the fourth step must return to no correction').toBe('none');
   });
 
+  it('remembers the correction, under the key a sibling game will read', () => {
+    /**
+     * ⚠️ A MUTATION ESCAPED HERE AND THIS IS WHY IT EXISTS. Dropping the write left every case in
+     * this file green: the ring still turned, the filter still landed, the label still said protan
+     * — everything visible worked, and the choice simply evaporated when the child came back. The
+     * worst kind of invisible is one that only shows up in the SECOND session.
+     *
+     * 📌 THE KEY IS THE ENGINE'S ON PURPOSE. `incl_visual_p0` is where every inclusionist game keeps
+     * this, so a child who sets her correction in one game finds it already set in the next on the
+     * same origin. A key invented here would have made this the game that forgets.
+     */
+    cvd().click();
+    try {
+      const raw = localStorage.getItem('incl_visual_p0');
+      expect(raw, 'the correction was never written, so the next visit loses it').toBeTruthy();
+      expect(JSON.parse(raw!)).toMatchObject({ correcao: 'protan' });
+    } finally {
+      cvd().click();
+      cvd().click();
+      cvd().click();
+    }
+  });
+
   it('says which correction it is on, and not only by colour', () => {
-    // ⚠️ WCAG 1.4.1 and a screen reader in one assertion. The label carries the state, and the
-    // `pi-on` class is the second, non-colour channel — the engine's own, so it looks like every
-    // sibling game's.
+    /**
+     * ⚠️ WCAG 1.4.1 AND A SCREEN READER IN ONE CASE, and the marker changed hands with the button.
+     * This game's own version toggled `pi-on`, a binary. The engine's `reflectIconBtn` is finer: a
+     * class NAMING the correction (`pi-cvd-protan`) plus `aria-pressed`, so the second channel says
+     * WHICH and not merely THAT. Asserting the engine's marker is the point — a test still asserting
+     * `pi-on` would have gone green on a button this game no longer draws.
+     */
     cvd().click();
     try {
       expect(cvd().getAttribute('aria-label')).toMatch(/protan/i);
-      expect(cvd().classList.contains('pi-on'), 'no second channel for the on state').toBe(true);
+      expect(
+        cvd().classList.contains('pi-cvd-protan'),
+        'no non-colour channel naming the correction',
+      ).toBe(true);
+      expect(cvd().getAttribute('aria-pressed'), 'the on state is not announced').toBe('true');
     } finally {
       cvd().click();
       cvd().click();

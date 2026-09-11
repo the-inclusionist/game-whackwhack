@@ -1,5 +1,33 @@
 # Engine 8.0.0 — two things a consumer cannot supply
 
+> ## ✅ ANSWERED IN FULL BY ENGINE 9.0.0, on the same day this was written
+>
+> **Both gaps are closed, and the page below is kept as it was.** `CreateGameOptions` gained
+> `getPauseActs`, `setTemaDoJogador` and `setCorrecaoDoJogador`; `Engine` gained `mount()` and
+> `unmount()`; `problems` and `alcance` became getters. This game deleted `app/js/ui/vision.ts` and
+> the `reviveResume()` stopgap in `boot/main.ts`, and its engine import surface fell from thirteen
+> paths to eleven.
+>
+> ⚠️ **NOT EDITED, SUPERSEDED — and the reason is ADR-0057.** A dated report is succeeded, never
+> amended: correcting the measurements below would erase the evidence the decision rested on, and
+> what is written here was *true of engine 8.0.0* and still is. This is a report that WORKED, not one
+> that was wrong.
+>
+> 🔴 **AND ONE THING IT GOT WRONG IS WORTH MORE THAN THE REST.** This page promised «two tests fail
+> on the day the engine closes either gap, and each names the file to delete». One did exactly that.
+> The other stayed **green**: it asked whether the engine had started actioning `resume` *itself* —
+> one of two possible fixes — and 9.0.0 took the other, by accepting `getPauseActs`. The workaround
+> became unnecessary and nothing said so, which is the precise defect a self-removing gate exists to
+> prevent. **A gate like that must watch the CONDITION («is the workaround still needed?»), never one
+> remedy.** Any sibling repository copying this pattern should copy the corrected form.
+>
+> 📌 The half-door that remains, reported forward rather than worked around in silence:
+> `ui/pause-icons` rings the correction from `getPlayers()[i].visual`, and
+> `CreateGameOptions.players` is typed `{ ctrl: KeyScheme }[]` — **no `visual`**. The engine reads a
+> field its own type does not let a consumer write. `boot/standalone.ts` carries it anyway and says
+> so where it does it.
+
+
 **To take to the engine conversation.** Written from `game-whackwhack` on 2026-09-11, measuring
 engine `8.0.0` as published on npm. Everything below is read from
 `node_modules/@the-inclusionist/engine/dist-pkg/`, not remembered.

@@ -31,10 +31,6 @@ import {
   createWhackDeclaration, type RoundView,
 } from '../declaration/whack-declaration.ts';
 import { PAUSE } from '../input/actions.ts';
-import { nextVision, readVision, visionCss, writeVision } from '../ui/vision.ts';
-import { PAUSE_ICONS, iconsMarkup } from '@the-inclusionist/engine/ui/pause-icons.js';
-import { CURTO_DA_CORRECAO } from '@the-inclusionist/engine/ui/visual-axes-panel.js';
-import { t as engineT } from '@the-inclusionist/engine/core/i18n.js';
 import type { I18n } from '../i18n/index.ts';
 import { createMat } from '../render/mat.ts';
 import { stampGlyphs } from '../render/glyph-pass.ts';
@@ -95,6 +91,16 @@ export interface RunningGame {
   view(): RoundView;
   isNavigable(): boolean;
   pauseKey(event: KeyboardEvent): void;
+  /**
+   * WHAT EACH ITEM OF THE PAUSE CARD DOES IN THIS GAME — the engine actions three by itself
+   * (`options`, `pmback`, `acessibilidade`) and hides every other that answers nothing, which is
+   * ADR-0106 §5's rule against a dead button.
+   *
+   * ⚠️ A FUNCTION AND NOT A VALUE, and the engine's own note says why: a game's table changes
+   * during a match — a «leave» that only lights up after the first phase — and freezing it at boot
+   * already broke a case inside `ui/pause-icons`.
+   */
+  pauseActs(): Record<string, (() => void) | undefined>;
 }
 
 /** What a shell hands the game. The host half of `CreateGameOptions` never appears here. */
@@ -217,14 +223,25 @@ export function boot(deps: BootDeps): RunningGame {
   // left here is the HUD placing it, which is the half a host cannot decide for a stranger.
   void a11yBar;
   /**
-   * ⚠️ THE ENGINE GETS AN ELEMENT OF ITS OWN INSIDE THE ROW, and that is not ceremony. Its click
-   * handler ends with `reflectIconsIn(bar, 0)`, which walks every `.pi-btn` under the host and
-   * rewrites its `aria-label` from state the engine holds. The colour-vision button below is
-   * driven by state the engine was never given, so a reflect reaching it would relabel it with
-   * the wrong answer — silently, and only for the child reading by ear.
+   * ✅ THE COLOUR-VISION BUTTON IS THE ENGINE'S AGAIN, and this block used to be the reason it was not.
    *
-   * `display: contents` on this wrapper keeps the two halves one visual row.
+   * Until engine 9.0.0, `createGame` decided whether the 🚥 icon exists by asking
+   * `Boolean(ctx.setCorrecaoDoJogador)` — a writer it never passed and `CreateGameOptions` had no
+   * field for — so no game booted through it had the icon. This game built the button by hand here
+   * and kept the state in `ui/vision.ts`. Both are gone: 9.0.0 takes the writer, and the shell hands
+   * it over with the seat it writes onto.
+   *
+   * 📌 WHAT WAS MEASURED FOR STAYS MEASURED FOR. `render/palette.ts` checked every colour in this
+   * game under protanopia, deuteranopia and tritanopia, and `#cvd` still builds the six filters at
+   * boot. The only thing that changed is that a child can now reach them through the engine's own
+   * bar instead of through a button this game drew beside it.
+   *
+   * ⚠️ AND THE CONTRAST ICON IS STILL DELIBERATELY ABSENT (plan item A1b). `setTemaDoJogador` exists
+   * now, but high contrast means REPAINTING the mat from the declared roles, not filtering it, and
+   * `render/high-contrast` is written for the platformer. Handing over a writer that repaints
+   * nothing would mount ADR-0106 §5's dead button — the exact defect this block once avoided.
    */
+
   /**
    * ⚠️ THE LISTENER IS THE SHELL'S AND THE DECISION IS THIS GAME'S, and the split is forced by
    * ORDER. `ui/menu-nav` registers on the window in CAPTURE and calls `stopPropagation()` on
@@ -244,70 +261,6 @@ export function boot(deps: BootDeps): RunningGame {
     event.stopPropagation();
     setPaused(!paused);
   }
-
-  if (engine.problems.length) console.warn('engine:', engine.problems.join('; '));
-
-  /**
-   * ========================= THE COLOUR-VISION BUTTON THE ENGINE MOUNTS FOR NOBODY =========================
-   * 📏 MEASURED against engine 8.0.0: `createGame` decides which icons exist by asking
-   * `iconesQueAccionam({ tema, correcao, ... })`, and it answers those two with
-   * `Boolean(ctx.setTemaDoJogador)` / `Boolean(ctx.setCorrecaoDoJogador)` — writers it never passes
-   * and `CreateGameOptions` cannot receive. So no game booted through it has these icons, and the
-   * engine is RIGHT to withhold them: an icon with nothing behind it is ADR-0106 §5's dead button.
-   *
-   * What it costs here is exact. `render/palette.ts` measured every colour in this game under
-   * protanopia, deuteranopia and tritanopia, `#cvd` builds the six filters at boot, and until this
-   * block existed none of it could be reached by the child it was measured for.
-   *
-   * ⚠️ ALMOST NOTHING BELOW IS THIS GAME'S. The glyph and markup are `PAUSE_ICONS` / `iconsMarkup`,
-   * the ring is `proximaCorrecao`, the CSS is `VIZ_FILTER`, the sentence is the engine's own
-   * `sr.icon.cvd`, and the application is `engine.aplicarFiltroDeVisao`. This game supplies the one
-   * thing the engine asked a consumer for without giving it a parameter: a place to keep the state.
-   * See `ui/vision`, and delete both the day the writers can be passed.
-   *
-   * ⚠️ AND THE CONTRAST ICON IS DELIBERATELY NOT HERE. High contrast means repainting the mat from
-   * the declared roles, not filtering it; `render/high-contrast` is written for the platformer and
-   * cannot be borrowed. Mounting the icon with nothing behind it would commit the §5 defect this
-   * whole block exists to avoid.
-   */
-  let vision = readVision();
-  const cvdIcon = PAUSE_ICONS.filter((icon) => icon.k === 'cvd');
-  const cvdHolder = doc.createElement('div');
-  cvdHolder.innerHTML = iconsMarkup(cvdIcon);
-  const cvdButton = cvdHolder.firstElementChild as HTMLElement | null;
-
-  if (cvdButton) {
-    a11yBar.appendChild(cvdButton);
-    cvdButton.addEventListener('click', () => {
-      vision = nextVision(vision);
-      writeVision(vision);
-      applyVision();
-      // The label carries the NEW state, so it is read after the change and not before — the same
-      // order the engine's own bar handler uses, and for the same reason.
-      srSay(cvdButton.getAttribute('aria-label') ?? '');
-    });
-  }
-
-  function applyVision(): void {
-    /**
-     * ⚠️ `mundo-e-menus` AND NOT `mundo`, and the two are not interchangeable. A SIMULATION belongs
-     * to the world alone — the engine undoes it over the menus so a blindness simulation cannot
-     * trap a child inside the thing she is trying to leave. A CORRECTION is the opposite: it is how
-     * she sees, and a menu left uncorrected is a menu she cannot read.
-     */
-    engine.aplicarFiltroDeVisao(visionCss(vision), 'mundo-e-menus');
-    if (!cvdButton) return;
-    cvdButton.setAttribute(
-      'aria-label',
-      engineT('sr.icon.cvd', { v: engineT(CURTO_DA_CORRECAO[vision.correcao]) }),
-    );
-    // Not colour alone (WCAG 1.4.1): the button carries the engine's own "on" class whenever the
-    // correction is anything but the default, so the state has a second channel.
-    cvdButton.classList.toggle('pi-on', vision.correcao !== 'tricro');
-  }
-
-  applyVision();
-
 
   // 2. THE PICTURE. Built once and reused across rounds; only the lit set changes.
   const stage = createZdogStage();
@@ -636,10 +589,8 @@ export function boot(deps: BootDeps): RunningGame {
   function setPaused(next: boolean): void {
     if (next === paused) return;
     paused = next;
-    if (paused) {
-      engine.pausa.mostrar(0);
-      reviveResume();
-    } else engine.pausa.esconder(0);
+    if (paused) engine.pausa.mostrar(0);
+    else engine.pausa.esconder(0);
     // ⚠️ SAID, NOT SHOWN. A child in blind mode gets no signal from a card appearing, and the one
     // thing she must not have to guess is whether the clock is still running.
     srSay(i18n.t(paused ? 'pause.on' : 'pause.off'));
@@ -648,32 +599,18 @@ export function boot(deps: BootDeps): RunningGame {
 
 
   /**
-   * ⚠️ A STOPGAP, AND THE UPSTREAM GAP IS NAMED SO IT CAN BE DELETED. Engine 8.0.0 mounts a pause
-   * card for every game and offers no way to supply the item that CLOSES it. The `resume` action
-   * lives in `getPauseActs`, which `initPauseIcons` accepts and `createGame` never passes; the
-   * engine actions three items by itself (`options`, `pmback`, `acessibilidade`) and `resume` is
-   * not one of them. So the §5 filter does exactly what it should — an item with no action is a
-   * dead button, and it hides "▶ Continuar" every time the card opens.
+   * ✅ THE STOPGAP IS GONE, AND THE GATE THAT WATCHED IT WAS ALMOST THE REASON IT STAYED.
    *
-   * ⚠️ WHICH LEAVES A TRAP, and naming it precisely is the point: Escape closes the pause, so a
-   * child at a keyboard is fine. A child on a touch screen — the school tablet this targets — opens
-   * the card and has no way back. That is worse than the dead button the filter was avoiding.
+   * Until engine 9.0.0 this game reached into `#vp-pause-0`, un-hid the `resume` item and wired
+   * it by hand, because `createGame` mounted a pause card for every game and offered no way to
+   * supply the item that CLOSES it. Escape still worked; a child on a school tablet opened the
+   * card and had no way back, which is worse than the dead button the filter was avoiding.
    *
-   * So this game supplies the action the engine has no parameter for, and the shape of the fix is
-   * the shape of the fix upstream: reveal the item and give it the function. Called after EVERY
-   * `mostrar`, because the filter runs on every open (`refrescarItensDaPausa`) and hides it again.
-   *
-   * 📌 DELETE THIS the day `CreateGameOptions` takes pause actions. The wiring guard means the day
-   * it does, this function becomes a no-op rather than a second handler.
+   * ⚠️ AND THE SELF-REMOVING GATE MISSED IT. It asked whether the engine had started actioning
+   * `resume` itself — one of two possible fixes — and 9.0.0 took the other: `getPauseActs` on
+   * `CreateGameOptions`. The workaround became unnecessary and the test stayed green. It now
+   * measures the CONDITION and both doors; the lesson is worth more than the deletion.
    */
-  function reviveResume(): void {
-    const item = doc.querySelector<HTMLElement>('#vp-pause-0 [data-act="resume"]');
-    if (!item) return;
-    item.hidden = false;
-    if (item.dataset.whackWired) return;
-    item.dataset.whackWired = '1';
-    item.addEventListener('click', () => setPaused(false));
-  }
 
 
   /**
@@ -778,6 +715,9 @@ export function boot(deps: BootDeps): RunningGame {
     view: () => round?.view() ?? { category: choice.category, tiles: [], hits: 0, focus: null },
     isNavigable: () => screen !== null || paused,
     pauseKey,
+    // ⚠️ BUILT ON EVERY CALL, not once: `refrescarItensDaPausa` reads the table each time the card
+    // opens, and a frozen one is how the engine's own note says this broke before.
+    pauseActs: () => ({ resume: () => setPaused(false) }),
   };
 
   if (new URLSearchParams(location.search).has('debug')) {

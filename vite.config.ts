@@ -3,7 +3,7 @@ import { playwright } from '@vitest/browser-playwright';
 
 // ============================ THE ENGINE COMES FROM THE REGISTRY ============================
 // ⚠️ IT WAS `file:../SP-the-inclusionist-tracer` — a symlink into a sibling working tree — until the
-// engine was published to npm on 2026-09-06. The dependency is now the pinned version `8.0.0`,
+// engine was published to npm on 2026-09-06. The dependency is now the pinned version `9.0.0`,
 // resolved from the registry with an integrity hash. Its `exports` map points at COMPILED `.js`
 // with sibling `.d.ts`, which is why every import here ends in `.js` and never `.ts`.
 //

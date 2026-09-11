@@ -289,53 +289,46 @@ describe('[Right] no comment names an engine version the manifest does not', () 
   });
 });
 
-describe('[Interface] the two engine gaps this game works around still exist', () => {
+describe('[Interface] the two engine gaps this game worked around are closed', () => {
   /**
-   * ⚠️ THESE TESTS FAIL WHEN THE ENGINE IS FIXED, AND THAT IS THE WHOLE POINT.
+   * ✅ BOTH WORKAROUNDS ARE DELETED, AND THE TESTS THAT DEMANDED IT ARE DELETED WITH THEM.
    *
-   * `docs/engine-8-consumer-gaps.md` reports two places where engine 8 mounts a surface for every
-   * game and gives the consumer no parameter to fill it. This game works around both — `boot/main`
-   * revives the pause's `resume` item, and `ui/vision` holds the colour-vision state the engine
-   * never asks for. Both are marked for deletion.
+   * `docs/engine-8-consumer-gaps.md` reported two places where engine 8 mounted a surface for every
+   * game and gave the consumer no parameter to fill it. Two assertions here held the deletion date
+   * as a RED TEST rather than a comment, because a workaround marked for deletion and never deleted
+   * is how a codebase collects permanent scaffolding — the same move this repository used for the
+   * `piper-tts-web` shim, and for the same reason: the fix arrives in someone else's release, on a
+   * day nobody here is looking for it.
    *
-   * A workaround marked for deletion and never deleted is how a codebase collects permanent
-   * scaffolding. So the deletion date is not a comment: it is a red test. The day an engine upgrade
-   * closes either gap, the assertion below breaks, names the file to delete, and the workaround
-   * goes with it.
-   *
-   * 📌 The same move this repository used for the `piper-tts-web` shim, and for the same reason:
-   * the fix arrives in someone else's release, on a day nobody here is looking for it.
+   * Engine 9.0.0 shipped both doors and one of the two fired on the hour, with its own failure
+   * message naming the file to delete. The notes below keep what each cost, because the second one
+   * did NOT fire and the reason is a lesson five sibling repositories are about to need.
    */
-  const ENGINE = 'node_modules/@the-inclusionist/engine/dist-pkg';
 
-  it('still actions no `resume`, so `reviveResume` in boot/main is still needed', () => {
-    // `ITENS_DA_ENGINE` is the set the engine dispatches itself; everything else needs
-    // `getPauseActs`, which `createGame` does not pass and `CreateGameOptions` cannot carry.
-    const src = read(...`${ENGINE}/ui/pause-icons.js`.split('/'));
-    const line = src.split('\n').find((l) => l.includes('ITENS_DA_ENGINE = '));
-    expect(line, 'ITENS_DA_ENGINE is gone; re-read the engine before trusting this gate').toBeTruthy();
-    expect(
-      line!.includes("'resume'"),
-      'THE ENGINE NOW ACTIONS `resume`: delete `reviveResume` in app/js/boot/main.ts and its tests',
-    ).toBe(false);
-  });
+  /**
+   * ✅ THE `resume` GATE IS GONE, BECAUSE WHAT IT WATCHED IS GONE — engine 9.0.0 takes
+   * `getPauseActs`, `boot/main` hands the table over and `reviveResume` was deleted with it.
+   * What replaces it is not another source read: `tests/a11y.browser.test.ts` opens the card and
+   * CLICKS «Continuar», which is the behaviour the workaround existed to protect.
+   *
+   * 🔴 AND IT LEFT A LESSON WORTH MORE THAN THE CODE. That gate asked whether the engine had
+   * started actioning `resume` ITSELF — one of two possible fixes — and 9.0.0 took the other.
+   * The workaround became unnecessary, the test stayed green, and nothing said so: the exact
+   * defect a self-removing gate exists to prevent, committed by one. A gate like this watches
+   * the CONDITION («is the workaround still needed?»), never one remedy — and the one below,
+   * rewritten the same day, measures both doors for the same reason.
+   */
 
-  it('still passes no visual writers, so ui/vision is still needed', () => {
-    /**
-     * `initPauseIcons` asks `Boolean(ctx.setTemaDoJogador)` / `Boolean(ctx.setCorrecaoDoJogador)`
-     * to decide whether the contrast and colour-vision icons exist at all. `createGame` never
-     * mentions either name — which is the measurement, and this is it held in place.
-     */
-    const src = read(...`${ENGINE}/boot/create-game.js`.split('/'));
-    expect(
-      src.includes('setCorrecaoDoJogador'),
-      'THE ENGINE NOW TAKES A COLOUR-VISION WRITER: delete app/js/ui/vision.ts and hand it over',
-    ).toBe(false);
-    expect(
-      src.includes('setTemaDoJogador'),
-      'THE ENGINE NOW TAKES A THEME WRITER: the contrast icon can be mounted (plan item A1b)',
-    ).toBe(false);
-  });
+  /**
+   * ✅ THE VISUAL-WRITER GATE IS GONE TOO, and this one worked exactly as designed: engine 9.0.0
+   * added `setCorrecaoDoJogador`, the assertion went red the hour it was installed, and its own
+   * failure message named the file to delete. `app/js/ui/vision.ts` is deleted; the shell hands
+   * the writer over and the engine mounts the icon.
+   *
+   * 📌 `setTemaDoJogador` arrived with it and is DELIBERATELY not answered — plan item A1b. High
+   * contrast means repainting the mat from the declared roles, and a writer that repaints nothing
+   * would mount ADR-0106 §5's dead button. That is a colour decision, not a wiring one.
+   */
 
   it('is reported where a reader will find it, not only in a comment', () => {
     // ⚠️ A gate that fires with nowhere to read WHY is a puzzle. The document is the why, and this

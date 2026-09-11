@@ -945,22 +945,29 @@ add "the HUD stops saying no to the engine's wrap, and opens a second column" \
     "  flex-wrap: nowrap;" \
     "  /* wrap left to the engine */"
 
-# ⚠️ THE CORRECTION THE ENGINE MOUNTS FOR NOBODY. Without the writer the icon is not built at all, so
-# the palette measured under protanopia, deuteranopia and tritanopia cannot be switched on by a child.
-add "the colour-vision correction stops reaching the declared world" \
-    "$BOOT/main.ts" \
-    "    engine.aplicarFiltroDeVisao(visionCss(vision), 'mundo-e-menus');" \
-    "    engine.aplicarFiltroDeVisao('', 'mundo-e-menus');"
+# ⚠️ THE CORRECTION IS THE ENGINE'S ICON SINCE 9.0.0, AND THE SHELL IS WHAT MAKES IT EXIST. The engine
+# mounts 🚥 only for a game that hands over `setCorrecaoDoJogador`; without it the palette measured under
+# protanopia, deuteranopia and tritanopia cannot be switched on by the child it was measured for.
+add "the correction never reaches the declared world" \
+    "$BOOT/standalone.ts" \
+    "  engine.aplicarFiltroDeVisao(visionCss(v), 'mundo-e-menus');" \
+    "  engine.aplicarFiltroDeVisao('', 'mundo-e-menus');"
 
-add "the correction ring stops moving, so one press is every press" \
-    "$BOOT/main.ts" \
-    "      vision = nextVision(vision);" \
-    "      "
+# 🔴 THE HALF-DOOR, HELD IN PLACE. `ui/pause-icons` rings from `getPlayers()[i].visual`, and
+# `CreateGameOptions.players` has no `visual` in its type — so dropping the field still COMPILES, and
+# every press computes the same second step. Nothing but a behavioural case can see that.
+add "the seat stops carrying the correction the engine rings from" \
+    "$BOOT/standalone.ts" \
+    "  seat.visual = { ...seat.visual, correcao };" \
+    "  seat.visual = { ...seat.visual };"
 
-add "the on state loses its non-colour channel" \
-    "$BOOT/main.ts" \
-    "    cvdButton.classList.toggle('pi-on', vision.correcao !== 'tricro');" \
-    "    cvdButton.classList.toggle('pi-on', false);"
+# ⚠️ AND THE CHOICE HAS TO SURVIVE THE VISIT. The key is the engine's (`KEYS.visualP`) so a child who
+# sets her correction in one game finds it set in the next; forgetting the write is invisible until the
+# second session, which is the worst kind of invisible.
+add "the correction is forgotten between visits" \
+    "$BOOT/standalone.ts" \
+    "  set(KEYS.visualP(i), JSON.stringify(seat.visual));" \
+    "  void i;"
 
 add "the accessibility bar takes the engine's preferred size in a narrow column" \
     "$CSS/style.css" \
@@ -1017,10 +1024,20 @@ add "the pause key drops to the bubble phase, and Escape can no longer close" \
 # ⚠️ AND THE WAY OUT THAT IS NOT A KEY. `createGame` takes no pause actions, so the engine's §5
 # filter hides "Continuar" as a dead button — correctly, and leaving a child on a touch screen
 # with a card and no exit.
-add "the resume item goes back to hidden, and a touch screen has no way out" \
+# ⚠️ ENGINE 9.0.0 GAVE THIS A DOOR AND THE WORKAROUND WENT. What has to keep biting is the same
+# behaviour: a child on a touch screen opens the pause and can leave it. Escape still works, so
+# only a pointer test can see this break.
+add "the game stops telling the engine what its pause items do" \
     "$BOOT/main.ts" \
-    "      reviveResume();" \
-    "      "
+    "    pauseActs: () => ({ resume: () => setPaused(false) })," \
+    "    pauseActs: () => ({}),"
+
+# ⚠️ AND THE OTHER HALF: the shell has to HAND IT OVER. A game that answers a table nobody asks
+# for is the state this repository was in for a whole release.
+add "the shell stops asking the game what its pause items do" \
+    "$BOOT/standalone.ts" \
+    "  getPauseActs: () => current?.pauseActs() ?? {}," \
+    "  getPauseActs: () => ({}),"
 
 # ========================= THE TIME A CHILD CAN ASK FOR (WCAG 2.2.1) =========================
 # ⚠️ The plan promised conformance from `endless` PLUS a deadline multiplier, and only the first
@@ -1319,7 +1336,7 @@ add "the glyph pass forgets the zoom, so the numbers stay source-sized" \
 # to look for.
 add "a comment names an engine version the manifest does not pin" \
     "$CFG/vite.config.ts" \
-    "the pinned version \`8.0.0\`" \
+    "the pinned version \`9.0.0\`" \
     "the pinned version \`7.0.1\`"
 
 # ⚠️ THE REPORT AND THE GATE HAVE TO STAY TOGETHER. The two tests above fire on the day an engine
@@ -1368,7 +1385,7 @@ add "a contrast figure on the page drifts from the one palette.ts measured" \
 # trusts it precisely where it is least examined.
 add "the architecture map miscounts the modules in the tree" \
     "$DOCS/ARCHITECTURE.md" \
-    "The map. Thirty-five modules" \
+    "The map. Thirty-four modules" \
     "The map. Thirty-three modules"
 
 # ⚠️ AN IMPORT THAT NEVER REACHES THE TABLE grows this game's dependency on the engine without

@@ -1,6 +1,6 @@
 # Architecture
 
-The map. Thirty-five modules, four layers, and one boundary that is worth more than the other
+The map. Thirty-four modules, four layers, and one boundary that is worth more than the other
 three put together.
 
 ⚠️ **This document does not repeat the others.** The rules of the game are in
@@ -105,7 +105,7 @@ cases.
 
 ## What comes from the engine
 
-Thirteen import paths, and the game is deliberately shy of them:
+Eleven import paths, and the game is deliberately shy of them:
 
 | Path | For |
 |---|---|
@@ -116,15 +116,21 @@ Thirteen import paths, and the game is deliberately shy of them:
 | `core/rng.js` | the seeded generator, so a round is reproducible in a test |
 | `core/actions.js` | the fourteen positions and their validators |
 | `core/constants.js` | `LOGICAL_W`, `TILE` |
-| `core/i18n.js` | the engine's own catalogue, for text the engine wrote |
 | `platform/storage.js` | `KEYS`, so a child's choices carry between sibling games |
-| `render/viz-axes.js`, `render/viz-modes.js` | the colour-vision ring and its CSS |
-| `ui/pause-icons.js`, `ui/visual-axes-panel.js` | the icon markup and its words |
+| `render/viz-axes.js`, `render/viz-modes.js` | resolving the two visual axes into one CSS filter |
+| `render/viz-setters.js` | `lerVisualGuardado` — reading back a correction set in a sibling game |
 
-⚠️ **`render/viz-*` and `ui/*` above are a workaround, not an architecture.** They exist because `createGame` mounts an
-accessibility bar and a pause card for every game and accepts nothing to fill them with — measured
-and reported in [`engine-8-consumer-gaps.md`](engine-8-consumer-gaps.md). Two tests fail on the day
-the engine closes either gap, and each names the file to delete.
+✅ **It was thirteen, and three went with engine 9.0.0.** `ui/pause-icons.js`,
+`ui/visual-axes-panel.js` and `core/i18n.js` were here because `createGame` mounted an accessibility
+bar and a pause card for every game and accepted nothing to fill them with — so this game drew the
+colour-vision button itself and spoke the engine's own words back to it. 9.0.0 takes `getPauseActs`,
+`setTemaDoJogador` and `setCorrecaoDoJogador`; the engine mounts the icon, rings the correction and
+says the sentence, and `app/js/ui/vision.ts` was deleted.
+
+⚠️ **The three that remain are state, not markup**, and they live in `boot/standalone.ts` because the
+seat belongs to the page rather than to one of six cartridges. A gate that fired the hour 9.0.0 was
+installed is what caused the deletion; the record of what was missing stays in
+[`engine-8-consumer-gaps.md`](engine-8-consumer-gaps.md), superseded rather than edited.
 
 Plus one that is not JavaScript: `app/css/style.css` opens with
 `@import '@the-inclusionist/engine/style.css' layer(engine)`. The engine mounts the pause card and
