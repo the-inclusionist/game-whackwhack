@@ -144,3 +144,45 @@ console.log();
 console.log('A level the climb cannot carry is not a level to abandon: it is a level whose');
 console.log('distinction has to move OFF luminance -- an outline, a fill pattern -- because the two');
 console.log('steps compete for one budget and the budget is fixed.');
+
+// ========================= AND WHAT hc45 WOULD ACTUALLY COST =========================
+// ⚠️ THE ARITHMETIC ABOVE IS NORMAL VISION, AND THE FLOOR IS THE WORST CASE ACROSS FOUR. That gap is
+// not academic: a ground of #110018 gives a climb of exactly 20.25 — the number hc45 needs on paper
+// — and NO unlit tile clears 4.5 on both sides once the three matrices are applied. The paper said
+// yes and the measurement said no, which is the whole reason this file searches instead of solving.
+//
+// So the honest form of the question is not "is hc45 possible" but "what does it cost the ground",
+// and that has a measured answer.
+const HC45 = 4.5;
+console.log();
+console.log('--- what hc45 costs the ground (worst case across normal + 3 CVD modes) ---');
+for (const gh of ['#1C041B', '#160317', '#110018', '#0E0013', '#0A000E', '#000000']) {
+  const g = hex(gh);
+  let best = null;
+  for (let r = 0; r <= 255; r += 3) {
+    for (let gg = 0; gg <= 255; gg += 3) {
+      for (let b = 0; b <= 255; b += 3) {
+        const mat = [r, gg, b];
+        const vsGround = worst(mat, g);
+        if (vsGround < HC45) continue;
+        const vsLit = worst(LIT, mat);
+        if (vsLit < HC45) continue;
+        const balance = Math.min(vsGround, vsLit);
+        if (!best || balance > best.balance) best = { mat, vsGround, vsLit, balance };
+      }
+    }
+  }
+  const climb = ratio(LIT, g).toFixed(2).padStart(5);
+  console.log(
+    gh, 'climb', climb, '->',
+    best
+      ? 'mat ' + toHex(best.mat) + '  vs ground ' + best.vsGround.toFixed(2)
+        + '  lit vs it ' + best.vsLit.toFixed(2)
+      : 'NO unlit tile clears ' + HC45 + ' on both sides',
+  );
+}
+console.log();
+console.log('Read that column downwards: the purple ground does not have to GO, it has to get about');
+console.log('twice as dark. #1C041B carries 2.2x the luminance hc45 can afford; #0E0013 is the first');
+console.log('that works, and it is still purple. On pure black the mat can even keep a tint (#7B6F99),');
+console.log('which is the opposite of what "high contrast means grey" would predict.');

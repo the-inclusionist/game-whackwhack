@@ -73,7 +73,7 @@ ground→unlit and unlit→lit — **multiply to the whole climb**, because the 
 | Level | Both steps need | Climb required | Verdict |
 |---|---|---|---|
 | `hc3` | 3:1 | 9.00 | **already met** by the shipped palette — 3.34 and 5.82, climb 19.40 |
-| `hc45` | 4.5:1 | 20.25 | reachable, and it costs the purple: the best balanced candidate is a **grey** mat at 4.40 / 4.41, holding across all three colour-vision matrices, 0.1 short of the target |
+| `hc45` | 4.5:1 | 20.25 | reachable, and it costs the ground's **darkness** rather than its hue: `#1C041B` carries 2.2× the luminance hc45 can afford, and the first purple that works is `#0E0013`, with a `#78757E` mat — both steps 4.51 under all four vision modes. ⚠️ A ground at exactly 20.25 (`#110018`) still fails: the matrices are stricter than the arithmetic |
 | `hc7` | 7:1 | 49.00 | **impossible for any palette, in any hue** |
 
 That is not a reason to drop `hc7`. It is a measurement saying its distinction must move **off**
