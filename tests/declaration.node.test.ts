@@ -95,6 +95,41 @@ describe('[Interface] the declaration is well formed', () => {
     expect(decl.topology()).toEqual(decl.topology());
   });
 
+  it('holds ONE position at a time, because the verbs here are sequential', () => {
+    /**
+     * ⚠️ `conformanceProblems` ALREADY CHECKS THE SHAPE — that it is a function returning an
+     * integer of at least one — so the block above covers everything except the thing that is
+     * actually this game's decision: the NUMBER. Three would report whack-a-mole as unplayable on
+     * a two-touch phone, and nothing in the engine could tell that this was wrong.
+     *
+     * One is right because nothing here is sustained: the cursor moves, THEN the hammer falls.
+     * `ui/grid-mirror` acts on one intent per keydown and the pointer path is a single click.
+     */
+    expect(declOf().decl.holdsAtOnce()).toBe(1);
+  });
+
+  it('answers the same count every time, as a fixed demand should', () => {
+    // A function rather than a value because a game with phases changes its demand between them.
+    // This mat never does, and saying so twice has to give the same answer.
+    const { decl } = declOf();
+    expect(decl.holdsAtOnce()).toBe(decl.holdsAtOnce());
+  });
+
+  it('does not REQUIRE a pointer, because the whole game is reachable by keyboard', () => {
+    /**
+     * ⚠️ THE FIELD IS OMITTED RATHER THAN DECLARED FALSE, and that is the engine's own
+     * instruction: forcing three hundred games to write `needsPointer: () => false` would charge
+     * the price of `holdsAtOnce` without its reason. Omission is the answer "no".
+     *
+     * The claim behind it is load-bearing and true throughout this game: twenty real buttons in
+     * `ui/grid-mirror`, a real `<button>` on the title, radios and cyclers in the options. The
+     * mouse tilt and the click-a-tile path are conveniences ON TOP, never the only way in.
+     */
+    const pointer = declOf().decl.needsPointer;
+    if (pointer !== undefined) expect(pointer.call(declOf().decl)).toBe(false);
+    else expect(pointer).toBeUndefined();
+  });
+
   it('names the REGION as the world, not the canvas', () => {
     // ⚠️ The canvas is the tempting answer and is wrong twice: the grid mirror a screen reader
     // navigates is a sibling of it, and a player who needs a colour-vision simulation needs it

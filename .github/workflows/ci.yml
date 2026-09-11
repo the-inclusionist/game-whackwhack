@@ -16,11 +16,16 @@
 #   1. The engine was `file:../SP-the-inclusionist-tracer` — a sibling directory that existed on one
 #      machine and nowhere else — so `npm ci` failed before any gate ran. It was published to public
 #      npmjs on 2026-09-06 (ADR-0072's answer, because a volunteer without a token cannot install
-#      from GitHub Packages). The dependency here is the pinned `7.0.1`.
+#      from GitHub Packages). The dependency here is the pinned `8.0.0-rc.1`.
 #   2. Engine 6.36.1 shipped `dist-pkg/platform/tts.js` importing `@mintplex-labs/piper-tts-web`
 #      from its own `devDependencies`, which npm does not install for a consumer, so the BUILD
 #      failed. 7.0.1 removed the import. `tests/docs.node.test.ts` now checks the general case:
 #      every bare specifier in the engine's shipped code must be something a consumer will have.
+#
+# ⚠️ THE PIN IS A RELEASE CANDIDATE, and it is pinned EXACTLY for that reason. `latest` on the
+# registry is 7.0.1; 8.0.0-rc.1 is what this game builds against, because it is the version that
+# requires `holdsAtOnce` and this game answers it. An RC must never float — a caret on a
+# prerelease is how a build changes under a runner with nothing in the diff to show it.
 #
 # The local gates are still the ones with more in them: `npm run validate` plus
 # `bash tests/mutation-check.sh`, which no runner has ever run.

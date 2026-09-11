@@ -131,6 +131,34 @@ export function createWhackDeclaration(deps: DeclarationDeps): GameDeclaration {
 
     world(): WorldScope { return WORLD; },
 
+    /**
+     * ONE. A player of this game never has to hold two positions at the same time.
+     *
+     * ⚠️ THIS IS NOT "HOW MANY ACTIONS", and the engine's own note says the two being confused is
+     * where the warning had a blind spot: the platformer declares nine actions and a nine-place
+     * on-screen pad, so "can she reach them all" answered yes — while running, walking and jumping
+     * together are three fingers, which a two-touch phone cannot give and nothing said why.
+     *
+     * Here the verbs are sequential by construction. The cursor moves, THEN the hammer falls;
+     * `ui/grid-mirror` acts on one intent per keydown and the pointer path is a single click.
+     * There is no state in this game that has to be sustained while something else happens.
+     *
+     * ⚠️ WITH ONE HONEST EXCEPTION, and declaring 1 is what states it. The camera lean is
+     * Shift+Arrow — two keys held together — so a child who can hold only one position cannot tilt
+     * the mat. That is survivable because the lean is DECORATION: it changes nothing about what is
+     * lit, what is worth hitting, or how long it lasts, and the game is fully playable square-on.
+     * Declaring 2 to cover it would be worse than dishonest, it would be wrong: it would report
+     * this game as unplayable on a two-touch phone over a feature nobody needs to play it.
+     *
+     * The consequence is written down rather than hidden: if the lean ever stops being optional,
+     * this number is wrong and the nudge needs a single-position binding first.
+     *
+     * A FUNCTION and not a value, for the same reason `topology` is: a game with phases changes
+     * its demand between them. This mat never does, so it answers a constant — which is one line
+     * of ceremony for the common case, the cost ADR-0084 weighed and took.
+     */
+    holdsAtOnce(): number { return 1; },
+
     // The clock owns the tick: a tile expires whether or not anyone acts.
     tick: 'clock',
 

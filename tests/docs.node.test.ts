@@ -225,3 +225,55 @@ describe('[Interface] the engine imports nothing it has not declared', () => {
     expect(own.dependencies).not.toHaveProperty('pixi.js');
   });
 });
+
+describe('[Right] no comment names an engine version the manifest does not', () => {
+  /**
+   * ⚠️ THIS EXISTS BECAUSE A COMMENT SAT ON THE WRONG VERSION THROUGH TWO UPGRADES.
+   * `vite.config.ts` said "the dependency is now the pinned version 6.36.1" while the manifest had
+   * moved to 7.0.1 and then to 8.0.0-rc.1. It survived a deliberate sweep for stale references
+   * because that sweep grepped for `7.0.1` — the version being replaced — and the comment named
+   * the one BEFORE it. Searching for the number you expect finds only the drift you predicted.
+   *
+   * So this does not search for a number at all. It finds every phrase of the form
+   * "pinned ... VERSION" in the repository's own prose and requires each to be the version
+   * `package.json` actually pins, whatever that is.
+   */
+  const PIN = (JSON.parse(read('package.json')) as {
+    dependencies: Record<string, string>;
+  }).dependencies['@the-inclusionist/engine'];
+
+  // ⚠️ THIS FILE IS NOT IN THE LIST, and excluding it is not convenience. It is the scanner:
+  // its own regex source contains the very phrase it looks for, so it would always report a
+  // claim of "]*" and fail on itself forever.
+  const PROSE = ['vite.config.ts', '.github/workflows/ci.yml'];
+
+  it('pins an exact version, never a range', () => {
+    // ⚠️ A caret on a PRERELEASE is how a build changes under a runner with nothing in the diff
+    // to show it. `latest` on the registry is still 7.0.1; this game is deliberately ahead of it.
+    expect(PIN, 'the engine pin must be exact').toMatch(/^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$/);
+  });
+
+  it.each(PROSE)('%s names the pinned version and no other', (file) => {
+    const text = read(...file.split('/'));
+    // ⚠️ THE BACKTICK MUST FOLLOW THE WORD, not merely share a line with it. The first version
+    // allowed any run of non-newline characters between them, and it flagged the sentence
+    // "it is pinned EXACTLY for that reason. `latest` on the registry is 7.0.1" -- prose that
+    // is true and is not a claim about the pin. A gate that fires on correct writing gets
+    // switched off.
+    const claimed = [...text.matchAll(/pinned(?: version)? `([^`]+)`/g)]
+      .map((m) => m[1]);
+    for (const version of claimed) {
+      expect(version, `${file} says the pin is ${version}, the manifest says ${PIN}`)
+        .toBe(PIN);
+    }
+  });
+
+  it('finds a claim to check, so the sweep is not vacuous', () => {
+    // Every one of those files SHOULD carry the phrase. A regex that matched nothing would report
+    // three clean files, which is the same shape as three drifted ones.
+    const found = PROSE.filter(
+      (f) => /pinned(?: version)? `[^`]+`/.test(read(...f.split('/'))),
+    );
+    expect(found.length, 'no file states a pinned version at all').toBeGreaterThan(0);
+  });
+});

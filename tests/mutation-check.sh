@@ -26,6 +26,8 @@ CSS=app/css
 # The documents are source too: tests/docs.node.test.ts holds the numbers they state to the
 # numbers the code uses, which is the half of prose that can be checked at all.
 DOCS=docs
+# The repository's own config, for the comments in it that make checkable claims.
+CFG=.
 # The shipped page. tests/a11y.browser.test.ts reads it with `?raw` rather than imitating it, so
 # the markup createGame requires is gated where it actually lives.
 APP=app
@@ -110,6 +112,27 @@ add "the mat declares its size the wrong way round" \
     "$DECL/whack-declaration.ts" \
     "  size: [MAT_COLS, MAT_ROWS]," \
     "  size: [MAT_ROWS, MAT_COLS],"
+
+# ========================= WHAT ENGINE 8 ADDED TO THE CONTRACT =========================
+# `holdsAtOnce` is REQUIRED, and the engine validates its SHAPE — a function returning an integer
+# of at least one. What it cannot validate is the NUMBER, which is this game's own claim, so the
+# first two mutations below are the only thing standing between "1" and a figure nobody checked.
+add "the game claims a child must hold three positions at once" \
+    "$DECL/whack-declaration.ts" \
+    "    holdsAtOnce(): number { return 1; }," \
+    "    holdsAtOnce(): number { return 3; },"
+
+add "the game claims it holds nothing, which cannot be played" \
+    "$DECL/whack-declaration.ts" \
+    "    holdsAtOnce(): number { return 1; }," \
+    "    holdsAtOnce(): number { return 0; },"
+
+# ⚠️ Declaring a pointer REQUIRED would refuse the game to a child navigating by keyboard, which
+# is the one input path every screen here was built around.
+add "the game declares it cannot be played without a pointer" \
+    "$DECL/whack-declaration.ts" \
+    "    holdsAtOnce(): number { return 1; }," \
+    "    holdsAtOnce(): number { return 1; }, needsPointer(): boolean { return true; },"
 
 add "the tick goes back to the player" \
     "$DECL/whack-declaration.ts" \
@@ -1010,6 +1033,15 @@ add "the glyph pass forgets the zoom, so the numbers stay source-sized" \
     "$RENDER/glyph-pass.ts" \
     "  ctx.font = fontFor(GLYPH_HEIGHT * viewport.zoom);" \
     "  ctx.font = fontFor(GLYPH_HEIGHT);"
+
+# ⚠️ A COMMENT SAT ON THE WRONG ENGINE VERSION THROUGH TWO UPGRADES and survived a deliberate
+# sweep, because the sweep grepped for the version being REPLACED and the comment named the one
+# before it. The gate finds the phrase instead of the number, so it does not need to be told what
+# to look for.
+add "a comment names an engine version the manifest does not pin" \
+    "$CFG/vite.config.ts" \
+    "the pinned version \`8.0.0-rc.1\`" \
+    "the pinned version \`7.0.1\`"
 
 add "spike 0 stops saying that its conclusions were superseded" \
     "$DOCS/spike-0-symbol-legibility.md" \
