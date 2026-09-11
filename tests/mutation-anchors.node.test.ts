@@ -117,3 +117,45 @@ describe('[Interface] every mutation still points at something', () => {
     },
   );
 });
+
+describe('[Interface] no anchor is one the shell would eat before the harness sees it', () => {
+  /**
+   * ⚠️ A BLIND SPOT IN THE CHECK ABOVE, found the day it was written and fixed the same hour.
+   *
+   * The anchors are double-quoted shell strings, so an unescaped backtick is COMMAND
+   * SUBSTITUTION and an unescaped `$` is a variable. The shell rewrites the argument before
+   * `mutate.cjs` ever sees it, so the harness reports `SKIP (anchor drifted)` while the text in
+   * the file matches perfectly — and the check above, which reads the file rather than running
+   * it, reports the anchor live. Two honest checks, opposite answers, and the mutation silently
+   * never runs.
+   *
+   * 📏 It has cost this repository three times in one afternoon: a backtick around `start` (which
+   * on Windows also OPENED A CONSOLE WINDOW, once per parse), a pair around a repository name,
+   * and quotes inside a mutation NAME that truncated the argument.
+   *
+   * 📌 The `$ROOT/` prefix of the file argument is the one expansion that is MEANT to happen, so
+   * only the anchors are scanned here.
+   */
+  const RAW = read('tests/mutation-check.sh').split('\n');
+
+  /** The anchor lines exactly as the file holds them: the third line of each four-line call. */
+  const anchorLines = RAW
+    .map((line, i) => (RAW[i - 2]?.startsWith('add "') ? line : null))
+    .filter((line): line is string => line !== null);
+
+  it('finds an anchor line for every mutation, so this scan is not empty', () => {
+    expect(anchorLines.length).toBe(ALL.length);
+  });
+
+  it.each(anchorLines.map((line, i) => [ALL[i]?.name ?? `#${i}`, line] as const))(
+    '%s — its anchor survives the shell',
+    (_name, line) => {
+      const unescaped = /(^|[^\\\\])([`$])/.exec(line.replace(/\\\\\\\\/g, ''));
+      expect(
+        unescaped,
+        `an unescaped ${unescaped?.[2] === '$' ? 'dollar' : 'backtick'} — the shell rewrites this`
+          + ` anchor before mutate.cjs sees it, and the mutation never runs:\n  ${line.trim()}`,
+      ).toBeNull();
+    },
+  );
+});

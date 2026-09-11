@@ -376,3 +376,35 @@ describe('[Interface] the CI hands over an address and something reads it', () =
     expect(src).toContain('AXE_URL is not set');
   });
 });
+
+describe('[Right] the dated record says it is dated, above the fold', () => {
+  /**
+   * ⚠️ ADR-0083 MEASURES A WORLD THAT IS GONE: a `file:../` dependency, a symlink into a sibling
+   * tree, and three repositories under their old names. Every one of those changed, and all three
+   * changed in the direction the record asked for — which is what makes it a successful record and
+   * not a wrong one.
+   *
+   * ADR-0057 says a dated record is SUPERSEDED, never amended: editing the measurement would erase
+   * the evidence the decision rested on and leave the decision with no visible reason. So the fix
+   * is the same one spike 0 already carries — say at the TOP what no longer holds, for the reader
+   * who stops after the first screen.
+   */
+  const ADR = read('docs', 'ADR-0083-conformidade-medida.md');
+
+  it('carries the notice in the first screenful, not buried at the end', () => {
+    expect(ADR.slice(0, 1400)).toMatch(/JÁ NÃO É O ESTADO DE HOJE/);
+  });
+
+  it('still contains the measurement it was written to preserve', () => {
+    // ⚠️ THE OTHER HALF, and the one a well-meaning tidy-up would break: a notice that arrived
+    // together with a rewritten table would be an amendment wearing a supersession's clothes.
+    expect(ADR, 'the old names are the measurement; they are not a typo to fix')
+      .toContain('SP-the-inclusionist-whackwhack');
+    expect(ADR).toContain('file:../SP-the-inclusionist-tracer');
+  });
+
+  it('points at the record that replaced it', () => {
+    expect(ADR).toContain('engine-8-consumer-gaps.md');
+    expect(() => read('docs', 'engine-8-consumer-gaps.md')).not.toThrow();
+  });
+});

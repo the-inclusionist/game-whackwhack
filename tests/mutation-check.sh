@@ -1248,6 +1248,21 @@ add "the engine-gap report stops naming what the gate watches" \
     "itself — \`ITENS_DA_ENGINE\` is \`options\`" \
     "itself — that set is \`options\`"
 
+# ⚠️ ADR-0083 MEASURES A WORLD THAT IS GONE, and by ADR-0057 a dated record is SUPERSEDED and never
+# amended: editing the table would erase the evidence the decision rested on. The notice at the top
+# is what tells a reader who stops after the first screen -- the same shape spike 0 carries.
+add "the dated record stops saying that what it measured has changed" \
+    "$DOCS/ADR-0083-conformidade-medida.md" \
+    "JÁ NÃO É O ESTADO DE HOJE" \
+    "continua a valer"
+
+# ⚠️ AND THE OTHER HALF, which a well-meaning tidy-up would break: a notice that arrived together
+# with a corrected table would be an amendment wearing a supersession's clothes.
+add "the old repository names are tidied away, erasing the measurement" \
+    "$DOCS/ADR-0083-conformidade-medida.md" \
+    "| \`SP-the-inclusionist-whackwhack\` | \`@the-inclusionist/game-whackwhack\` |" \
+    "| \`game-whackwhack\` | \`@the-inclusionist/game-whackwhack\` |"
+
 add "spike 0 stops saying that its conclusions were superseded" \
     "$DOCS/spike-0-symbol-legibility.md" \
     "> ## ⚠️ FIVE OF THIS DOCUMENT'S CONCLUSIONS NO LONGER HOLD" \

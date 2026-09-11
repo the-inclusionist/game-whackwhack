@@ -3,6 +3,29 @@
 **Para levar à conversa da engine.** Escrito de `game-whackwhack` em 2026-09-06, medindo o que
 existe hoje nas três pastas de jogo e na engine. Tudo abaixo é leitura de arquivo, não impressão.
 
+> ## ⚠️ O QUE ESTE DOCUMENTO MEDIU JÁ NÃO É O ESTADO DE HOJE
+>
+> **E isso não é um defeito deste registo: é o que ele existe para ser.** Pelo ADR-0057 um registo
+> datado **sucede-se, nunca se emenda** — emendá-lo apagaria a medição que justificou a decisão e
+> deixaria a decisão sem razão visível. O que se faz é dizer, aqui em cima, o que mudou desde então.
+>
+> Três coisas mudaram, e as três na direcção que o documento pedia:
+>
+> 1. **A dependência `file:../` desapareceu.** A engine é publicada no npmjs público desde
+>    2026-09-06 (ADR-0072) e este jogo cravou-a por versão exacta — que é precisamente o que a
+>    seção 2 abaixo mede em falta nos três jogos.
+> 2. **O *symlink* deixou de existir**, e com ele o defeito central deste registo: um consumidor
+>    já não alcança o que o *tarball* não carrega. Foi assim que se descobriu, dias depois, que a
+>    6.36.1 publicada **não compilava para ninguém** — exactamente a classe de falha que o
+>    ADR-0083 dizia que o `npm link` esconde.
+> 3. **Os repositórios foram renomeados**: `SP-the-inclusionist-whackwhack` é hoje
+>    `game-whackwhack`, e os irmãos seguiram a mesma regra. A tabela da seção 2 guarda os nomes
+>    que eles tinham no dia da medição.
+>
+> 📌 O estado actual do lado do consumidor está em
+> [`engine-8-consumer-gaps.md`](engine-8-consumer-gaps.md), que é o registo seguinte desta mesma
+> conversa.
+
 ---
 
 ## O achado em uma frase
