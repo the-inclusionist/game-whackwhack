@@ -37,6 +37,13 @@ import { MIN_TILES_PER_LEVEL } from '../app/js/rules/spawn.ts';
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const read = (...parts: string[]): string => readFileSync(join(ROOT, ...parts), 'utf8');
 
+/** Source with its comments removed, so an example in a doc comment is not read as code. */
+function code(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+}
+
 const SPIKE = read('docs', 'spike-0-symbol-legibility.md');
 const RULES = read('docs', 'GAME-RULES.md');
 const PACKAGE = JSON.parse(read('package.json')) as {
@@ -606,16 +613,47 @@ describe('[Interface] the standalone chain from page to game is unbroken', () =>
   });
 
   it('the shell calls the game', () => {
-    // A line that IS the call, so a commented-out one does not satisfy it.
-    const shell = read('app', 'js', 'boot', 'standalone.ts');
-    expect(shell.split('\n').some((l) => l.trim() === 'boot();'),
+    /**
+     * ⚠️ THE COMMENTS ARE STRIPPED FIRST, and the first version of this did not do it — it asked
+     * for a line that was exactly `boot();`, which was true for about an hour and then stopped
+     * being true the moment the shell started keeping what `boot()` returns. A gate that pins the
+     * SPELLING of a call instead of the fact of it fails on the next honest edit, and the fix for
+     * that kind of failure is usually to weaken the gate.
+     *
+     * Stripping comments is what keeps it strict: a commented-out call is not a call.
+     */
+    const shell = code(read('app', 'js', 'boot', 'standalone.ts'));
+    expect(/\bboot\s*\(\)/.test(shell),
       'boot/standalone.ts no longer calls boot()').toBe(true);
   });
 
+  it('the shell runs the loop, and says so when a frame throws', () => {
+    /**
+     * ⚠️ SPEC D16: «one broken game must stay distinguishable from a broken engine». A frame that
+     * throws stops the loop, which is right — what must not happen is it stopping in SILENCE,
+     * because a blind child cannot see a frozen screen. ADR-0139 §3 puts `aoFalhar` in the shell.
+     *
+     * 📏 A mutation that deleted the announcement ESCAPED, and finding out why is what exposed the
+     * contamination fixed alongside this: the anchor checker was failing on every applied mutation
+     * and the harness was reading that as «caught». With that silenced, this one had nothing
+     * holding it — the shell is loaded by the shipped page and by no test.
+     *
+     * A source check, for the same reason as the two above: importing the shell in a test would boot
+     * a second game into the same document.
+     */
+    const shell = code(read('app', 'js', 'boot', 'standalone.ts'));
+    expect(shell, 'the shell no longer runs a loop').toMatch(/\bstartLoop\s*\(/);
+    expect(shell, 'nothing is wired to aoFalhar').toMatch(/aoFalhar\s*:/);
+    expect(shell, 'a frame that throws would now stop the game in silence')
+      .toMatch(/srAlert\s*\(/);
+  });
+
   it('the game exports it rather than running it', () => {
-    const main = read('app', 'js', 'boot', 'main.ts');
-    expect(main).toContain('export function boot()');
-    expect(main.split('\n').some((l) => l.trim() === 'boot();'),
+    const main = code(read('app', 'js', 'boot', 'main.ts'));
+    expect(main, 'boot is no longer exported').toMatch(/export function boot\s*\(/);
+    // ⚠️ A call at the START of a line, which is what module scope looks like. `= boot()` inside
+    // the shell is a different thing and this must not confuse the two.
+    expect(/^\s*boot\s*\(\)/m.test(main),
       'boot/main.ts calls boot() at module scope again — ADR-0139 §2 and spec D14').toBe(false);
   });
 });

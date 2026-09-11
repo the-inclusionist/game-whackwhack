@@ -89,7 +89,23 @@ function expand(path: string, roots: Map<string, string>): string {
 
 const ALL = mutations();
 
-describe('[Interface] every mutation still points at something', () => {
+/**
+ * ⚠️ THE HARNESS SETS THIS WHILE A MUTATION IS APPLIED, AND THE REASON IS A DEFECT THIS FILE
+ * CAUSED. Applying a mutation deletes the very line its own anchor points at, so every check
+ * below failed for every mutation — and `tests/mutation-check.sh` reads a red suite as «caught».
+ * The result was that EVERY mutation reported caught, whether its real gate bit or not, for five
+ * commits including the first full sweep of 216.
+ *
+ * 🔴 A GATE THAT REPORTS SUCCESS FOR REASONS OF ITS OWN is the exact defect this repository hunts,
+ * and it was living inside the tool that hunts it. The verdicts were re-run after this line.
+ *
+ * 📌 Skipping is right rather than convenient: mid-mutation the tree is DELIBERATELY inconsistent,
+ * and there is nothing true for this file to say about it. It runs on every `npm test`, which is
+ * when an anchor actually rots.
+ */
+const MUTATING = process.env.INCL_MUTATING === '1';
+
+describe.skipIf(MUTATING)('[Interface] every mutation still points at something', () => {
   it('finds the whole set, so a clean sweep is not a sweep over nothing', () => {
     // ⚠️ THE VACUITY CHECK FOR THIS FILE. A parser that matched no `add` line would report every
     // anchor live, in a fraction of a second, and look exactly like a pass.
@@ -118,7 +134,7 @@ describe('[Interface] every mutation still points at something', () => {
   );
 });
 
-describe('[Interface] no anchor is one the shell would eat before the harness sees it', () => {
+describe.skipIf(MUTATING)('[Interface] no anchor is one the shell would eat before the harness sees it', () => {
   /**
    * ⚠️ A BLIND SPOT IN THE CHECK ABOVE, found the day it was written and fixed the same hour.
    *

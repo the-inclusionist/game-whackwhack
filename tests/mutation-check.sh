@@ -1156,13 +1156,29 @@ add "the region size stops being published where the screens can read it" \
 # a module that boots on import cannot be one of six on a page.
 add "the game boots again at module scope, the moment it is imported" \
     "$BOOT/main.ts" \
-    "export function boot(): void {" \
-    "export function boot(): void { }\nfunction bootAgain(): void {"
+    "export function boot(): RunningGame {" \
+    "export function boot(): RunningGame { return bootAgain(); }\nfunction bootAgain(): RunningGame {"
 
 add "the shell stops calling the game, so nothing runs at all" \
     "$BOOT/standalone.ts" \
     "boot();" \
     "// boot();"
+
+# ⚠️ ADR-0139 §3: A CARTRIDGE NEVER CALLS `startLoop`. «Six cartridges each opening their own frame
+# callback is six loops competing for one frame», and `aoFalhar` -- where spec D16 lives -- is the
+# shell's to wire. The game owns a FRAME; the loop that drives it is outside.
+add "the frame stops being handed over, so the shell drives nothing" \
+    "$BOOT/main.ts" \
+    "  return { update };" \
+    "  return { update: () => {} };"
+
+# ⚠️ «one broken game must stay distinguishable from a broken engine» (D16). A frame that throws
+# stops the loop, which is right; stopping in SILENCE is not, because a blind child cannot see a
+# frozen screen.
+add "a frame that throws stops the game without saying so" \
+    "$BOOT/standalone.ts" \
+    "    srAlert(say.t('say.crashed'));" \
+    "    "
 
 # ========================= THE AUDITED MARKUP =========================
 add "the canvas stops hiding itself from a screen reader" \
@@ -1510,6 +1526,13 @@ for i in "${!NAMES[@]}"; do
   # ⚠️ AND A RED `node` STILL HAS TO BE A RED CAUSED BY THE MUTATION. The baseline check at the top
   # is what makes that true: it refuses to start unless the WHOLE suite is green, so anything red
   # below is red because of the line that was just changed.
+  # ⚠️ THIS FLAG EXISTS BECAUSE THE ANCHOR CHECK CONTAMINATED EVERY VERDICT, and it did so for
+  # five commits including the first full sweep. `tests/mutation-anchors.node.test.ts` asserts
+  # every anchor still matches its file -- and APPLYING a mutation deletes the very line its own
+  # anchor points at, so the check failed for every mutation and the harness read that failure as
+  # "caught". A gate that reports success for reasons of its own is the exact defect this whole
+  # file exists to find, and it was inside the file that finds it.
+  export INCL_MUTATING=1
   if $VITEST run --project node >/dev/null 2>&1; then
     if $VITEST run --project browser >/dev/null 2>&1; then
       echo "ESCAPED - ${NAMES[$i]}"
@@ -1522,6 +1545,7 @@ for i in "${!NAMES[@]}"; do
     echo "caught  - ${NAMES[$i]}"
     caught=$((caught + 1))
   fi
+  unset INCL_MUTATING
   mv "$f.bak" "$f"
   MUTATING=""
 done

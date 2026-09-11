@@ -21,6 +21,33 @@
 // lines of closures that all see each other. One observable change at a time is what keeps the game
 // working while the shape changes underneath it.
 
+import { startLoop } from '@the-inclusionist/engine/core/loop.js';
+import { srAlert } from '@the-inclusionist/engine/core/a11y-sr.js';
+
+import { createFrameTicker } from '../render/frame-ticker.ts';
+import { createI18n } from '../i18n/index.ts';
 import { boot } from './main.ts';
 
-boot();
+const game = boot();
+
+/**
+ * ⚠️ THE LOOP IS THE SHELL'S, AND ADR-0139 §3 IS EXPLICIT ABOUT WHY: «Six cartridges each opening
+ * their own frame callback is six loops competing for one frame.» In the platform ONE loop calls
+ * each mounted cartridge's `update(dt)`. Here there is one game, so this shell is that loop.
+ *
+ * ⚠️ AND `aoFalhar` IS WHERE SPEC D16 LIVES — «one broken game must stay distinguishable from a
+ * broken engine». A frame that throws stops the loop, which is right; what must not happen is it
+ * stopping in silence, because a blind child cannot see a frozen screen. The engine's own
+ * `main.ts` does not wire this and it should.
+ *
+ * 📌 The catalogue is not read here: this shell speaks the same language the game booted in, and
+ * `createI18n` with no argument resolves it the same way `boot()` does.
+ */
+const say = createI18n();
+
+startLoop(createFrameTicker(), (dt: number) => game.update(dt), 2, {
+  aoFalhar: (error: unknown) => {
+    srAlert(say.t('say.crashed'));
+    console.error('frame failed:', error);
+  },
+});

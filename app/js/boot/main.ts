@@ -19,7 +19,6 @@
 
 import { createGame } from '@the-inclusionist/engine';
 import { srAlert, srSay } from '@the-inclusionist/engine/core/a11y-sr.js';
-import { startLoop } from '@the-inclusionist/engine/core/loop.js';
 import { createRng } from '@the-inclusionist/engine/core/rng.js';
 
 import { CATEGORIES } from '../rules/category.ts';
@@ -34,7 +33,6 @@ import { nextVision, readVision, visionCss, writeVision } from '../ui/vision.ts'
 import { PAUSE_ICONS, iconsMarkup } from '@the-inclusionist/engine/ui/pause-icons.js';
 import { CURTO_DA_CORRECAO } from '@the-inclusionist/engine/ui/visual-axes-panel.js';
 import { t as engineT } from '@the-inclusionist/engine/core/i18n.js';
-import { createFrameTicker } from '../render/frame-ticker.ts';
 import { createMat } from '../render/mat.ts';
 import { stampGlyphs } from '../render/glyph-pass.ts';
 import { pickTopmost, toIllustrationSpace } from '../render/picking.ts';
@@ -75,7 +73,16 @@ const FRAME_MS = 1000 / 60;
  * this is a `boot()` that finds its own document, calls `createGame` itself and owns the loop.
  * Those three move out next; this commit only stops the side effect at import.
  */
-export function boot(): void {
+/**
+ * What a shell gets back. It is `GameInstance` from ADR-0139 minus `teardown()`, which does not
+ * exist yet — named here rather than left as an anonymous object so the gap is visible.
+ */
+export interface RunningGame {
+  /** ⚠️ `dt` in FRAMES, not seconds. */
+  update(dt: number): void;
+}
+
+export function boot(): RunningGame {
   const doc = document;
   // Narrowed once into a const the closures below can see: TypeScript's narrowing of a `let` does
   // not survive into a function body, and every screen transition touches this element.
@@ -763,9 +770,20 @@ export function boot(): void {
   applyLayout({ doc, win: window });
   window.addEventListener('resize', () => { applyLayout({ doc, win: window }); invalidate(); });
 
-  // 9. THE LOOP.
-  const ticker = createFrameTicker();
-  startLoop(ticker, (dt: number) => {
+  /**
+   * ================== 9. ONE FRAME. THE LOOP THAT DRIVES IT IS THE SHELL'S ==================
+   * ⚠️ THIS USED TO BE `startLoop(...)` RIGHT HERE, and ADR-0139 §3 says a cartridge never calls
+   * it: «Six cartridges each opening their own frame callback is six loops competing for one
+   * frame», and the error boundary spec D16 asks for lives in `aoFalhar`, which is the shell's to
+   * wire. In the platform ONE loop calls each mounted cartridge's `update(dt)`.
+   *
+   * So what the game owns is a frame, and what it hands over is this function. It is half of the
+   * `GameInstance` the contract asks for; `teardown()` is the other half and comes next.
+   *
+   * ⚠️ `dt` IS IN FRAMES, not seconds — the ticker's convention, inherited from PixiJS — and it
+   * becomes milliseconds at the boundary below, before it reaches any rule.
+   */
+  function update(dt: number): void {
     // Only the round gets time, and only while it is the top of the stack. A wave that expired
     // behind a result screen would charge a player for a mistake they were not allowed to make.
     if (round && !screen && !paused) handle(round.advance(dt * FRAME_MS));
@@ -776,14 +794,7 @@ export function boot(): void {
     if (!dirty) return;
     dirty = false;
     draw();
-  }, 2, {
-    // ⚠️ The engine's own main.ts does not wire this, and it should. A frame that throws stops the
-    // loop — which is right — but a blind child cannot see a frozen screen, so the stop is said.
-    aoFalhar: (error: unknown) => {
-      srAlert(i18n.t('say.crashed'));
-      console.error('frame failed:', error);
-    },
-  });
+  }
 
   showTitle();
 
@@ -794,8 +805,16 @@ export function boot(): void {
       mat, stage, mirror, hud, options, feedback, i18n, engine, camera,
       get best() { return best; },
       start: (over: Partial<RoundChoice> = {}) => startRound({ ...choice, ...over }),
-      step: (dt = 1) => ticker.step(dt),
+      /**
+       * ⚠️ CALLS `update` AND NOT THE TICKER, since the loop left this file. It is the same frame
+       * body either way; what it skips is `startLoop`'s `maxDt` clamp and its error boundary —
+       * and skipping the boundary is BETTER here, because a frame that throws inside a test
+       * should fail the test rather than be swallowed and announced.
+       */
+      step: (dt = 1) => update(dt),
     };
   }
+
+  return { update };
 }
 
