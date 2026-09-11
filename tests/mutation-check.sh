@@ -983,7 +983,7 @@ add "the result screen claims a record on every round" \
 # the measurement that made ADR-0120 take the decline away in the first place.
 add "the accessibility bar loses its host, and the engine mounts it nowhere" \
     "$BOOT/main.ts" \
-    "    host: { doc, win: window, cvdHost: doc.getElementById('cvd'), a11yBarHost: a11yBar }," \
+    "    host: { doc, win: window, cvdHost: doc.getElementById('cvd'), a11yBarHost: engineBar }," \
     "    host: { doc, win: window, cvdHost: doc.getElementById('cvd') },"
 
 add "the neural voice goes back to being an omission rather than a decision" \
@@ -1054,6 +1054,15 @@ add "the time control leaves the panel" \
 
 # ⚠️ THE CI HANDED OVER AN ADDRESS AND NOTHING READ IT, for weeks. A workflow input nobody reads
 # looks exactly like coverage, so the wiring is gated rather than trusted.
+# ⚠️ THE READER OF THIS VERY FILE. `tests/mutation-anchors.node.test.ts` parses the `add` calls below
+# and checks every anchor still matches its file -- the failure that actually happens, five times in
+# one afternoon. A parser that quietly matched FEWER entries would report a clean sweep over a subset,
+# which is the same shape as the rot it exists to find.
+add "the anchor reader silently stops seeing most of the mutations" \
+    "$TESTS/mutation-anchors.node.test.ts" \
+    "    if (!lines[i].startsWith('add \"')) continue;" \
+    "    if (!lines[i].startsWith('add \"the ')) continue;"
+
 add "the built-bundle audit falls out of test:a11y" \
     "$CFG/package.json" \
     " && node tests/axe-url.mjs" \
@@ -1317,9 +1326,33 @@ for i in "${!NAMES[@]}"; do
     continue
   fi
 
-  if $VITEST run >/dev/null 2>&1; then
-    echo "ESCAPED - ${NAMES[$i]}"
-    escaped=$((escaped + 1))
+  # ========================= THE CHEAP PROJECT FIRST =========================
+  # ⚠️ THIS IS A SPEEDUP AND NOT A WEAKENING, and the difference matters enough to write down.
+  #
+  # A mutation is CAUGHT when the suite goes red. The suite is two projects: `node` is pure and
+  # takes about two seconds, `browser` starts Playwright and takes about twelve. Running both for
+  # every mutation asks a question that is already answered whenever the first one goes red --
+  # once `node` fails, nothing the browser could report changes the verdict.
+  #
+  # So `browser` runs only when `node` PASSED, which is exactly the case where the answer is still
+  # open. The verdict for every mutation is identical to running both together; what changes is
+  # that the majority -- rules, spawn, round, the declaration -- stop paying for a browser they
+  # never needed.
+  #
+  # 📏 Measured before this: ~15-25 s per mutation, so the ~200 in this file were about 17 minutes
+  # of wall clock, which is why the unfiltered run had never once been done end to end.
+  #
+  # ⚠️ AND A RED `node` STILL HAS TO BE A RED CAUSED BY THE MUTATION. The baseline check at the top
+  # is what makes that true: it refuses to start unless the WHOLE suite is green, so anything red
+  # below is red because of the line that was just changed.
+  if $VITEST run --project node >/dev/null 2>&1; then
+    if $VITEST run --project browser >/dev/null 2>&1; then
+      echo "ESCAPED - ${NAMES[$i]}"
+      escaped=$((escaped + 1))
+    else
+      echo "caught  - ${NAMES[$i]}"
+      caught=$((caught + 1))
+    fi
   else
     echo "caught  - ${NAMES[$i]}"
     caught=$((caught + 1))
