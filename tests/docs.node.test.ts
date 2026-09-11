@@ -405,8 +405,17 @@ describe('[Right] the dated record says it is dated, above the fold', () => {
   it('still contains the measurement it was written to preserve', () => {
     // ⚠️ THE OTHER HALF, and the one a well-meaning tidy-up would break: a notice that arrived
     // together with a rewritten table would be an amendment wearing a supersession's clothes.
-    expect(ADR, 'the old names are the measurement; they are not a typo to fix')
-      .toContain('SP-the-inclusionist-whackwhack');
+    /**
+     * ⚠️ IN THE TABLE ROW, NOT ANYWHERE. This asked `toContain` and a mutation walked through it:
+     * the supersession notice added at the top of that document ALSO names the old repository,
+     * so tidying the measurement out of the table left the string present and the gate green.
+     * A gate that asks «does this appear somewhere» is defeated by adding it somewhere else.
+     */
+    const rows = ADR.split('\n').filter((l) => l.startsWith('|'));
+    expect(
+      rows.some((l) => l.includes('SP-the-inclusionist-whackwhack')),
+      'the old names are the measurement; they are not a typo to fix',
+    ).toBe(true);
     expect(ADR).toContain('file:../SP-the-inclusionist-tracer');
   });
 

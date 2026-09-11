@@ -61,6 +61,12 @@ async function audit(): Promise<axe.Result[]> {
 const describeAll = (violations: axe.Result[]): string =>
   violations.map((v) => `${v.id}: ${v.help}\n    ${v.nodes.map((n) => n.html).join('\n    ')}`).join('\n');
 
+/** The body's children the instant the game finished booting. See the note in `beforeAll`. */
+let bodyAfterBoot: string[] = [];
+
+/** One frame, driven through what `boot()` RETURNS — which is what a shell gets. */
+let step: (dt: number) => void = () => {};
+
 beforeAll(async () => {
   scaffold();
   // ⚠️ THE DEBUG HOOK, AND IT IS NOT A CONVENIENCE. `boot/main` exposes `window.__whack` only
@@ -92,7 +98,25 @@ beforeAll(async () => {
     'importing the game changed the document — it boots at module scope again',
   ).toBe(before);
 
-  boot();
+  const game = boot();
+
+  /**
+   * ⚠️ SNAPSHOTTED HERE BECAUSE OF WHEN THE TEST RUNS, NOT FOR CONVENIENCE. The region gate below
+   * asks whether anything this game created ended up outside its element — and by the time it
+   * runs, an earlier block has clicked "Jogar" and there is no screen anywhere to find. A
+   * mutation that sent the screens back to `document.body` ESCAPED through exactly that gap.
+   *
+   * Right here the title screen IS up, which is the moment the question has an answer.
+   */
+  bodyAfterBoot = [...document.body.children]
+    .map((el) => `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}.${el.className}`);
+
+  /**
+   * ⚠️ AND THE FRAME COMES FROM THE RETURNED OBJECT, not from `__whack.step`. A mutation that
+   * made `boot()` return `{ update: () => {} }` also escaped: every test drove the game through
+   * the debug hook, so the thing a SHELL actually receives was exercised by nobody.
+   */
+  step = (dt: number) => game.update(dt);
   await document.fonts.ready;
 });
 
@@ -526,11 +550,35 @@ describe('[Right] everything this game creates lives inside its region', () => {
    */
   const REQUIRED = ['stage-wrap', 'sr-status', 'sr-alert', 'cvd'];
 
-  it('leaves nothing of its own as a child of <body>', () => {
+  it('left nothing of its own as a child of <body>, at the moment it had most to leave', () => {
+    // ⚠️ THE SNAPSHOT FROM `beforeAll`, NOT THE DOCUMENT NOW. Reading it now asks the question
+    // when the title screen is already gone, and a mutation that put the screens back in
+    // `document.body` escaped through that. The snapshot is taken while one is up.
+    const strays = bodyAfterBoot.filter((d) => !REQUIRED.some((id) => d.includes(`#${id}`)));
+    expect(strays, 'these would be inherited by the next cartridge on the page').toEqual([]);
+    expect(bodyAfterBoot.length, 'the snapshot is empty, so it asserted nothing')
+      .toBeGreaterThanOrEqual(REQUIRED.length);
+  });
+
+  it('and nothing of its own is a child of <body> now either', () => {
     const strays = [...document.body.children]
       .filter((el) => !REQUIRED.includes(el.id))
       .map((el) => `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}.${el.className}`);
-    expect(strays, 'these would be inherited by the next cartridge on the page').toEqual([]);
+    expect(strays).toEqual([]);
+  });
+
+  it('drives a frame through what boot() RETURNS, which is what a shell gets', () => {
+    /**
+     * ⚠️ A MUTATION MAKING `boot()` RETURN A DEAD `update` ESCAPED. Every other test in this file
+     * steps the game through `window.__whack`, which closes over the frame function directly — so
+     * the object a shell receives was never exercised, and could have been empty.
+     */
+    const before = [...document.querySelectorAll('.grid-mirror button')]
+      .map((b) => b.getAttribute('aria-label')).join('|');
+    for (let i = 0; i < 400; i++) step(1);
+    const after = [...document.querySelectorAll('.grid-mirror button')]
+      .map((b) => b.getAttribute('aria-label')).join('|');
+    expect(after, 'the frame handed to the shell does nothing').not.toBe(before);
   });
 
   it('really did create something, so the sweep above is not empty', () => {

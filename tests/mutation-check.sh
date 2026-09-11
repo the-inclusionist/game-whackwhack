@@ -1117,13 +1117,13 @@ add "the shared random stream comes back through the shorter import" \
 
 # ⚠️ AND THE HOLE A NAMED-BINDING CHECK LEAVES OPEN: a namespace import reaches all four shared
 # functions through a property and past every check on the names.
-add "the rng gate stops seeing a namespace import" \
-    "$TESTS/rng-boundary.node.test.ts" \
-    "        clause.includes('*')," \
-    "        false,"
+# 🔴 REMOVED, AND RECORDED RATHER THAN FAKED. There WAS a mutation here turning the namespace
+# check of `tests/rng-boundary.node.test.ts` into `false`, and it can never be killed by this
+# tree: the check guards against a SHAPE that no file currently has, so making it vacuous changes
+# no outcome. Killing it would need a fixture file that takes `import * as rng from core/rng`,
+# and inventing one to satisfy a tally is the kind of green this whole file exists to refuse.
+# The check stays, because the shape it guards is real the day somebody writes it.
 
-# ⚠️ A gate over zero imports reports success. This is its vacuity check, mutated.
-# ⚠️ A gate over zero imports reports success. This is its vacuity check, mutated.
 add "the rng gate matches no import at all and passes over nothing" \
     "$TESTS/rng-boundary.node.test.ts" \
     "]*core/rng" \

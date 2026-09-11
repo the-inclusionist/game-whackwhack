@@ -105,7 +105,7 @@ const ALL = mutations();
  */
 const MUTATING = process.env.INCL_MUTATING === '1';
 
-describe.skipIf(MUTATING)('[Interface] every mutation still points at something', () => {
+describe('[Interface] every mutation still points at something', () => {
   it('finds the whole set, so a clean sweep is not a sweep over nothing', () => {
     // ⚠️ THE VACUITY CHECK FOR THIS FILE. A parser that matched no `add` line would report every
     // anchor live, in a fraction of a second, and look exactly like a pass.
@@ -117,7 +117,16 @@ describe.skipIf(MUTATING)('[Interface] every mutation still points at something'
 
   // ⚠️ The NAME is in the tuple and unused in the body on purpose: it is what vitest prints as
   // the case title, so a failure says WHICH mutation rotted rather than only which file.
-  it.each(ALL.map((m) => [m.name, m.file, m.from] as const))(
+  /**
+   * ⚠️ ONLY THIS ONE SKIPS, and narrowing it was a correction. Silencing the whole file also
+   * silenced the two checks that read nothing but the script — the count and the shell scan —
+   * and a mutation on the reader itself then escaped, because the test that would have caught it
+   * was skipped by the harness that was testing it.
+   *
+   * This is the only check that reads the MUTATED tree, so it is the only one with nothing true
+   * to say mid-mutation.
+   */
+  it.skipIf(MUTATING).each(ALL.map((m) => [m.name, m.file, m.from] as const))(
     '%s — its anchor is still in %s',
     (_name, file, from) => {
       /**
@@ -134,7 +143,7 @@ describe.skipIf(MUTATING)('[Interface] every mutation still points at something'
   );
 });
 
-describe.skipIf(MUTATING)('[Interface] no anchor is one the shell would eat before the harness sees it', () => {
+describe('[Interface] no anchor is one the shell would eat before the harness sees it', () => {
   /**
    * ⚠️ A BLIND SPOT IN THE CHECK ABOVE, found the day it was written and fixed the same hour.
    *
