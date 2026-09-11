@@ -30,6 +30,10 @@ import { createRound, type Round, type RoundEvent } from '../rules/round.ts';
 import { spotOfCell } from '../rules/grid.ts';
 import { createWhackDeclaration } from '../declaration/whack-declaration.ts';
 import { PAUSE, actionPreset } from '../input/actions.ts';
+import { nextVision, readVision, visionCss, writeVision } from '../ui/vision.ts';
+import { PAUSE_ICONS, iconsMarkup } from '@the-inclusionist/engine/ui/pause-icons.js';
+import { CURTO_DA_CORRECAO } from '@the-inclusionist/engine/ui/visual-axes-panel.js';
+import { t as engineT } from '@the-inclusionist/engine/core/i18n.js';
 import { createFrameTicker } from '../render/frame-ticker.ts';
 import { createMat } from '../render/mat.ts';
 import { stampGlyphs } from '../render/glyph-pass.ts';
@@ -109,6 +113,18 @@ function boot(): void {
    */
   const a11yBar = doc.createElement('div');
   a11yBar.id = 'a11y-bar';
+  /**
+   * ⚠️ THE ENGINE GETS AN ELEMENT OF ITS OWN INSIDE THE ROW, and that is not ceremony. Its click
+   * handler ends with `reflectIconsIn(bar, 0)`, which walks every `.pi-btn` under the host and
+   * rewrites its `aria-label` from state the engine holds. The colour-vision button below is
+   * driven by state the engine was never given, so a reflect reaching it would relabel it with
+   * the wrong answer — silently, and only for the child reading by ear.
+   *
+   * `display: contents` on this wrapper keeps the two halves one visual row.
+   */
+  const engineBar = doc.createElement('div');
+  engineBar.id = 'a11y-bar-engine';
+  a11yBar.appendChild(engineBar);
 
   /**
    * ⚠️ ON THE WINDOW, IN CAPTURE, AND REGISTERED BEFORE `createGame` — three choices, one reason.
@@ -146,7 +162,7 @@ function boot(): void {
 
   const engine = createGame({
     declaration,
-    host: { doc, win: window, cvdHost: doc.getElementById('cvd'), a11yBarHost: a11yBar },
+    host: { doc, win: window, cvdHost: doc.getElementById('cvd'), a11yBarHost: engineBar },
     // ⚠️ THIS GAME USED TO DECLINE THE PAUSE MENU, and engine 8.0.0 took the option away: ADR-0120
     // made the pause non-declinable, because five of the six games in the catalogue had declined
     // it and a child who depends on blind mode, TTS or high contrast opened those five and found
@@ -193,6 +209,68 @@ function boot(): void {
     preset: actionPreset((key) => i18n.t(key)),
   });
   if (engine.problems.length) console.warn('engine:', engine.problems.join('; '));
+
+  /**
+   * ========================= THE COLOUR-VISION BUTTON THE ENGINE MOUNTS FOR NOBODY =========================
+   * 📏 MEASURED against engine 8.0.0: `createGame` decides which icons exist by asking
+   * `iconesQueAccionam({ tema, correcao, ... })`, and it answers those two with
+   * `Boolean(ctx.setTemaDoJogador)` / `Boolean(ctx.setCorrecaoDoJogador)` — writers it never passes
+   * and `CreateGameOptions` cannot receive. So no game booted through it has these icons, and the
+   * engine is RIGHT to withhold them: an icon with nothing behind it is ADR-0106 §5's dead button.
+   *
+   * What it costs here is exact. `render/palette.ts` measured every colour in this game under
+   * protanopia, deuteranopia and tritanopia, `#cvd` builds the six filters at boot, and until this
+   * block existed none of it could be reached by the child it was measured for.
+   *
+   * ⚠️ ALMOST NOTHING BELOW IS THIS GAME'S. The glyph and markup are `PAUSE_ICONS` / `iconsMarkup`,
+   * the ring is `proximaCorrecao`, the CSS is `VIZ_FILTER`, the sentence is the engine's own
+   * `sr.icon.cvd`, and the application is `engine.aplicarFiltroDeVisao`. This game supplies the one
+   * thing the engine asked a consumer for without giving it a parameter: a place to keep the state.
+   * See `ui/vision`, and delete both the day the writers can be passed.
+   *
+   * ⚠️ AND THE CONTRAST ICON IS DELIBERATELY NOT HERE. High contrast means repainting the mat from
+   * the declared roles, not filtering it; `render/high-contrast` is written for the platformer and
+   * cannot be borrowed. Mounting the icon with nothing behind it would commit the §5 defect this
+   * whole block exists to avoid.
+   */
+  let vision = readVision();
+  const cvdIcon = PAUSE_ICONS.filter((icon) => icon.k === 'cvd');
+  const cvdHolder = doc.createElement('div');
+  cvdHolder.innerHTML = iconsMarkup(cvdIcon);
+  const cvdButton = cvdHolder.firstElementChild as HTMLElement | null;
+
+  if (cvdButton) {
+    a11yBar.appendChild(cvdButton);
+    cvdButton.addEventListener('click', () => {
+      vision = nextVision(vision);
+      writeVision(vision);
+      applyVision();
+      // The label carries the NEW state, so it is read after the change and not before — the same
+      // order the engine's own bar handler uses, and for the same reason.
+      srSay(cvdButton.getAttribute('aria-label') ?? '');
+    });
+  }
+
+  function applyVision(): void {
+    /**
+     * ⚠️ `mundo-e-menus` AND NOT `mundo`, and the two are not interchangeable. A SIMULATION belongs
+     * to the world alone — the engine undoes it over the menus so a blindness simulation cannot
+     * trap a child inside the thing she is trying to leave. A CORRECTION is the opposite: it is how
+     * she sees, and a menu left uncorrected is a menu she cannot read.
+     */
+    engine.aplicarFiltroDeVisao(visionCss(vision), 'mundo-e-menus');
+    if (!cvdButton) return;
+    cvdButton.setAttribute(
+      'aria-label',
+      engineT('sr.icon.cvd', { v: engineT(CURTO_DA_CORRECAO[vision.correcao]) }),
+    );
+    // Not colour alone (WCAG 1.4.1): the button carries the engine's own "on" class whenever the
+    // correction is anything but the default, so the state has a second channel.
+    cvdButton.classList.toggle('pi-on', vision.correcao !== 'tricro');
+  }
+
+  applyVision();
+
 
   // 2. THE PICTURE. Built once and reused across rounds; only the lit set changes.
   const stage = createZdogStage();

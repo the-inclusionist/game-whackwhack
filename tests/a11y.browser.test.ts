@@ -348,3 +348,78 @@ describe('[Right] Escape opens the pause and Escape closes it again', () => {
     expect(labels(), 'the mat did not move again after the pause closed').not.toBe(frozen);
   });
 });
+
+describe('[Right] the HUD is a column, and stays one column', () => {
+  it('never lays a second column outside itself', () => {
+    /**
+     * ⚠️ THIS IS A REGRESSION GATE FOR A BUG THIS REPOSITORY SHIPPED FOR AN HOUR, and the shape of
+     * it is worth keeping: the engine has a `.hud` too, and it is a DIFFERENT component with the
+     * same class name — a horizontal strip under a canvas, carrying `flex-wrap: wrap`.
+     *
+     * Importing the engine's sheet into `layer(engine)` puts it under this game's rules, but a
+     * layer only protects the properties this file DECLARES. `flex-wrap` was not declared, so the
+     * engine's `wrap` arrived — and a COLUMN that wraps opens a second column when its content
+     * outgrows its height. Measured at 800x600: the accessibility bar was laid out at x=833 in a
+     * panel that ends at x=832, off the game, reachable only by scrolling sideways. At 1280x720 the
+     * column was tall enough that nothing wrapped and nothing showed.
+     *
+     * So the assertion is horizontal overflow and not the wrap property: what matters is that no
+     * child ends up outside the panel, however the cascade arrives at that.
+     */
+    const hud = document.querySelector('.hud') as HTMLElement | null;
+    expect(hud, 'the HUD is missing').not.toBeNull();
+    expect(hud!.scrollWidth, 'the HUD overflows sideways, so something is outside the panel')
+      .toBeLessThanOrEqual(hud!.clientWidth);
+
+    const panel = hud!.getBoundingClientRect();
+    for (const child of hud!.children) {
+      const box = child.getBoundingClientRect();
+      if (box.width === 0) continue;
+      expect(Math.round(box.left), (child as HTMLElement).id || child.className)
+        .toBeGreaterThanOrEqual(Math.floor(panel.left));
+      expect(Math.round(box.right), (child as HTMLElement).id || child.className)
+        .toBeLessThanOrEqual(Math.ceil(panel.right));
+    }
+  });
+});
+
+describe('[Right] the colour-vision correction the engine mounts for nobody', () => {
+  const cvd = (): HTMLElement =>
+    document.querySelector('#a11y-bar [data-pi="cvd"]') as HTMLElement;
+
+  it('is in the bar, beside the icons the engine did mount', () => {
+    // ⚠️ `createGame` answers `correcao: Boolean(ctx.setCorrecaoDoJogador)` and never passes that
+    // writer, so this icon exists in NO game booted through it. The palette was measured under
+    // protanopia, deuteranopia and tritanopia; without this button none of that reaches a child.
+    expect(cvd(), 'the colour-vision button is not in the bar').toBeTruthy();
+    expect(document.querySelectorAll('#a11y-bar .pi-btn').length).toBeGreaterThan(1);
+  });
+
+  it('cycles the engine ring and comes back to where it started', () => {
+    // Four steps: tricro, protan, deuter, tritan. The ring is `proximaCorrecao`, not this game's.
+    const seen: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      cvd().click();
+      seen.push(getComputedStyle(document.getElementById('game-region')!).filter);
+    }
+    expect(seen[0]).toContain('cvd-fix-protan');
+    expect(seen[1]).toContain('cvd-fix-deuter');
+    expect(seen[2]).toContain('cvd-fix-tritan');
+    expect(seen[3], 'the fourth step must return to no correction').toBe('none');
+  });
+
+  it('says which correction it is on, and not only by colour', () => {
+    // ⚠️ WCAG 1.4.1 and a screen reader in one assertion. The label carries the state, and the
+    // `pi-on` class is the second, non-colour channel — the engine's own, so it looks like every
+    // sibling game's.
+    cvd().click();
+    try {
+      expect(cvd().getAttribute('aria-label')).toMatch(/protan/i);
+      expect(cvd().classList.contains('pi-on'), 'no second channel for the on state').toBe(true);
+    } finally {
+      cvd().click();
+      cvd().click();
+      cvd().click();
+    }
+  });
+});

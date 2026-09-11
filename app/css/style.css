@@ -115,7 +115,20 @@ body {
    room the deeper mat needs. Same sentence, opposite axis, because the shape changed under it.
 
    The near row was being cut off, which is what that costs when it is wrong. */
+/* ⚠️ THE ENGINE HAS A `.hud` TOO, AND IT IS A DIFFERENT COMPONENT WITH THE SAME NAME. Its one is a
+   horizontal strip under a canvas — `max-width: var(--maxw); margin: 0 auto; flex-wrap: wrap` — and
+   this one is a vertical column beside the mat. `layer(engine)` puts its sheet under this file, but a
+   layer only protects the properties this file actually DECLARES; anything left unsaid still arrives.
+
+   📏 Measured at 800x600, with `flex-wrap` unsaid: a column that wraps opens a SECOND COLUMN when its
+   content outgrows its height, so the accessibility bar was laid out at x=833 in a panel ending at
+   x=832 — outside the game, reachable only by scrolling sideways. At 1280x720 the column was tall
+   enough to hide it. So the three properties below are declared to say NO, not because this game
+   wants them. */
 .hud {
+  max-width: none;
+  margin: 0;
+  flex-wrap: nowrap;
   position: absolute;
   inset: 0 0 0 auto;
   width: calc(var(--hud-fraction) * 100%);
@@ -353,6 +366,12 @@ body {
    of huge icons would push the number grid — the control a child uses every round — off the
    bottom, so the bar takes the floor and the game keeps its layout. This is the only place in this
    repository where a tap target is reduced, and it is reduced TO the standard, never below it. */
+/* The engine writes its seven icons into `#a11y-bar-engine`, and this game appends its own
+   colour-vision button beside them. `display: contents` makes the wrapper vanish from layout so
+   both halves are items of the SAME flex row — one bar to look at, two owners underneath, which
+   is what keeps the engine's `reflectIconsIn` off a button whose state it was never given. */
+#a11y-bar-engine { display: contents; }
+
 #a11y-bar {
   --tap: 44px;
   display: flex;

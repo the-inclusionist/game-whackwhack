@@ -926,6 +926,31 @@ add "the stylesheet accent drifts from the measured one" \
 # ⚠️ 88 px OF ICON IN A 350 px COLUMN. The engine's `--tap` is `22 x k` and grows with the canvas —
 # right for a bar spanning a stage, and here it takes the HUD's scrollbar with it. The floor is the
 # other half: without the engine's sheet at all, the same buttons collapsed to 33 px.
+# ⚠️ THE ENGINE HAS A `.hud` TOO, and it is a horizontal strip with `flex-wrap: wrap`. A layer only
+# protects what this file DECLARES, so the undeclared property arrived -- and a COLUMN that wraps opens a
+# SECOND column outside the panel. Shipped for an hour; measured at 800x600 with the bar at x=833.
+add "the HUD stops saying no to the engine's wrap, and opens a second column" \
+    "$CSS/style.css" \
+    "  flex-wrap: nowrap;" \
+    "  /* wrap left to the engine */"
+
+# ⚠️ THE CORRECTION THE ENGINE MOUNTS FOR NOBODY. Without the writer the icon is not built at all, so
+# the palette measured under protanopia, deuteranopia and tritanopia cannot be switched on by a child.
+add "the colour-vision correction stops reaching the declared world" \
+    "$BOOT/main.ts" \
+    "    engine.aplicarFiltroDeVisao(visionCss(vision), 'mundo-e-menus');" \
+    "    engine.aplicarFiltroDeVisao('', 'mundo-e-menus');"
+
+add "the correction ring stops moving, so one press is every press" \
+    "$BOOT/main.ts" \
+    "      vision = nextVision(vision);" \
+    "      "
+
+add "the on state loses its non-colour channel" \
+    "$BOOT/main.ts" \
+    "    cvdButton.classList.toggle('pi-on', vision.correcao !== 'tricro');" \
+    "    cvdButton.classList.toggle('pi-on', false);"
+
 add "the accessibility bar takes the engine's preferred size in a narrow column" \
     "$CSS/style.css" \
     "  --tap: 44px;" \
