@@ -232,3 +232,27 @@ startLoop(createFrameTicker(), (dt: number) => current?.update(dt), 2, {
     console.error('frame failed:', error);
   },
 });
+
+/**
+ * 9. AND THE WAY OUT, which a standalone page never needs and a platform needs every time.
+ *
+ * ⚠️ THE TWO HALVES ARE BOTH REQUIRED AND NEITHER IMPLIES THE OTHER. `current.teardown()` gives back
+ * what the GAME put in the region and revokes the listeners it registered on the window;
+ * `engine.unmount()` (9.0.0) clears what the ENGINE registered for that cartridge — the keyboard and
+ * pad mappings, the reach notice, the scene stack. A shell that calls one and not the other leaves
+ * the half nobody can see.
+ *
+ * 📌 IT IS WIRED TO `pagehide` HERE ONLY SO IT IS EXERCISED AT ALL. On a page that is closing, the
+ * browser reclaims everything anyway — but a `teardown()` no shell ever calls is a `teardown()` that
+ * rots, and this repository is where the platform's shell is being learned.
+ */
+function teardown(): void {
+  current?.teardown();
+  current = null;
+  engine.unmount();
+}
+// ⚠️ NOT `{ once: true }`, AND THE REASON IS WHERE THE GUARD BELONGS. Idempotence is a property
+// of `teardown()` — a shell that tears down twice, or tears down a game that already threw, must
+// not be the thing that fails — and putting `once` here would move that guarantee into the
+// REGISTRATION, where no test can reach it and the next shell will not copy it.
+window.addEventListener('pagehide', teardown);

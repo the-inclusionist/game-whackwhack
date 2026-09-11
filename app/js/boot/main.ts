@@ -67,13 +67,15 @@ const FRAME_MS = 1000 / 60;
  * The call lives in `boot/standalone.ts` now, which is the shell. The platform will be a
  * different shell around the same function.
  *
- * 📌 STILL NOT THE CARTRIDGE SHAPE. ADR-0139 asks for `create(ctx): { update, teardown }`, and
- * this is a `boot()` that finds its own document, calls `createGame` itself and owns the loop.
- * Those three move out next; this commit only stops the side effect at import.
+ * 📌 THE SHAPE ADR-0139 ASKS FOR IS `create(ctx): { update, teardown }`, and the four things that
+ * stood between this and it are now three done and one left. It no longer boots on import, no
+ * longer calls `createGame`, no longer finds its own document by id, and it gives the region back.
+ * What is left is the NAME and the packaging — `slug`, `dicts`, `hooks` and a `ctx` in place of
+ * `BootDeps` — and the last of those is not this repository's to invent (ADR-0068 §5).
  */
 /**
- * What a shell gets back. It is `GameInstance` from ADR-0139 minus `teardown()`, which does not
- * exist yet — named here rather than left as an anonymous object so the gap is visible.
+ * What a shell gets back: ADR-0139's `GameInstance`, both halves of it since 2026-09-11. Named
+ * rather than left as an anonymous object, so a shell can be typed against what it is promised.
  */
 export interface RunningGame {
   /** ⚠️ `dt` in FRAMES, not seconds. */
@@ -101,6 +103,20 @@ export interface RunningGame {
    * already broke a case inside `ui/pause-icons`.
    */
   pauseActs(): Record<string, (() => void) | undefined>;
+  /**
+   * GIVES THE REGION BACK THE WAY IT WAS FOUND — ADR-0139's fourth gate, and the half of the
+   * cartridge shape that was missing until now.
+   *
+   * ⚠️ TWO KINDS OF RESIDUE, AND THE SECOND IS THE DANGEROUS ONE. Nodes are visible: empty the
+   * region and you can SEE what is left. Listeners are not — this game registers on `window` for
+   * the pointer and the resize, and on the region for the camera keys, and none of those three
+   * live inside anything a shell can empty. Two cartridges mounted in sequence would leave the
+   * first one still moving a pointer ball that no longer exists.
+   *
+   * 📌 IDEMPOTENT ON PURPOSE. A shell that tears down twice — or tears down a game that already
+   * crashed — must not be the thing that throws.
+   */
+  teardown(): void;
 }
 
 /** What a shell hands the game. The host half of `CreateGameOptions` never appears here. */
@@ -143,6 +159,26 @@ export function boot(deps: BootDeps): RunningGame {
   const { engine, a11yBar, i18n, world, region: stageWrap } = deps;
   /** The integer-scaled canvas box — the element `declaration.world()` names. */
   const region: HTMLElement = world;
+
+  /**
+   * ================== EVERYTHING THIS GAME WILL HAVE TO GIVE BACK ==================
+   * ⚠️ COLLECTED AT THE POINT OF CREATION, not remembered at the point of deletion. A `teardown()`
+   * written as a list of things to undo is a list that goes out of date the next time somebody
+   * appends a node — silently, and only in the platform, where a second cartridge inherits what
+   * the first forgot. Wrapping the creation is what makes forgetting hard.
+   *
+   * 📌 `AbortController` FOR THE LISTENERS because it is one revocation for all of them, present
+   * and future: a new `addEventListener` that omits the signal is a visible omission at the call
+   * site, whereas a missing line in a teardown function is invisible everywhere.
+   */
+  const life = new AbortController();
+  const { signal } = life;
+  /** Nodes this game put into elements it does not own. Removed in reverse, like a stack. */
+  const planted: Node[] = [];
+  function plant<T extends Node>(node: T): T {
+    planted.push(node);
+    return node;
+  }
   // ⚠️ STILL GLOBAL, and still the host's: `document` and `window`. They are the last two
   // reaches past the region, and the contract's `ctx` is where they belong — not in a lookup
   // invented here for six repositories (ADR-0068 §5).
@@ -268,7 +304,7 @@ export function boot(deps: BootDeps): RunningGame {
   const canvas = stage.canvas;
   canvas.id = 'board-canvas';
   canvas.setAttribute('aria-hidden', 'true');
-  region.appendChild(canvas);
+  region.appendChild(plant(canvas));
 
   const mirror = createGridMirror({
     doc,
@@ -278,7 +314,7 @@ export function boot(deps: BootDeps): RunningGame {
     onCursor: (cell) => { round?.setFocus(spotOfCell(cell)); invalidate(); },
     resolveAction: (code) => engine.keyboard.actionOf(code, 0),
   });
-  region.insertBefore(mirror.root, canvas);
+  region.insertBefore(plant(mirror.root), canvas);
 
   /**
    * ⚠️ THE CHOICES ARE PART OF THE HUD, NOT PART OF THE TITLE. They were three `<select>`s on the
@@ -315,7 +351,7 @@ export function boot(deps: BootDeps): RunningGame {
     level: () => round?.level() ?? 1,
     best: () => best,
   });
-  region.appendChild(hud.root);
+  region.appendChild(plant(hud.root));
 
   /**
    * The "+1" footer. In the REGION rather than the document, so it is bounded by the board and
@@ -323,7 +359,7 @@ export function boot(deps: BootDeps): RunningGame {
    * afford because its HUD is a header rather than a column.
    */
   const feedback = createFeedback({ doc });
-  region.appendChild(feedback.root);
+  region.appendChild(plant(feedback.root));
 
   // 3. WHAT THE ROUND SAYS OUT LOUD. The sentences live in `ui/announce`, which is pure and tested;
   //    what is left here is the wiring — urgent to the assertive region, everything else polite.
@@ -537,12 +573,12 @@ export function boot(deps: BootDeps): RunningGame {
   canvas.addEventListener('pointerdown', (event: PointerEvent) => {
     lastPointerAt = event.timeStamp;
     whackAt(event.clientX, event.clientY);
-  });
+  }, { signal });
 
   canvas.addEventListener('click', (event: MouseEvent) => {
     if (event.timeStamp - lastPointerAt < POINTER_WINDOW_MS) return;
     whackAt(event.clientX, event.clientY);
-  });
+  }, { signal });
 
   // 7. THE CAMERA. Shift and an arrow leans the mat; Shift+Home puts it back square-on.
   const camera = createCamera();
@@ -560,7 +596,7 @@ export function boot(deps: BootDeps): RunningGame {
     if (!direction) return;
     event.preventDefault();
     applyCamera(camera.nudge(direction));
-  });
+  }, { signal });
 
   function applyCamera(state: { pitch: number; yaw: number }): void {
     stage.setCamera(state.pitch, state.yaw);
@@ -638,7 +674,7 @@ export function boot(deps: BootDeps): RunningGame {
    * 📌 OPEN, AND NOT INVENTED HERE: whether a cursor decoration should be visually clipped to
    * the cartridge in platform mode. No record raises it, and guessing answers it for six.
    */
-  stageWrap.appendChild(ball);
+  stageWrap.appendChild(plant(ball));
 
   window.addEventListener('pointermove', (event: PointerEvent) => {
     // `transform` rather than left/top: it stays on the compositor and cannot force a layout on
@@ -654,7 +690,7 @@ export function boot(deps: BootDeps): RunningGame {
     const nx = Math.max(-1, Math.min(1, ((event.clientX - rect.left) / rect.width) * 2 - 1));
     const ny = Math.max(-1, Math.min(1, ((event.clientY - rect.top) / rect.height) * 2 - 1));
     applyCamera(camera.point(-nx, -ny));
-  });
+  }, { signal });
 
   /**
    * ⚠️ THE NUMBERS NEED THEIR FACE BEFORE THEY ARE ANY GOOD, and `@font-face` is LAZY: a declared
@@ -673,7 +709,7 @@ export function boot(deps: BootDeps): RunningGame {
   // 8. LAYOUT, and the resize that keeps the scale a whole number of physical pixels.
   const layoutHost = { wrap: stageWrap, region, doc, win: window };
   applyLayout(layoutHost);
-  window.addEventListener('resize', () => { applyLayout(layoutHost); invalidate(); });
+  window.addEventListener('resize', () => { applyLayout(layoutHost); invalidate(); }, { signal });
 
   /**
    * ================== 9. ONE FRAME. THE LOOP THAT DRIVES IT IS THE SHELL'S ==================
@@ -683,12 +719,17 @@ export function boot(deps: BootDeps): RunningGame {
    * wire. In the platform ONE loop calls each mounted cartridge's `update(dt)`.
    *
    * So what the game owns is a frame, and what it hands over is this function. It is half of the
-   * `GameInstance` the contract asks for; `teardown()` is the other half and comes next.
+   * `GameInstance` the contract asks for, and `teardown()` below is the other.
    *
    * ⚠️ `dt` IS IN FRAMES, not seconds — the ticker's convention, inherited from PixiJS — and it
    * becomes milliseconds at the boundary below, before it reaches any rule.
    */
   function update(dt: number): void {
+    // ⚠️ A TORN-DOWN GAME STILL RECEIVES FRAMES, and pretending otherwise is how a shell's loop
+    // ends up drawing into a canvas that has no parent. The loop belongs to the shell (ADR-0139 §3),
+    // so the game cannot stop it — what it can do is stop DOING anything, which is the honest answer
+    // to «what does `update` mean after `teardown`?».
+    if (torndown) return;
     // Only the round gets time, and only while it is the top of the stack. A wave that expired
     // behind a result screen would charge a player for a mistake they were not allowed to make.
     if (round && !screen && !paused) handle(round.advance(dt * FRAME_MS));
@@ -710,6 +751,33 @@ export function boot(deps: BootDeps): RunningGame {
    * by nobody. Routing the stepper through the returned object closes that by construction
    * rather than by one more test remembering to.
    */
+  /**
+   * ================== GIVING THE REGION BACK ==================
+   * ⚠️ ADR-0139's FOURTH GATE: «after `teardown()`, emptying the region leaves no node the cartridge
+   * created». The engine's `unmount()` (9.0.0) does the half that is the ENGINE's — the two keyboard
+   * registries, the reach notice, the scene stack — and this does the half that is the game's.
+   *
+   * 📌 THE SCREEN GOES THROUGH `unmount()` AND NOT THROUGH THE LIST, because it is mounted and
+   * discarded on every transition: registering each one would keep a reference to every screen the
+   * game ever showed. Its own `destroy()` is what removes it, and calling the local `unmount()` also
+   * clears `inert` and `hidden` off elements this game does not own — which nobody would see in a
+   * DOM count, and which would arrive at the next cartridge as a region that cannot be tabbed into.
+   *
+   * ⚠️ AND THE ORDER MATTERS ONCE. Listeners first: a resize between the two loops would call
+   * `applyLayout` against nodes half removed. Nothing else here depends on order.
+   */
+  let torndown = false;
+  function teardown(): void {
+    // Idempotent, because a shell that tears down twice — or tears down a game that already threw —
+    // must not be the thing that fails.
+    if (torndown) return;
+    torndown = true;
+    life.abort();
+    unmount();
+    for (let i = planted.length - 1; i >= 0; i--) planted[i]!.parentNode?.removeChild(planted[i]!);
+    planted.length = 0;
+  }
+
   const api: RunningGame = {
     update,
     view: () => round?.view() ?? { category: choice.category, tiles: [], hits: 0, focus: null },
@@ -718,6 +786,7 @@ export function boot(deps: BootDeps): RunningGame {
     // ⚠️ BUILT ON EVERY CALL, not once: `refrescarItensDaPausa` reads the table each time the card
     // opens, and a frozen one is how the engine's own note says this broke before.
     pauseActs: () => ({ resume: () => setPaused(false) }),
+    teardown,
   };
 
   if (new URLSearchParams(location.search).has('debug')) {
@@ -734,6 +803,16 @@ export function boot(deps: BootDeps): RunningGame {
        * should fail the test rather than be swallowed and announced.
        */
       step: (dt = 1) => api.update(dt),
+      /**
+       * ⚠️ THE GAME'S HALF OF THE TEARDOWN, REACHABLE ON ITS OWN — and it is here because a
+       * mutation escaped without it. In the standalone shell `engine.unmount()` runs right
+       * after `teardown()` and pops the scene stack, and this game's scene `exit` IS its own
+       * clean-up (the very thing ADR-0142 measured in this file) — so deleting the clean-up
+       * from `teardown()` changed nothing anybody could see. It would still be wrong: a shell
+       * that swaps cartridges calls `mount()`, which does NOT pop the stack, and `teardown()`
+       * has to stand alone. Exposing it is what lets a test ask that question.
+       */
+      teardown: () => api.teardown(),
     };
   }
 

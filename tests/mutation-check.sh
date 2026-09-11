@@ -1158,8 +1158,8 @@ add "the screens go back to the document body, outside the region" \
 
 add "the pointer ball goes back outside the region" \
     "$BOOT/main.ts" \
-    "  stageWrap.appendChild(ball);" \
-    "  doc.body.appendChild(ball);"
+    "  stageWrap.appendChild(plant(ball));" \
+    "  doc.body.appendChild(plant(ball));"
 
 # ⚠️ AND THE OTHER DIRECTION: dropping the write entirely satisfies "nothing on the root" and puts
 # the logo back under the HUD column, which is the defect the root write existed to fix.
@@ -1192,6 +1192,40 @@ add "the shell stops calling the game, so nothing runs at all" \
 # ⚠️ ADR-0139 §3: A CARTRIDGE NEVER CALLS `startLoop`. «Six cartridges each opening their own frame
 # callback is six loops competing for one frame», and `aoFalhar` -- where spec D16 lives -- is the
 # shell's to wire. The game owns a FRAME; the loop that drives it is outside.
+# ========================= ADR-0139 GATE 4: GIVING THE REGION BACK =========================
+# ⚠️ IN THE PLATFORM THIS REGION IS HANDED TO THE NEXT GAME, and what the last one left behind
+# arrives as that game's bug. The node half is visible; the LISTENER half is not, and it is the half
+# that keeps working -- a pointer handler still moving a ball nobody can see costs a frame forever.
+add "the listeners outlive the cartridge, and keep writing after it is gone" \
+    "$BOOT/main.ts" \
+    "    life.abort();" \
+    "    "
+
+add "the nodes stay in the region for the next cartridge to inherit" \
+    "$BOOT/main.ts" \
+    "    for (let i = planted.length - 1; i >= 0; i--) planted[i]!.parentNode?.removeChild(planted[i]!);" \
+    "    "
+
+# ⚠️ THE HALF A NODE COUNT CANNOT SEE. Behind a modal screen the region is `inert` -- correctly -- and
+# an EMPTY region that is still inert arrives at the next cartridge as one nothing can be focused in.
+add "the region is given back empty but inert, which nothing looks like" \
+    "$BOOT/main.ts" \
+    "    unmount();" \
+    "    "
+
+# ⚠️ AND THE SHELL HAS TO CALL BOTH HALVES. `engine.unmount()` clears what the ENGINE registered for
+# this cartridge -- the two mappings, the reach notice, the scene stack -- and no test of the game's
+# own nodes can see its absence.
+add "the shell tears the game down and leaves the engine mounted" \
+    "$BOOT/standalone.ts" \
+    "  engine.unmount();" \
+    "  void 0;"
+
+add "the shell never tears anything down at all" \
+    "$BOOT/standalone.ts" \
+    "window.addEventListener('pagehide', teardown);" \
+    "void teardown;"
+
 add "the frame stops being handed over, so the shell drives nothing" \
     "$BOOT/main.ts" \
     "  return api;" \
