@@ -1281,6 +1281,21 @@ add "a contrast figure on the page drifts from the one palette.ts measured" \
     "idle tile vs ground **3.10:1**" \
     "idle tile vs ground **3.90:1**"
 
+# ⚠️ THE NUMBERS IN A MAP AGE FIRST, and two of the three in this one were wrong within an hour of
+# being written -- counted by eye instead of by find. A stale count is worse than none: a reader
+# trusts it precisely where it is least examined.
+add "the architecture map miscounts the modules in the tree" \
+    "$DOCS/ARCHITECTURE.md" \
+    "The map. Thirty-four modules" \
+    "The map. Thirty-two modules"
+
+# ⚠️ AN IMPORT THAT NEVER REACHES THE TABLE grows this game's dependency on the engine without
+# anybody deciding that it should. The table is where that decision is made visible.
+add "an engine import drops off the map while the code keeps using it" \
+    "$DOCS/ARCHITECTURE.md" \
+    "| \`platform/storage.js\` |" \
+    "| (removed) |"
+
 add "spike 0 stops saying that its conclusions were superseded" \
     "$DOCS/spike-0-symbol-legibility.md" \
     "> ## ⚠️ FIVE OF THIS DOCUMENT'S CONCLUSIONS NO LONGER HOLD" \

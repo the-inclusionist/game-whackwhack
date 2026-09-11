@@ -470,3 +470,76 @@ describe('[Right] the conformance statement says what the code measures', () => 
     }
   });
 });
+
+describe('[Right] the architecture map describes the tree that exists', () => {
+  /**
+   * ⚠️ THE NUMBERS IN A MAP ARE WHAT AGE FIRST, and two of the three in this one were wrong within
+   * an hour of being written — counted by eye instead of by `find`. A stale count is worse than no
+   * count: a reader trusts it precisely where it is least examined.
+   */
+  const ARCH = read('docs', 'ARCHITECTURE.md');
+
+  const WORDS: Record<number, string> = {
+    30: 'Thirty', 31: 'Thirty-one', 32: 'Thirty-two', 33: 'Thirty-three',
+    34: 'Thirty-four', 35: 'Thirty-five', 36: 'Thirty-six', 37: 'Thirty-seven',
+  };
+
+  /** Every `.ts` under a directory that is a MODULE — an ambient declaration is not one. */
+  function modules(...dir: string[]): string[] {
+    const out: string[] = [];
+    for (const entry of readdirSync(join(ROOT, ...dir), { withFileTypes: true })) {
+      if (entry.isDirectory()) out.push(...modules(...dir, entry.name));
+      else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) {
+        out.push([...dir, entry.name].join('/'));
+      }
+    }
+    return out;
+  }
+
+  it('counts the modules the tree actually holds', () => {
+    const n = modules('app', 'js').length;
+    expect(WORDS[n], `no spelling for ${n} modules — widen the table above`).toBeTruthy();
+    expect(ARCH, `the tree holds ${n} modules`).toContain(`${WORDS[n]} modules`);
+  });
+
+  it('counts the rules layer, which is the boundary the whole map is about', () => {
+    expect(modules('app', 'js', 'rules').length, 'rules/ changed size; the map says seven').toBe(7);
+    expect(ARCH).toMatch(/Seven\s+modules/);
+  });
+
+  it('lists every engine path the game imports, and leaves none out', () => {
+    /**
+     * ⚠️ AN IMPORT THAT NEVER REACHED THE TABLE would make this game depend on more of the engine
+     * than its own map admits — which is how a dependency surface grows without anyone deciding it
+     * should. The table is the place that decision gets made visible.
+     */
+    const paths = new Set(
+      modules('app', 'js')
+        .flatMap((f) => [...read(...f.split('/')).matchAll(/from '(@the-inclusionist[^']*)'/g)])
+        .map((m) => m[1]),
+    );
+    expect(paths.size, 'no engine import found at all — this check is empty').toBeGreaterThan(5);
+    for (const path of paths) {
+      const short = path.replace('@the-inclusionist/engine/', '');
+      expect(ARCH, `${path} is imported and the map does not list it`).toContain(short);
+    }
+  });
+
+  it('names the documents it defers to, and they are all there', () => {
+    // The map's whole claim is that it does not repeat the others. A pointer to a document nobody
+    // wrote is a defect this repository has already paid for once.
+    for (const doc of [
+      'GAME-RULES.md', 'CONFORMANCE.md', 'engine-8-consumer-gaps.md',
+      'spike-0-symbol-legibility.md',
+    ]) {
+      expect(ARCH, `${doc} is cited`).toContain(doc);
+      expect(() => read('docs', doc)).not.toThrow();
+    }
+  });
+
+  it('states the source resolution the code actually uses', () => {
+    expect(read('app', 'js', 'render', 'resolution.ts')).toContain('SOURCE_MULTIPLE = 2');
+    expect(ARCH).toContain('640×360');
+    expect(ARCH).toContain('SOURCE_MULTIPLE = 2');
+  });
+});
