@@ -48,7 +48,7 @@ describe('[Interface] the preset is well formed by the engine\'s own rules', () 
   });
 });
 
-describe('[Right] this game is four directions and one verb', () => {
+describe('[Right] this game is four directions, one verb and the pause', () => {
   it('uses the four directions, because the mat is a grid', () => {
     for (const direction of ['up', 'down', 'left', 'right']) {
       expect(USED).toContain(direction);
@@ -71,12 +71,16 @@ describe('[Right] this game is four directions and one verb', () => {
     }
   });
 
-  it('does not name `start`, because there is no pause screen to promise', () => {
-    // The game declares `semMenuDePausa` to the engine: the title and the result are the only two
-    // places it stops, and both are reachable without one.
-    expect(USED).not.toContain('start');
-    expect(labellerFrom(preset())('start')).toBeNull();
+  it('names `start`, because engine 8.0.0 gave this game a pause screen', () => {
+    // ⚠️ THIS TEST USED TO ASSERT THE OPPOSITE, and it was right until 2026-09-11: the game
+    // declared `semMenuDePausa`, so naming a pause here "would promise a screen that does not
+    // exist". ADR-0120 removed the decline — five of the six games in the catalogue had taken it,
+    // and a child who needs blind mode or contrast opened those five and found nowhere to turn
+    // them on. The screen exists now, and the promise is kept in `boot/main`'s `setPaused`.
+    expect(USED).toContain('start');
+    expect(labellerFrom(preset())('start')).toBe(i18n.t('act.pause'));
   });
+
 });
 
 describe('[Right] every word comes from the catalogue, never from the code', () => {
@@ -89,11 +93,14 @@ describe('[Right] every word comes from the catalogue, never from the code', () 
     }
   });
 
-  it('gives the verb a hint and the directions none', () => {
+  it('gives the verb and the pause a hint, and the directions none', () => {
     // The four directions explain themselves on a grid, and a hint that restates its own label is
-    // noise on the screen that most needs to be short.
+    // noise on the screen that most needs to be short. The pause earns one for the opposite
+    // reason: its label does NOT say what it opens, and blind mode, TTS, contrast and Libras all
+    // live behind it.
     const p = preset();
     expect(p.action1?.hint).toBeTruthy();
+    expect(p.start?.hint).toBe(i18n.t('act.pause.hint'));
     for (const direction of ['up', 'down', 'left', 'right'] as const) {
       expect(p[direction]?.hint, direction).toBeUndefined();
     }

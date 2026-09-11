@@ -37,6 +37,11 @@ export const en: Catalog = {
   'act.hammer': 'Whack',
   'act.hammer.short': 'Whack',
   'act.hammer.hint': 'Whacks the tile the cursor is on.',
+  'act.pause': 'Pause',
+  'act.pause.short': 'Pause',
+  'act.pause.hint': 'Stops the clock and opens the settings.',
+  'pause.on': 'Paused. The clock has stopped.',
+  'pause.off': 'Back in the game.',
 
   'combo.awesome': 'Awesome!',
   'combo.good': 'Good!',

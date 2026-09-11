@@ -38,6 +38,14 @@ export interface HudDeps {
    * host for the controls and a reader of the contract, and those two jobs do not meet.
    */
   readonly options: HTMLElement;
+  /**
+   * The engine's accessibility bar — blind mode, TTS, contrast, CVD, Libras.
+   *
+   * ⚠️ OWNED BY THE CALLER FOR A SHARPER REASON THAN `options` IS: this element's contents are
+   * written by `createGame`, at boot, before the HUD exists. The HUD is given the element and
+   * places it; what is inside it is not this file's business and never becomes it.
+   */
+  readonly icons: HTMLElement;
   /** Lives left, or `null` where the mode has none. */
   livesLeft(): number | null;
   level(): number;
@@ -123,7 +131,10 @@ export function createHud(deps: HudDeps): Hud {
   live.className = 'hud-live';
   live.append(collect, score, level, lives, best);
 
-  root.append(deps.options, live, help);
+  // ⚠️ THE BAR IS LAST IN THE COLUMN AND FIRST IN NOTHING. It is built and filled by the engine
+  // (`boot/main` hands it over as `host.a11yBarHost`); the HUD only owns WHERE it sits, which is
+  // the split the engine asks for — it can offer the icons and cannot guess a stranger's layout.
+  root.append(deps.options, live, help, deps.icons);
 
   function refresh(): void {
     const objective = deps.declaration.objectiveOf(0);

@@ -115,6 +115,53 @@ describe('[Interface] the declaration is well formed', () => {
     expect(decl.holdsAtOnce()).toBe(decl.holdsAtOnce());
   });
 
+  it('holds NO key, which is the other question and a different answer', () => {
+    /**
+     * ⚠️ `holdsAtOnce` ABOVE DOES NOT ANSWER THIS, and the two being read as one is what forced
+     * `seguraTeclas` into the contract in engine 8.0.0. That number counts SIMULTANEOUS positions
+     * and refuses zero; this one asks whether any position is HELD. "One at a time" and "one held
+     * down" are the same numeral and different facts, and this game is the first: the cursor
+     * moves, then the hammer falls, and nothing is sustained in between.
+     *
+     * What the answer buys is the absence of a control. Latching is offered where something can
+     * be held; offering it here would put an adjustment on the accessibility bar that does
+     * nothing, in front of the one child who went looking for it.
+     */
+    expect(declOf().decl.seguraTeclas()).toBe(false);
+  });
+
+  it('gives the same answer every time, because the bar is built from it ONCE', () => {
+    // The engine reads this at boot and never again, on purpose: an icon that appeared and
+    // vanished between phases would move the tab order under the hand of whoever was using it.
+    const { decl } = declOf();
+    expect(decl.seguraTeclas()).toBe(decl.seguraTeclas());
+  });
+
+  it('takes Enter off the pause, because Enter is how the hammer falls', () => {
+    /**
+     * ⚠️ THE ENGINE'S FACTORY BINDS `start` TO `KeyH` AND `Enter`, and it is right to: Enter has
+     * paused for years, so declaring it described a key rather than giving it new work. In THIS
+     * game the mat is twenty real `<button role="gridcell">`s, so Enter activates them natively —
+     * a child would whack a tile and open the pause with one press.
+     *
+     * `mapeamentoDoTeclado` is where a game says so. Partial on purpose: the directions and the
+     * hammer keep the engine's factory, because restating them would be owning a copy of a table
+     * this game did not write.
+     */
+    const mapa = declOf().decl.mapeamentoDoTeclado!(1, 0)!;
+    expect(mapa.start).toEqual(['KeyH', 'Escape']);
+    expect(mapa.start).not.toContain('Enter');
+    expect(Object.keys(mapa), 'only the colliding position is named').toEqual(['start']);
+  });
+
+  it('answers the same table for every seat, because this mat seats one child', () => {
+    // The engine passes player count and seat because a two-player keyboard is not a one-player
+    // keyboard. Ignoring both is an answer here, and saying so is what keeps it from looking like
+    // an argument somebody forgot to use.
+    const { decl } = declOf();
+    expect(decl.mapeamentoDoTeclado!(2, 1)).toEqual(decl.mapeamentoDoTeclado!(1, 0));
+  });
+
   it('does not REQUIRE a pointer, because the whole game is reachable by keyboard', () => {
     /**
      * ⚠️ THE FIELD IS OMITTED RATHER THAN DECLARED FALSE, and that is the engine's own

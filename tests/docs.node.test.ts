@@ -230,7 +230,8 @@ describe('[Right] no comment names an engine version the manifest does not', () 
   /**
    * ⚠️ THIS EXISTS BECAUSE A COMMENT SAT ON THE WRONG VERSION THROUGH TWO UPGRADES.
    * `vite.config.ts` said "the dependency is now the pinned version 6.36.1" while the manifest had
-   * moved to 7.0.1 and then to 8.0.0-rc.1. It survived a deliberate sweep for stale references
+   * moved to 7.0.1, then to 8.0.0-rc.1, then to 8.0.0. It survived a deliberate sweep for stale
+   * references
    * because that sweep grepped for `7.0.1` — the version being replaced — and the comment named
    * the one BEFORE it. Searching for the number you expect finds only the drift you predicted.
    *
@@ -248,8 +249,11 @@ describe('[Right] no comment names an engine version the manifest does not', () 
   const PROSE = ['vite.config.ts', '.github/workflows/ci.yml'];
 
   it('pins an exact version, never a range', () => {
-    // ⚠️ A caret on a PRERELEASE is how a build changes under a runner with nothing in the diff
-    // to show it. `latest` on the registry is still 7.0.1; this game is deliberately ahead of it.
+    // ⚠️ EXACT EVEN NOW THAT THE PIN IS STABLE. The first reason was that a caret on a PRERELEASE
+    // is how a build changes under a runner with nothing in the diff to show it, and for a while
+    // this game ran ahead of `latest` on purpose. 8.0.0 caught up, and the rule outlives its first
+    // reason: a range lets the runner and this machine compile different code from one commit.
+    // The prerelease branch of the pattern stays because the next RC is a pin away.
     expect(PIN, 'the engine pin must be exact').toMatch(/^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$/);
   });
 
@@ -257,9 +261,9 @@ describe('[Right] no comment names an engine version the manifest does not', () 
     const text = read(...file.split('/'));
     // ⚠️ THE BACKTICK MUST FOLLOW THE WORD, not merely share a line with it. The first version
     // allowed any run of non-newline characters between them, and it flagged the sentence
-    // "it is pinned EXACTLY for that reason. `latest` on the registry is 7.0.1" -- prose that
-    // is true and is not a claim about the pin. A gate that fires on correct writing gets
-    // switched off.
+    // "it is pinned EXACTLY for that reason. `latest` on the registry is 7.0.1" -- the sentence
+    // `ci.yml` carried at the time, true, and not a claim about the pin. A gate that fires on
+    // correct writing gets switched off.
     const claimed = [...text.matchAll(/pinned(?: version)? `([^`]+)`/g)]
       .map((m) => m[1]);
     for (const version of claimed) {

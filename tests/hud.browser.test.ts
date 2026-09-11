@@ -46,6 +46,9 @@ function hud(over: Partial<Parameters<typeof createHud>[0]> = {}, have = 0) {
     doc: document,
     declaration: declaration(have),
     options: options.root,
+    // The engine fills this at boot; here it only has to BE an element, because what this
+    // suite asserts about it is where the HUD puts it, not what is written inside.
+    icons: document.createElement('div'),
     i18n,
     defeat: 'lives',
     livesLeft: () => LIVES,

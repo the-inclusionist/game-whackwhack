@@ -37,6 +37,11 @@ export const es: Catalog = {
   'act.hammer': 'Martillar',
   'act.hammer.short': 'Martillar',
   'act.hammer.hint': 'Martilla la baldosa donde está el cursor.',
+  'act.pause': 'Pausar',
+  'act.pause.short': 'Pausa',
+  'act.pause.hint': 'Detiene el tiempo y abre los ajustes.',
+  'pause.on': 'En pausa. El tiempo se detuvo.',
+  'pause.off': 'De vuelta al juego.',
 
   'combo.awesome': 'Awesome!',
   'combo.good': 'Good!',

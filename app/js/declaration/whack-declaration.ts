@@ -26,6 +26,7 @@
 import type {
   Focus, GameDeclaration, Objective, Role, Speakable, Spot, Topology, WorldScope,
 } from '@the-inclusionist/engine/core/contract.js';
+import type { Action } from '@the-inclusionist/engine/core/actions.js';
 import type { Category } from '../rules/category.ts';
 import type { RoundTile } from '../rules/round.ts';
 import { ROUND_GOAL } from '../rules/difficulty.ts';
@@ -99,6 +100,15 @@ const TOPOLOGY: Topology = {
  */
 const WORLD: WorldScope = { kind: 'element', selector: '#game-region' };
 
+/**
+ * The one position whose factory keys collide with this game. Frozen and built once, because
+ * `mapeamentoDoTeclado` is called per player count and per seat, and a fresh object each time
+ * would be a new identity for a table that never changes.
+ */
+const KEYBOARD: Partial<Record<Action, readonly string[] | null>> = Object.freeze({
+  start: Object.freeze(['KeyH', 'Escape']),
+});
+
 export function createWhackDeclaration(deps: DeclarationDeps): GameDeclaration {
   /**
    * The tile at `at`, or undefined. Off-mat spots resolve to cell -1 and match nothing.
@@ -158,6 +168,60 @@ export function createWhackDeclaration(deps: DeclarationDeps): GameDeclaration {
      * of ceremony for the common case, the cost ADR-0084 weighed and took.
      */
     holdsAtOnce(): number { return 1; },
+
+    /**
+     * NO. Nothing in this game is sustained — every key in it is a tap.
+     *
+     * ⚠️ THIS IS THE OTHER QUESTION, and `holdsAtOnce` above does not answer it. The engine's own
+     * note says the two being read as one is what forced this field into the contract: that number
+     * counts SIMULTANEOUS positions and refuses zero, this one asks whether any position is HELD.
+     * "One at a time" and "one held down" are the same numeral and different facts.
+     *
+     * What a wrong answer costs is a control that does nothing. Latching — press once to start,
+     * press again to stop — is offered exactly where something can be held. A child who cannot keep
+     * a key pressed opens the accessibility menu, turns on the adjustment she depends on, and
+     * nothing happens: what she learns is that the adjustment is broken. That is the dead button
+     * ADR-0106 §5 forbids, and `false` is what keeps it off her screen.
+     *
+     * ⚠️ AND THE SHIFT+ARROW LEAN IS NOT THE COUNTER-EXAMPLE IT LOOKS LIKE. Shift is genuinely held
+     * there, but it is held against `#game-region`'s own keydown listener rather than against an
+     * engine ACTION — and latching works on the fourteen positions. Answering `true` would light
+     * the control and still leave the mat square-on: the dead button, arrived at by the other road.
+     *
+     * The honest fix for the lean is not a different answer here, it is a binding that needs no
+     * chord. Written down in both places rather than left for someone to rediscover.
+     *
+     * A FUNCTION and not a value, by ADR-0084: a game on foot holds a direction, and the same game
+     * inside a vehicle may hold nothing.
+     */
+    seguraTeclas(): boolean { return false; },
+
+
+    /**
+     * ENTER MUST NOT PAUSE IN THIS GAME, because Enter is how the hammer falls.
+     *
+     * ⚠️ THE ENGINE'S FACTORY IS RIGHT AND STILL WRONG HERE. It binds `start` to `KeyH` and `Enter`,
+     * and it says why: Enter "JÁ pausava" — declaring it described a key that had paused for years
+     * rather than giving it new work. In this game Enter has other work. The mat is twenty real
+     * `<button role="gridcell">`s, so Enter and Space activate them natively (`ui/grid-mirror`
+     * excludes both from its manual path precisely to avoid firing the hammer twice). A child at
+     * the keyboard would whack a tile and open the pause with the same press.
+     *
+     * So this game replaces the list rather than adding to it: `KeyH` stays — it is the position's
+     * home key and the engine chose it for hand symmetry — and `Escape` takes Enter's place, which
+     * is what `input/keydown`'s own `PAUSE_KEYS` has always called a pause.
+     *
+     * ⚠️ PARTIAL ON PURPOSE, and that is the whole reason this field can be used at all: the four
+     * directions and the hammer keep the engine's factory, because a game that restated them would
+     * own a copy of a table it did not write. Only the position with a genuine conflict is named.
+     *
+     * 📌 THE SEAT IS IGNORED, and ignoring it is an answer. Whack-a-mole is one child at one mat;
+     * there is no second seat whose Enter could mean something else. A two-player game answers this
+     * differently, which is why the engine passes the argument rather than assuming.
+     */
+    mapeamentoDoTeclado(): Partial<Record<Action, readonly string[] | null>> {
+      return KEYBOARD;
+    },
 
     // The clock owns the tick: a tile expires whether or not anyone acts.
     tick: 'clock',

@@ -44,6 +44,11 @@ export const pt: Catalog = {
   'act.hammer': 'Martelar',
   'act.hammer.short': 'Martelar',
   'act.hammer.hint': 'Martela o azulejo onde o cursor está.',
+  'act.pause': 'Pausar',
+  'act.pause.short': 'Pausa',
+  'act.pause.hint': 'Para o tempo e abre os ajustes.',
+  'pause.on': 'Pausado. O tempo parou.',
+  'pause.off': 'De volta ao jogo.',
 
   'combo.awesome': 'Awesome!',
   'combo.good': 'Good!',

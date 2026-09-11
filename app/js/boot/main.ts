@@ -29,6 +29,7 @@ import { ROUND_GOAL } from '../rules/difficulty.ts';
 import { createRound, type Round, type RoundEvent } from '../rules/round.ts';
 import { spotOfCell } from '../rules/grid.ts';
 import { createWhackDeclaration } from '../declaration/whack-declaration.ts';
+import { PAUSE, actionPreset } from '../input/actions.ts';
 import { createFrameTicker } from '../render/frame-ticker.ts';
 import { createMat } from '../render/mat.ts';
 import { stampGlyphs } from '../render/glyph-pass.ts';
@@ -86,15 +87,110 @@ function boot(): void {
     t: (key) => i18n.t(key),
   });
 
+  /**
+   * ========================= WHERE THE ACCESSIBILITY BAR LIVES =========================
+   * Built here rather than in `index.html` because `createGame` fills it at boot and the HUD,
+   * which is its home on screen, does not exist yet at that point. So the element is made first,
+   * handed to the engine, and given to the HUD a few lines below to place.
+   *
+   * ⚠️ IT IS IN THE HUD COLUMN AND NOT UNDER THE STAGE, for the reason written over `hud.help`:
+   * every pixel of height taken from `#stage-wrap` is height the integer upscale cannot use, and
+   * at a 640x360 source a strip of 34 px once cost a WHOLE step. The HUD overlays the canvas, so
+   * it is free — and it is reachable on the title screen, which is what the engine asks for: the
+   * title screen is NOT modal (`region.inert` stays false), so a child reaches blind mode, TTS,
+   * contrast and Libras before she starts rather than after she has already needed them.
+   *
+   * ⚠️ AND THE ID IS DELIBERATELY *NOT* `#title-icons`, which is the id the engine falls back to
+   * when a game declares no host. Measured: the engine's own sheet carries
+   * `#title-icons { position: absolute; top: 10px; left: 50%; transform: translateX(-50%) }` —
+   * a header strip across the top of a stage, which is right for the platformer it was written
+   * for and lands this game's bar on top of its difficulty cycler. Taking the fallback id would
+   * be taking a LAYOUT with it. Declaring the host is what buys the right to place it.
+   */
+  const a11yBar = doc.createElement('div');
+  a11yBar.id = 'a11y-bar';
+
+  /**
+   * ⚠️ ON THE WINDOW, IN CAPTURE, AND REGISTERED BEFORE `createGame` — three choices, one reason.
+   *
+   * 📏 MEASURED. The pause key first lived on `#game-region` in the bubble phase, and it opened the
+   * card and could never close it. `ui/menu-nav` registers `menuNavKey` on the window in CAPTURE
+   * and calls `stopPropagation()` on Escape — its own comment says so, and says the current
+   * behaviour "depends on a `stopPropagation()`, not on the chain". So the moment `isNavigable()`
+   * turns true, which is the moment the pause opens, the key stopped reaching this file: Escape
+   * went in and never came out, and a child at a keyboard was shut inside the card.
+   *
+   * Two capture listeners on the same target run in REGISTRATION order, so being first is the whole
+   * fix — and being first means being registered before the engine is built. Hence a listener that
+   * closes over `engine` and runs only long after it exists.
+   *
+   * ⚠️ AND IT YIELDS TO ANY OPEN DIALOG, which is what keeps this from being a land grab. A child
+   * who opened Visual Accessibility from the pause presses Escape to leave THAT, not to leave the
+   * pause under it. The two questions are asked of the engine rather than guessed: `escapeTarget()`
+   * is its own registered chain, and `topVisibleOverlay()` covers the dialogs that same comment
+   * records as being outside the chain (`#help`, `#touchcfg`).
+   */
+  window.addEventListener('keydown', (event: KeyboardEvent) => {
+    // ⚠️ THE ENGINE ANSWERS "WHICH POSITION IS THIS KEY", and asking it rather than comparing codes
+    // is what makes a remapped pause work. A child who moved the pause to another key in the
+    // settings screen moved it here too, and nothing in this file had to know.
+    if (engine.keyboard.actionOf(event.code, 0) !== PAUSE) return;
+    // Not during a screen: the title and the result are already stops, and a pause card over a
+    // modal result would be two dialogs deep with one Escape between them.
+    if (screen) return;
+    if (paused && (engine.overlays.escapeTarget() || engine.overlays.topVisibleOverlay())) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setPaused(!paused);
+  }, { capture: true });
+
   const engine = createGame({
     declaration,
-    host: { doc, win: window, cvdHost: doc.getElementById('cvd') },
-    // There IS no pause menu: the title and result screens are the only two places the game
-    // stops, and both are reachable without one. Declared rather than inferred from a null.
-    declines: { semMenuDePausa: true, semAssistenteDePad: true, semAtorDePausa: true },
-    // Menus are navigable exactly when a screen is up, which is the boolean the engine asked for
-    // instead of a phase name — the correction the quiz consumer forced.
-    isNavigable: () => screen !== null,
+    host: { doc, win: window, cvdHost: doc.getElementById('cvd'), a11yBarHost: a11yBar },
+    // ⚠️ THIS GAME USED TO DECLINE THE PAUSE MENU, and engine 8.0.0 took the option away: ADR-0120
+    // made the pause non-declinable, because five of the six games in the catalogue had declined
+    // it and a child who depends on blind mode, TTS or high contrast opened those five and found
+    // nowhere to turn them on. The reasoning that was written here — "the title and result screens
+    // are the only two places the game stops" — was true and was still the wrong conclusion: the
+    // pause is not only a way to stop, it is the DOOR to the accessibility panel.
+    // ⚠️ `semVozNeural` IS A DECLARED DECLINE AND NOT A PREFERENCE, and it costs something real:
+    // without a neural voice a child who does not read gets the system voice, which on a school
+    // Chromebook may not exist in Portuguese. The alternative is
+    // `carregarVozNeural: () => import('@mintplex-labs/piper-tts-web')`, which drags
+    // `onnxruntime-web` in as a non-optional peer — 135 MB in the node_modules of every
+    // consumer, and the exact weight engine 7.0.1 removed to take this game's install from
+    // 28.5 MB to 276 KB. Declaring the absence is what keeps it a decision on the record
+    // instead of an omission, which is the distinction ADR-0106 §2 is entirely about.
+    declines: { semAssistenteDePad: true, semAtorDePausa: true, semVozNeural: true },
+    // Menus are navigable exactly when a screen is up OR the pause is open, which is the boolean
+    // the engine asked for instead of a phase name — the correction the quiz consumer forced.
+    /**
+     * ⚠️ 241 MB THAT NOTHING IN THIS GAME COULD READ. `baixarPesados` defaults to TRUE, and the
+     * default is right for the platform it was written for: pillar 8 is "online on the first day,
+     * offline-first after", and a child who comes back on day two without a network must not find
+     * that the voice was never fetched.
+     *
+     * 📏 WHAT THE CATALOGUE ACTUALLY HOLDS, read rather than assumed: the MediaPipe vision runtime
+     * and its three models (~32 MB), WebGazer (~1.9 MB), the piper runtime with onnxruntime
+     * (~12 MB) and the four neural voices (~190 MB). This game has no camera input, no gaze input,
+     * no gesture input, and — see `semVozNeural` below — no neural voice. Not one of those bytes
+     * has a reader here.
+     *
+     * ⚠️ AND THE ENGINE SAYS THE SAME OF ITSELF, which is what turns this from a trade into simple
+     * waste: `platform/pesados-catalogo` carries "⬜ O que continua por fazer é a FIAÇÃO (issue
+     * #11): estes bytes descem e ainda ninguém os lê." Spending a school's bandwidth on bytes that
+     * nothing reads is not caution, and the connection this targets is often metered.
+     *
+     * 📌 TURN IT BACK ON when either half changes — when this game gains a neural voice, or when
+     * the engine wires the vision runtime. It is one word, and the day it flips is a day somebody
+     * gains something for the download.
+     */
+    baixarPesados: false,
+    isNavigable: () => screen !== null || paused,
+    // ⚠️ HANDED OVER AT LAST. `input/actions` carried this preset for weeks with nowhere to put
+    // it; engine 8.0.0 added the parameter. Without it the engine cannot count how many actions
+    // a transport must reach, so the reach warning of ADR-0079 §3 has nothing to measure.
+    preset: actionPreset((key) => i18n.t(key)),
   });
   if (engine.problems.length) console.warn('engine:', engine.problems.join('; '));
 
@@ -144,6 +240,7 @@ function boot(): void {
     doc,
     declaration,
     options: options.root,
+    icons: a11yBar,
     i18n,
     defeat: choice.defeat,
     livesLeft: () => (choice.defeat === 'lives' ? Math.max(0, LIVES - (round?.errors() ?? 0)) : null),
@@ -402,6 +499,68 @@ function boot(): void {
   }
 
   /**
+   * ========================= 7b. THE PAUSE =========================
+   * ⚠️ THIS GAME USED TO DECLINE ONE, AND ENGINE 8.0.0 TOOK THE DECLINE AWAY (ADR-0120). The
+   * reasoning that was written at the call to `createGame` — the title and result screens are the
+   * only two places this game stops — was true, and it answered the wrong question: the pause is
+   * not only a way to stop, it is the door to the settings a child may need MID-ROUND, when the
+   * contrast is wrong or the voice is off and the clock is running.
+   *
+   * ⚠️ AND THE CARD IS THE ENGINE'S, NOT THIS GAME'S. `createGame` builds it, gives it the id its
+   * own menu navigation looks for, and hangs it in `#game-region`; what it deliberately does NOT
+   * do is decide when it opens, because "what it means to be playing" is the one part of this only
+   * the game knows. So the engine mounts and this function reveals — and without these few lines
+   * the card would be a element that exists, is found by the navigation, and can never be seen.
+   *
+   * Escape opens and closes it. `KeyH` does too, because that is where the engine put the position
+   * for hand symmetry; what does NOT is Enter, which this game took off `start` in the declaration
+   * because Enter is how the hammer falls.
+   */
+  let paused = false;
+  function setPaused(next: boolean): void {
+    if (next === paused) return;
+    paused = next;
+    if (paused) {
+      engine.pausa.mostrar(0);
+      reviveResume();
+    } else engine.pausa.esconder(0);
+    // ⚠️ SAID, NOT SHOWN. A child in blind mode gets no signal from a card appearing, and the one
+    // thing she must not have to guess is whether the clock is still running.
+    srSay(i18n.t(paused ? 'pause.on' : 'pause.off'));
+    invalidate();
+  }
+
+
+  /**
+   * ⚠️ A STOPGAP, AND THE UPSTREAM GAP IS NAMED SO IT CAN BE DELETED. Engine 8.0.0 mounts a pause
+   * card for every game and offers no way to supply the item that CLOSES it. The `resume` action
+   * lives in `getPauseActs`, which `initPauseIcons` accepts and `createGame` never passes; the
+   * engine actions three items by itself (`options`, `pmback`, `acessibilidade`) and `resume` is
+   * not one of them. So the §5 filter does exactly what it should — an item with no action is a
+   * dead button, and it hides "▶ Continuar" every time the card opens.
+   *
+   * ⚠️ WHICH LEAVES A TRAP, and naming it precisely is the point: Escape closes the pause, so a
+   * child at a keyboard is fine. A child on a touch screen — the school tablet this targets — opens
+   * the card and has no way back. That is worse than the dead button the filter was avoiding.
+   *
+   * So this game supplies the action the engine has no parameter for, and the shape of the fix is
+   * the shape of the fix upstream: reveal the item and give it the function. Called after EVERY
+   * `mostrar`, because the filter runs on every open (`refrescarItensDaPausa`) and hides it again.
+   *
+   * 📌 DELETE THIS the day `CreateGameOptions` takes pause actions. The wiring guard means the day
+   * it does, this function becomes a no-op rather than a second handler.
+   */
+  function reviveResume(): void {
+    const item = doc.querySelector<HTMLElement>('#vp-pause-0 [data-act="resume"]');
+    if (!item) return;
+    item.hidden = false;
+    if (item.dataset.whackWired) return;
+    item.dataset.whackWired = '1';
+    item.addEventListener('click', () => setPaused(false));
+  }
+
+
+  /**
    * ========================= THE MAT LEANS TOWARDS THE POINTER =========================
    * The original's signature, restored — and ADDED to the keyboard nudge rather than replacing it.
    *
@@ -457,7 +616,7 @@ function boot(): void {
   startLoop(ticker, (dt: number) => {
     // Only the round gets time, and only while it is the top of the stack. A wave that expired
     // behind a result screen would charge a player for a mistake they were not allowed to make.
-    if (round && !screen) handle(round.advance(dt * FRAME_MS));
+    if (round && !screen && !paused) handle(round.advance(dt * FRAME_MS));
     // A fade in progress is a reason to draw even when nothing else changed — the dirty flag is
     // about STATE, and an animation is state changing continuously. So is a wave's countdown: the
     // tiles cool every frame, and without this they would cool only when something else happened.

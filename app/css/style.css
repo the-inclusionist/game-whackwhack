@@ -1,5 +1,31 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 
+/* ========================= THE ENGINE'S OWN SHEET, UNDERNEATH THIS ONE =========================
+   ⚠️ IT IS HERE BECAUSE ENGINE 8.0.0 MOUNTS TWO THINGS INTO THIS GAME'S DOCUMENT and ships the CSS
+   for neither in the JavaScript: the accessibility bar (`.pause-icons` / `.pi-btn`) and the pause
+   card (`.screen-pause` and its menu). Measured before importing, with the card mounted and this
+   line absent: `.screen-pause` fell back to `position: static`, so a 72 px strip appeared INSIDE
+   `#game-region` and pushed the mat out of the frame — and `.pi-btn`, which the engine sizes with
+   `var(--tap)`, collapsed to 33 px against the 44 px that WCAG 2.5.5 requires and this project has
+   measured everywhere else.
+
+   ⚠️ AND IT IS IMPORTED, NOT COPIED, because the Dev's instruction is about SAMENESS: «todo jogo da
+   engine inclusionist deve ter o mesmo menu de pausa e ícones de acessibilidade desde a primeira
+   [tela]». A copy of the engine's pause styling in this file would look the same on the day it was
+   pasted and drift from every sibling game after it.
+
+   ⚠️ `layer(engine)` IS THE WHOLE TRICK, and it is one line instead of a fight. Seven selectors are
+   written in both sheets — `*`, `body`, `:root`, `.hud`, `.sr-only`, `.title-by`, `@font-face` —
+   and an engine `.hud { max-width: var(--maxw) }` landing on this game's HUD column would be a
+   layout bug arriving from a dependency. In the cascade, UNLAYERED declarations beat layered ones
+   whatever their specificity, so everything below this line wins over everything the engine says,
+   without a single `!important` and without wrapping this file in a block.
+
+   📌 Which also means the reverse: an engine rule only reaches this game where this file is silent.
+   That is the intended split — the pause and the bar are the engine's to design, and the mat, the
+   title and the HUD are not. */
+@import '@the-inclusionist/engine/style.css' layer(engine);
+
 /* ⚠️ The colours here are the ones render/palette MEASURED — the contrast floors, the
    colour-vision simulations, the search that picked each one — repeated because CSS cannot import
    TypeScript. One of the two copies has to be a copy, and it is this one.
@@ -304,6 +330,37 @@ body {
   color: #8B949E;
   font-size: 0.85em;
   margin-top: auto;
+}
+
+/* ========================= THE ENGINE'S ACCESSIBILITY BAR, IN THIS COLUMN =========================
+   The seven buttons and everything about how they look belong to the engine's sheet, imported at
+   the top of this file. What is written here is the one thing the engine cannot know: this game
+   puts the bar in a 27.5% column rather than in a strip across the top of a canvas.
+
+   ⚠️ THE ELEMENT IS `#a11y-bar` AND NOT `#title-icons` for the same reason. `#title-icons` is the
+   id the engine falls back to, and its sheet positions that id absolutely at the top-centre of the
+   stage — a header for the platformer it was written for. Declaring `host.a11yBarHost` is what
+   lets this game place the bar; reusing the fallback id would have inherited the placement too.
+
+   ⚠️ IT MUST WRAP, and that is not a preference. The engine's `.screen-a11y` sets
+   `flex-wrap: nowrap` because its own bar spans the full width of the stage; here the column is
+   ~350 px and `--tap` is `22 x k` — 88 px at a 4x upscale. Measured with the engine's rule in
+   force and this block absent: 662 px of buttons in a 352 px column, which took the HUD's scroll
+   with it and pushed the difficulty cycler out of sight.
+
+   ⚠️ AND `--tap` COMES BACK TO THE FLOOR HERE, which is a real trade and worth naming. 88 px is the
+   engine's PREFERRED size and bigger is easier to hit; 44 px is the WCAG 2.5.5 minimum. Three rows
+   of huge icons would push the number grid — the control a child uses every round — off the
+   bottom, so the bar takes the floor and the game keeps its layout. This is the only place in this
+   repository where a tap target is reduced, and it is reduced TO the standard, never below it. */
+#a11y-bar {
+  --tap: 44px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  /* Below the help line, at the foot of the column. `.hud-help` already claims `margin-top: auto`,
+     so this one needs none — it simply follows. */
+  margin-bottom: 0.2rem;
 }
 
 /* ========================= THE TITLE AND RESULT SCREENS =========================
