@@ -1263,6 +1263,24 @@ add "the old repository names are tidied away, erasing the measurement" \
     "| \`SP-the-inclusionist-whackwhack\` | \`@the-inclusionist/game-whackwhack\` |" \
     "| \`game-whackwhack\` | \`@the-inclusionist/game-whackwhack\` |"
 
+# ⚠️ A CONFORMANCE PAGE IS THE DOCUMENT MOST WORTH DISTRUSTING: nobody re-reads it and every reader
+# takes it at face value. It drifts by LOSING failures, never by inventing them, so the three
+# mutations below all delete an admission rather than a claim.
+add "the conformance page quietly drops the target size it does not meet" \
+    "$DOCS/CONFORMANCE.md" \
+    "### 2.5.5 Target Size" \
+    "### Target sizing"
+
+add "the page stops admitting that no screen-reader user has tested this" \
+    "$DOCS/CONFORMANCE.md" \
+    "No screen-reader user has tested this game" \
+    "Testing is ongoing"
+
+add "a contrast figure on the page drifts from the one palette.ts measured" \
+    "$DOCS/CONFORMANCE.md" \
+    "idle tile vs ground **3.10:1**" \
+    "idle tile vs ground **3.90:1**"
+
 add "spike 0 stops saying that its conclusions were superseded" \
     "$DOCS/spike-0-symbol-legibility.md" \
     "> ## ⚠️ FIVE OF THIS DOCUMENT'S CONCLUSIONS NO LONGER HOLD" \

@@ -408,3 +408,65 @@ describe('[Right] the dated record says it is dated, above the fold', () => {
     expect(() => read('docs', 'engine-8-consumer-gaps.md')).not.toThrow();
   });
 });
+
+describe('[Right] the conformance statement says what the code measures', () => {
+  /**
+   * ⚠️ A CONFORMANCE PAGE IS THE DOCUMENT MOST WORTH DISTRUSTING, because it is the one nobody
+   * re-reads and the one a reader takes at face value. Every number in it is read off the code or
+   * off a browser; these assertions are what keep it that way after a colour moves.
+   *
+   * 📌 The plan asked for exactly this and called it "a11y honesto": mark where it only reaches AA,
+   * never sell AAA in bulk. So the checks below are as interested in the NOT-met section as in the
+   * met one — a page that quietly lost its failures would pass a laxer gate.
+   */
+  const CONF = read('docs', 'CONFORMANCE.md');
+  const PALETTE = read('app', 'js', 'render', 'palette.ts');
+
+  it('quotes contrast figures that palette.ts actually measured', () => {
+    // The two floors and the two digit readings. A colour that moves changes these in `palette.ts`
+    // and this assertion is what forces the page to move with it.
+    for (const figure of ['3.38', '3.10', '10.53', '19.37']) {
+      expect(CONF, `the page cites ${figure}`).toContain(figure);
+      expect(PALETTE, `palette.ts no longer measures ${figure}`).toContain(figure);
+    }
+  });
+
+  it('states the timing ring the rules actually offer', () => {
+    // ⚠️ SC 2.2.1 is met by a range of at least ten times the default. If `PACES` is ever trimmed,
+    // the claim on this page becomes false — so the page names every step and this reads them back.
+    const paces = /export const PACES: readonly Pace\[\] = \[([^\]]+)\]/
+      .exec(read('app', 'js', 'rules', 'difficulty.ts'));
+    expect(paces, 'PACES is gone; re-read the rules before trusting this page').toBeTruthy();
+    for (const step of paces![1].split(',').map((v) => v.trim())) {
+      expect(CONF, `the page does not mention the ×${step} step`).toContain(`×${step}`);
+    }
+  });
+
+  it('still admits the three things this game does NOT do', () => {
+    /**
+     * ⚠️ THE HALF THAT ROTS UPWARDS. A conformance page drifts by losing failures, never by
+     * inventing them, and each of these is a real gap with a real owner:
+     * target size at AAA, high contrast unreachable, and the column that scrolls at 800×600.
+     */
+    expect(CONF, 'the AAA target-size miss is gone from the page').toMatch(/2\.5\.5/);
+    expect(CONF, 'the unreachable high contrast is gone from the page')
+      .toMatch(/High contrast is not reachable/);
+    // ⚠️ The multiplication sign, not an ASCII x — which is what the page writes and what this
+    // assertion got wrong first time. A gate that matches a character the document never uses
+    // fails for its own reason and teaches nothing about the document.
+    expect(CONF, 'the small-screen overflow is gone from the page').toMatch(/800.600/);
+  });
+
+  it('says that no screen-reader user has tested it', () => {
+    // The single most important line on the page, and the easiest to delete once it stops being
+    // comfortable. A document that listed only what passed would read as though somebody had.
+    expect(CONF).toMatch(/No screen-reader user has tested this game/);
+  });
+
+  it('points at gates that exist', () => {
+    for (const cited of ['tests/a11y.browser.test.ts', 'tests/axe-url.mjs', 'tests/mutation-check.sh']) {
+      expect(CONF, `${cited} is cited`).toContain(cited);
+      expect(() => read(cited)).not.toThrow();
+    }
+  });
+});
