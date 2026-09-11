@@ -32,6 +32,10 @@ const ENGINE_BASE_W = UI_BASE_W;
 const MIN_REGION_W = 640;
 
 export interface LayoutHost {
+  /** The cartridge's region — what the integer scale is measured against. */
+  readonly wrap: HTMLElement;
+  /** The element `declaration.world()` names: the integer-scaled canvas box. */
+  readonly region: HTMLElement;
   readonly doc: Document;
   readonly win: Window;
 }
@@ -45,9 +49,9 @@ export interface LayoutResult {
 }
 
 export function applyLayout(host: LayoutHost): LayoutResult | null {
-  const wrap = host.doc.getElementById('stage-wrap');
-  const region = host.doc.getElementById('game-region');
-  if (!wrap || !region) return null;
+  // ⚠️ HANDED IN SINCE 2026-09-11. Looking them up by id made this module work only in a page
+  // this game wrote; a cartridge is given its elements and may not reach past them.
+  const { wrap, region } = host;
 
   const dpr = host.win.devicePixelRatio || 1;
   const availW = wrap.clientWidth || MIN_REGION_W;

@@ -104,38 +104,43 @@ export interface BootDeps {
   /** Already built and already filled by the engine; the HUD only decides where it sits. */
   readonly a11yBar: HTMLElement;
   readonly i18n: I18n;
+  /**
+   * THE ELEMENT THIS GAME MAY WRITE INSIDE, and nothing outside it (ADR-0139 §4).
+   *
+   * 📏 Measured: it is `#stage-wrap`. It fills the viewport, so a `.screen` inside it at
+   * `inset: 0` keeps the box it had as `position: fixed`, and `#game-region` could not host the
+   * screens because it is the integer-scaled canvas box and a title has to cover more than the mat.
+   */
+  readonly region: HTMLElement;
+  /**
+   * ⚠️ THE SECOND ELEMENT, AND THE CONTRACT ONLY NAMES ONE — which is a hole worth reporting
+   * rather than papering over.
+   *
+   * `GameCtx` gives a cartridge exactly one `region`. But this game's `world()` answers
+   * `#game-region`, and `createGame` RESOLVES that selector at boot — before any cartridge
+   * exists — to decide whether to push a line into `problems` (ADR-0142 §2 lists it at :120).
+   * So the element the world names cannot be one the cartridge creates: it has to be there
+   * already, which makes it the host's, which makes it a second element in `ctx`.
+   *
+   * 📌 Either the contract grows a second member, or `world()` has to name the region it was
+   * given rather than a fixed selector. Neither is this repository's to decide (ADR-0068 §5),
+   * and inventing one here would invent it for six.
+   */
+  readonly world: HTMLElement;
 }
 
 export function boot(deps: BootDeps): RunningGame {
-  const { engine, a11yBar, i18n } = deps;
-  const doc = document;
-  // Narrowed once into a const the closures below can see: TypeScript's narrowing of a `let` does
-  // not survive into a function body, and every screen transition touches this element.
-  const found = doc.getElementById('game-region');
-  if (!found) throw new Error('boot: #game-region is missing');
-  const region: HTMLElement = found;
-
-  /**
-   * ================== THE ELEMENT THIS GAME IS ALLOWED TO WRITE INSIDE ==================
-   * ⚠️ A CARTRIDGE MAY WRITE INSIDE ITS REGION AND NOWHERE ELSE (ADR-0139 §4), and
-   * `teardown()` is enforceable only because the shell empties that one element afterwards.
-   * Anything left outside it is inherited by the next game on the page.
-   *
-   * 📏 MEASURED 2026-09-11, and it decided WHICH element that is. `#stage-wrap` fills the
-   * viewport exactly, so a `.screen` moved inside it and switched from `fixed` to `absolute`
-   * occupies an IDENTICAL box — 0,0,1280,720 before and after. `#game-region` could not host
-   * them: it is the integer-scaled canvas box, and a title screen has to cover more than the mat.
-   *
-   * 📌 And the platform reading is BETTER than the standalone one rather than merely equal:
-   * there `inset: 0` covers this cartridge's area instead of the whole page, which is what a
-   * game's title screen should do when it is one of six.
-   */
-  // Narrowed into a typed const for the same reason `region` is, six lines up: the narrowing of a
-  // nullable does not survive into a closure, and both the screen switch and the pointer ball
-  // reach this from inside one.
-  const wrapFound = doc.getElementById('stage-wrap');
-  if (!wrapFound) throw new Error('boot: #stage-wrap is missing');
-  const stageWrap: HTMLElement = wrapFound;
+  // ⚠️ HANDED IN, NOT LOOKED UP. Two `getElementById` calls stood here until 2026-09-11, and a
+  // cartridge that reaches into the document by id is a cartridge that only works inside a page it
+  // wrote itself — in a platform the ids belong to five other games as much as to this one. The
+  // narrowing they needed goes away with them: a parameter is already non-null.
+  const { engine, a11yBar, i18n, world, region: stageWrap } = deps;
+  /** The integer-scaled canvas box — the element `declaration.world()` names. */
+  const region: HTMLElement = world;
+  // ⚠️ STILL GLOBAL, and still the host's: `document` and `window`. They are the last two
+  // reaches past the region, and the contract's `ctx` is where they belong — not in a lookup
+  // invented here for six repositories (ADR-0068 §5).
+  const doc = region.ownerDocument;
 
   // 1. LANGUAGE FIRST. Nothing that carries a word may be built before the locale is known.
   // ⚠️ RESOLVED BY THE SHELL NOW, and handed in. The engine needs the locale before the game
@@ -729,8 +734,9 @@ export function boot(deps: BootDeps): RunningGame {
     .catch(() => { /* a browser that refuses fonts still gets the fallback, which is legible */ });
 
   // 8. LAYOUT, and the resize that keeps the scale a whole number of physical pixels.
-  applyLayout({ doc, win: window });
-  window.addEventListener('resize', () => { applyLayout({ doc, win: window }); invalidate(); });
+  const layoutHost = { wrap: stageWrap, region, doc, win: window };
+  applyLayout(layoutHost);
+  window.addEventListener('resize', () => { applyLayout(layoutHost); invalidate(); });
 
   /**
    * ================== 9. ONE FRAME. THE LOOP THAT DRIVES IT IS THE SHELL'S ==================

@@ -1159,10 +1159,18 @@ add "the game boots again at module scope, the moment it is imported" \
     "export function boot(deps: BootDeps): RunningGame {" \
     "export function boot(deps: BootDeps): RunningGame { return again(deps); }\nfunction again(deps: BootDeps): RunningGame {"
 
+# ⚠️ THE TWO ELEMENTS ARE HANDED IN, AND NOTHING IN THE TYPES TELLS THEM APART: both are
+# `HTMLElement`, so swapping them compiles. The region is the wrap the screens live in; the world
+# is the integer-scaled canvas box the layout writes a size onto. Swapped, the game still boots.
+add "the shell hands the two elements over the wrong way round" \
+    "$BOOT/standalone.ts" \
+    "region: stageWrap, world: gameRegion });" \
+    "region: gameRegion, world: stageWrap });"
+
 add "the shell stops calling the game, so nothing runs at all" \
     "$BOOT/standalone.ts" \
-    "current = boot({ engine, a11yBar, i18n });" \
-    "// current = boot({ engine, a11yBar, i18n });"
+    "current = boot({ engine, a11yBar, i18n, region: stageWrap, world: gameRegion });" \
+    "// current = boot({ engine, a11yBar, i18n, region: stageWrap, world: gameRegion });"
 
 # ⚠️ ADR-0139 §3: A CARTRIDGE NEVER CALLS `startLoop`. «Six cartridges each opening their own frame
 # callback is six loops competing for one frame», and `aoFalhar` -- where spec D16 lives -- is the

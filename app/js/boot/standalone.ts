@@ -65,10 +65,22 @@ const engineBar = doc.createElement('div');
 engineBar.id = 'a11y-bar-engine';
 a11yBar.appendChild(engineBar);
 
+// 3. THE TWO ELEMENTS THE GAME IS GIVEN, and this is the file allowed to know their ids.
+//    ⚠️ `#stage-wrap` IS THE REGION (measured 2026-09-11): it fills the viewport, so a `.screen`
+//    inside it at `inset: 0` keeps the box it had as `position: fixed`. `#game-region` could not
+//    be it — that is the integer-scaled canvas box, and a title screen covers more than the mat.
+//    📌 AND THE SECOND ONE IS A HOLE IN THE CONTRACT, not a convenience: `declaration.world()`
+//    answers `#game-region` and `createGame` resolves that selector BEFORE any cartridge exists,
+//    so the element the world names cannot be one the cartridge created. `GameCtx` names one
+//    region. Reported in `BootDeps`; not decided here (ADR-0068 §5).
+const stageWrap = doc.getElementById('stage-wrap');
+const gameRegion = doc.getElementById('game-region');
+if (!stageWrap || !gameRegion) throw new Error('standalone: #stage-wrap or #game-region is missing');
+
 /** The instance, once there is one. See the note at the top on why this lives in the shell. */
 let current: RunningGame | null = null;
 
-// 3. THE GAME'S HALF, DELEGATED. Before `boot()` returns, the mat is empty — which the contract
+// 4. THE GAME'S HALF, DELEGATED. Before `boot()` returns, the mat is empty — which the contract
 //    already treats as «nothing to aim at», so the title screen is a conformant state rather than a
 //    special case. That is what makes answering safely possible at all.
 const declaration = createWhackDeclaration({
@@ -76,7 +88,7 @@ const declaration = createWhackDeclaration({
   t: (key) => i18n.t(key),
 });
 
-// 4. THE PAUSE KEY, REGISTERED BEFORE THE ENGINE IS BUILT — and the order is the whole point.
+// 5. THE PAUSE KEY, REGISTERED BEFORE THE ENGINE IS BUILT — and the order is the whole point.
 //    ⚠️ `ui/menu-nav` registers on the window in CAPTURE and calls `stopPropagation()` on Escape.
 //    Two capture listeners on one target run in REGISTRATION order, so being first means being
 //    registered before `createGame`. A bubble listener opened the pause and could never close it.
@@ -86,7 +98,7 @@ window.addEventListener(
   { capture: true },
 );
 
-// 5. ONE `createGame`, and the host half is all of it this file decides.
+// 6. ONE `createGame`, and the host half is all of it this file decides.
 const engine = createGame({
   declaration,
   host: { doc, win: window, cvdHost: doc.getElementById('cvd'), a11yBarHost: engineBar },
@@ -102,8 +114,8 @@ const engine = createGame({
 });
 if (engine.problems.length) console.warn('engine:', engine.problems.join('; '));
 
-// 6. AND ONLY NOW THE GAME.
-current = boot({ engine, a11yBar, i18n });
+// 7. AND ONLY NOW THE GAME.
+current = boot({ engine, a11yBar, i18n, region: stageWrap, world: gameRegion });
 
 /**
  * ⚠️ THE DEBUG STEPPER IS RE-POINTED AT WHAT `boot()` RETURNED, and the reason is a mutation
@@ -118,7 +130,7 @@ const dbg = (window as unknown as { __whack?: { step: (dt?: number) => void } })
 if (dbg) dbg.step = (dt = 1) => current?.update(dt);
 
 /**
- * 7. THE LOOP. ADR-0139 §3: a cartridge never calls `startLoop`, because six cartridges each opening
+ * 8. THE LOOP. ADR-0139 §3: a cartridge never calls `startLoop`, because six cartridges each opening
  *    their own frame callback is six loops competing for one frame.
  *
  * ⚠️ `aoFalhar` IS WHERE SPEC D16 LIVES — «one broken game must stay distinguishable from a broken
