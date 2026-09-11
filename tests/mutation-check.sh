@@ -134,6 +134,27 @@ add "the game declares it cannot be played without a pointer" \
     "    holdsAtOnce(): number { return 1; }," \
     "    holdsAtOnce(): number { return 1; }, needsPointer(): boolean { return true; },"
 
+# ⚠️ `seguraTeclas` IS THE OTHER HALF, and the engine can validate that it is a boolean and never
+# WHICH boolean. `true` mounts a latching control on the accessibility bar of a game where nothing
+# is held — the dead button of ADR-0106 §5, in front of the one child who went looking for it.
+add "the game claims a key is held, and gains a latch that latches nothing" \
+    "$DECL/whack-declaration.ts" \
+    "    seguraTeclas(): boolean { return false; }," \
+    "    seguraTeclas(): boolean { return true; },"
+
+# ⚠️ AND THE KEYBOARD MAP, where the failure is one key doing two jobs. The engine's factory binds
+# `start` to KeyH AND Enter; Enter also activates the twenty gridcell buttons natively, so leaving
+# the factory alone makes a single press whack a tile and open the pause over it.
+add "Enter goes back to pausing, so one press both whacks and pauses" \
+    "$DECL/whack-declaration.ts" \
+    "  start: Object.freeze(['KeyH', 'Escape'])," \
+    "  start: Object.freeze(['KeyH', 'Enter']),"
+
+add "the map answers a different table per seat, in a game that seats one child" \
+    "$DECL/whack-declaration.ts" \
+    "    mapeamentoDoTeclado(): Partial<Record<Action, readonly string[] | null>> {" \
+    "    mapeamentoDoTeclado(j: number): Partial<Record<Action, readonly string[] | null>> { if (j > 1) return {};"
+
 add "the tick goes back to the player" \
     "$DECL/whack-declaration.ts" \
     "    tick: 'clock'," \
@@ -902,6 +923,14 @@ add "the stylesheet accent drifts from the measured one" \
     "  --accent: #C933FF;" \
     "  --accent: #D040FF;"
 
+# ⚠️ 88 px OF ICON IN A 350 px COLUMN. The engine's `--tap` is `22 x k` and grows with the canvas —
+# right for a bar spanning a stage, and here it takes the HUD's scrollbar with it. The floor is the
+# other half: without the engine's sheet at all, the same buttons collapsed to 33 px.
+add "the accessibility bar takes the engine's preferred size in a narrow column" \
+    "$CSS/style.css" \
+    "  --tap: 44px;" \
+    "  /* floor removed */"
+
 add "the footer blinks, as the original's does" \
     "$CSS/style.css" \
     "  animation: feedback-fade 5s ease both;" \
@@ -921,6 +950,42 @@ add "the result screen claims a record on every round" \
     "  record.hidden = !deps.record;" \
     "  record.hidden = false;"
 
+# ========================= WHAT ENGINE 8 MOUNTS, AND WHAT THIS GAME OWNS OF IT =========================
+# ⚠️ THE BAR IS THE DOOR TO EVERYTHING ELSE. With no host the engine says so in `problems` and
+# mounts nothing, and blind mode, TTS, contrast and Libras are reachable from nowhere — which is
+# the measurement that made ADR-0120 take the decline away in the first place.
+add "the accessibility bar loses its host, and the engine mounts it nowhere" \
+    "$BOOT/main.ts" \
+    "    host: { doc, win: window, cvdHost: doc.getElementById('cvd'), a11yBarHost: a11yBar }," \
+    "    host: { doc, win: window, cvdHost: doc.getElementById('cvd') },"
+
+add "the neural voice goes back to being an omission rather than a decision" \
+    "$BOOT/main.ts" \
+    "    declines: { semAssistenteDePad: true, semAtorDePausa: true, semVozNeural: true }," \
+    "    declines: { semAssistenteDePad: true, semAtorDePausa: true },"
+
+# ⚠️ A PAUSE THAT DOES NOT STOP TIME charges a child for the seconds she spent turning the contrast
+# up, and it looks identical to a working one until a tile expires behind the card.
+add "the clock keeps running behind the pause card" \
+    "$BOOT/main.ts" \
+    "    if (round && !screen && !paused) handle(round.advance(dt * FRAME_MS));" \
+    "    if (round && !screen) handle(round.advance(dt * FRAME_MS));"
+
+# ⚠️ REGISTRATION ORDER IS THE WHOLE FIX. `ui/menu-nav` listens on the window in CAPTURE and calls
+# `stopPropagation()` on Escape, so a bubble listener opens the card and can never close it.
+add "the pause key drops to the bubble phase, and Escape can no longer close" \
+    "$BOOT/main.ts" \
+    "  }, { capture: true });" \
+    "  });"
+
+# ⚠️ AND THE WAY OUT THAT IS NOT A KEY. `createGame` takes no pause actions, so the engine's §5
+# filter hides "Continuar" as a dead button — correctly, and leaving a child on a touch screen
+# with a card and no exit.
+add "the resume item goes back to hidden, and a touch screen has no way out" \
+    "$BOOT/main.ts" \
+    "      reviveResume();" \
+    "      "
+
 # ========================= THE AUDITED MARKUP =========================
 add "the canvas stops hiding itself from a screen reader" \
     "$BOOT/main.ts" \
@@ -939,12 +1004,12 @@ add "the shipped page loses the status region the engine requires" \
 
 add "the game claims a position it does not use" \
     "$INPUT/actions.ts" \
-    "export const USED: readonly Action[] = ['up', 'down', 'left', 'right', 'action1'];" \
-    "export const USED: readonly Action[] = ['up', 'down', 'left', 'right', 'action1', 'action4'];"
+    "export const USED: readonly Action[] = ['up', 'down', 'left', 'right', 'action1', 'start'];" \
+    "export const USED: readonly Action[] = ['up', 'down', 'left', 'right', 'action1', 'start', 'action4'];"
 
 add "the game declares no action at all, which cannot be played" \
     "$INPUT/actions.ts" \
-    "export const USED: readonly Action[] = ['up', 'down', 'left', 'right', 'action1'];" \
+    "export const USED: readonly Action[] = ['up', 'down', 'left', 'right', 'action1', 'start'];" \
     "export const USED: readonly Action[] = [];"
 
 add "the hammer moves to a position the preset does not name" \
@@ -961,6 +1026,18 @@ add "a label is left blank, which is a mute row for a screen reader" \
     "$INPUT/actions.ts" \
     "    up: { label: t('act.up'), short: t('act.up.short') }," \
     "    up: { label: '', short: t('act.up.short') },"
+
+# ⚠️ THE PAUSE POSITION was deliberately absent while this game declined the pause menu. Engine
+# 8.0.0 removed the decline, so an unnamed `start` is a key the child cannot find and cannot remap.
+add "the pause loses its name, and \`start\` goes back to being unreachable" \
+    "$INPUT/actions.ts" \
+    "export const USED: readonly Action[] = ['up', 'down', 'left', 'right', 'action1', 'start'];" \
+    "export const USED: readonly Action[] = ['up', 'down', 'left', 'right', 'action1'];"
+
+add "the pause loses its hint, so nothing says the settings live behind it" \
+    "$INPUT/actions.ts" \
+    "    start: { label: t('act.pause'), short: t('act.pause.short'), hint: t('act.pause.hint') }," \
+    "    start: { label: t('act.pause'), short: t('act.pause.short') },"
 
 add "the hammer stops working on a remapped key" \
     "$UI/grid-mirror.ts" \
@@ -1040,7 +1117,7 @@ add "the glyph pass forgets the zoom, so the numbers stay source-sized" \
 # to look for.
 add "a comment names an engine version the manifest does not pin" \
     "$CFG/vite.config.ts" \
-    "the pinned version \`8.0.0-rc.1\`" \
+    "the pinned version \`8.0.0\`" \
     "the pinned version \`7.0.1\`"
 
 add "spike 0 stops saying that its conclusions were superseded" \
@@ -1088,8 +1165,15 @@ trap 'restore; exit 143' TERM
 # A run with one already-failing test reported 58 of 58 mutations "caught" — every mutation looked
 # lethal because the suite was dead before any of them was applied. A mutation harness on a red
 # baseline measures nothing at all and says everything is fine, which is the worst combination.
+# ⚠️ `node` E NÃO `npx`, E A RAZÃO É UMA JANELA POR MUTAÇÃO. No Windows o `npx` não é um binário: é
+# um shim `.cmd`, e o Git Bash lança `cmd.exe` para o correr. Com 191 mutações isso são 191 janelas
+# de prompt a abrir e fechar por cima do que o Dev estiver a fazer -- medido, e relatado por ele na
+# terceira. `node_modules/vitest/vitest.mjs` é o ficheiro que o `npx` acaba por chamar de qualquer
+# forma, portanto isto corre o MESMO vitest e não passa por shell nenhuma.
+VITEST="node node_modules/vitest/vitest.mjs"
+
 echo "checking the baseline is green before mutating anything..."
-if ! npx vitest run >/dev/null 2>&1; then
+if ! $VITEST run >/dev/null 2>&1; then
   echo
   echo "BASELINE IS RED. Every mutation would report as caught for the wrong reason."
   echo "Fix the suite first, then re-run this."
@@ -1142,7 +1226,7 @@ for i in "${!NAMES[@]}"; do
     continue
   fi
 
-  if npx vitest run >/dev/null 2>&1; then
+  if $VITEST run >/dev/null 2>&1; then
     echo "ESCAPED - ${NAMES[$i]}"
     escaped=$((escaped + 1))
   else
