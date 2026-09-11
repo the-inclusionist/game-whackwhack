@@ -61,7 +61,21 @@ import { createI18n, preferredLocale } from '../i18n/index.ts';
  */
 const FRAME_MS = 1000 / 60;
 
-function boot(): void {
+/**
+ * ⚠️ EXPORTED, AND NOTHING CALLS IT HERE. This module used to end with a bare `boot()`, so
+ * importing it started the game — and ADR-0139 §2 and spec D14 both forbid exactly that for a
+ * cartridge. A module that boots on import cannot be one of six on a page: it cannot be
+ * instantiated twice, it cannot be torn down, and whatever it did at import time already
+ * happened before anybody decided it should.
+ *
+ * The call lives in `boot/standalone.ts` now, which is the shell. The platform will be a
+ * different shell around the same function.
+ *
+ * 📌 STILL NOT THE CARTRIDGE SHAPE. ADR-0139 asks for `create(ctx): { update, teardown }`, and
+ * this is a `boot()` that finds its own document, calls `createGame` itself and owns the loop.
+ * Those three move out next; this commit only stops the side effect at import.
+ */
+export function boot(): void {
   const doc = document;
   // Narrowed once into a const the closures below can see: TypeScript's narrowing of a `let` does
   // not survive into a function body, and every screen transition touches this element.
@@ -785,4 +799,3 @@ function boot(): void {
   }
 }
 
-boot();

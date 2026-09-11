@@ -73,7 +73,26 @@ beforeAll(async () => {
   // Imported for its SIDE EFFECT: `boot/main` calls `boot()` at module scope, so this line is
   // what starts the game. It is inside `beforeAll` rather than at the top of the file because the
   // markup above has to exist first — `boot` throws on a missing `#game-region`, by design.
-  await import('../app/js/boot/main.ts');
+  /**
+   * ⚠️ IMPORTED, THEN CALLED — AND THE GAP BETWEEN THE TWO IS ADR-0139's FIRST GATE.
+   *
+   * This line used to be a bare `await import(...)`, with a comment saying it was «imported for
+   * its SIDE EFFECT: `boot/main` calls `boot()` at module scope, so this line is what starts the
+   * game». That is exactly what a cartridge may not do (§2, and spec D14), so the module now
+   * exports the function and starts nothing.
+   *
+   * The record's gate reads: «A cartridge that is imported and never instantiated must do nothing
+   * observable — no DOM, no listener, no registration. A test that imports and asserts an
+   * untouched document.» That is the assertion between these two statements.
+   */
+  const before = document.body.innerHTML;
+  const { boot } = await import('../app/js/boot/main.ts');
+  expect(
+    document.body.innerHTML,
+    'importing the game changed the document — it boots at module scope again',
+  ).toBe(before);
+
+  boot();
   await document.fonts.ready;
 });
 

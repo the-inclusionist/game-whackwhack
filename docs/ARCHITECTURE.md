@@ -1,6 +1,6 @@
 # Architecture
 
-The map. Thirty-four modules, four layers, and one boundary that is worth more than the other
+The map. Thirty-five modules, four layers, and one boundary that is worth more than the other
 three put together.
 
 ⚠️ **This document does not repeat the others.** The rules of the game are in
@@ -22,7 +22,14 @@ render/       zdog, the glyph pass, the camera, the palette
 ui/           the DOM: the mirror, the HUD, the screens, the options
   ↑
 boot/main.ts  the composition root, and the only place that knows all of them
+boot/standalone.ts  the shell: the only thing that CALLS it
 ```
+
+⚠️ **`boot/main.ts` exports `boot()` and starts nothing on import**, since 2026-09-11. It used to
+end with a bare `boot()`, and ADR-0139 §2 forbids that for a cartridge: a module that boots when it
+is loaded cannot be one of six on a page — it cannot be instantiated twice, it cannot be torn down,
+and whatever it did at import time already happened before anybody decided it should. The shell is
+where the call lives, and the platform will be a different shell around the same function.
 
 `rules/` is the part that decides what the game IS — which tiles are correct, how long they last,
 when a round is lost — and it is written so that none of that needs a screen to be true. Seven

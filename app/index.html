@@ -24,6 +24,8 @@
 <!-- Empty host where installCvdFilters builds the six colour-vision filters at runtime. -->
 <svg id="cvd" class="sr-only" aria-hidden="true"></svg>
 
-<script type="module" src="./js/boot/main.ts"></script>
+<!-- The SHELL, not the game. `boot/main.ts` exports a function and starts nothing on import:
+     ADR-0139 §2 and spec D14 both forbid a cartridge that boots when it is loaded. -->
+<script type="module" src="./js/boot/standalone.ts"></script>
 </body>
 </html>

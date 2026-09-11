@@ -584,3 +584,38 @@ describe('[Interface] the palette search measures the game that ships', () => {
     expect(SEARCH).toMatch(/hc7/);
   });
 });
+
+describe('[Interface] the standalone chain from page to game is unbroken', () => {
+  /**
+   * ⚠️ A MUTATION ESCAPED AND THIS IS WHY IT EXISTS. Commenting out the `boot()` call in
+   * `boot/standalone.ts` broke nothing: the suite reaches the game by importing `boot/main.ts` and
+   * calling the function itself, so the SHELL — the thing the shipped page actually loads — is
+   * exercised by nobody. The standalone build could stop starting and every test would stay green.
+   *
+   * 📌 It is a source check and says so. The strong version is `tests/axe-url.mjs`, which drives the
+   * BUILT page and would find a dead shell immediately — but only when `AXE_URL` is set, which is
+   * CI and not a developer's `npm test`. This covers the same chain in the run that always happens.
+   */
+  it('the shipped page loads the shell, not the game', () => {
+    // ⚠️ Loading `main.ts` here would boot on import again by the back door, which is the thing
+    // ADR-0139 §2 forbids — and it would look like a working page while doing it.
+    const html = read('app', 'index.html');
+    expect(html).toContain('boot/standalone.ts');
+    expect(html, 'index.html loads the game directly, bypassing the shell')
+      .not.toMatch(/src="[^"]*boot\/main\.ts"/);
+  });
+
+  it('the shell calls the game', () => {
+    // A line that IS the call, so a commented-out one does not satisfy it.
+    const shell = read('app', 'js', 'boot', 'standalone.ts');
+    expect(shell.split('\n').some((l) => l.trim() === 'boot();'),
+      'boot/standalone.ts no longer calls boot()').toBe(true);
+  });
+
+  it('the game exports it rather than running it', () => {
+    const main = read('app', 'js', 'boot', 'main.ts');
+    expect(main).toContain('export function boot()');
+    expect(main.split('\n').some((l) => l.trim() === 'boot();'),
+      'boot/main.ts calls boot() at module scope again — ADR-0139 §2 and spec D14').toBe(false);
+  });
+});

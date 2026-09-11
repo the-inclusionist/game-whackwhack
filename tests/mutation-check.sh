@@ -1151,6 +1151,19 @@ add "the region size stops being published where the screens can read it" \
     "  wrap.style.setProperty('--region-w'," \
     "  host.doc.documentElement.style.setProperty('--region-w',"
 
+# ⚠️ ADR-0139 GATE 1: «a cartridge that is imported and never instantiated must do nothing
+# observable». The module used to end with a bare `boot()`, so importing it started the game -- and
+# a module that boots on import cannot be one of six on a page.
+add "the game boots again at module scope, the moment it is imported" \
+    "$BOOT/main.ts" \
+    "export function boot(): void {" \
+    "export function boot(): void { }\nfunction bootAgain(): void {"
+
+add "the shell stops calling the game, so nothing runs at all" \
+    "$BOOT/standalone.ts" \
+    "boot();" \
+    "// boot();"
+
 # ========================= THE AUDITED MARKUP =========================
 add "the canvas stops hiding itself from a screen reader" \
     "$BOOT/main.ts" \
@@ -1331,8 +1344,8 @@ add "a contrast figure on the page drifts from the one palette.ts measured" \
 # trusts it precisely where it is least examined.
 add "the architecture map miscounts the modules in the tree" \
     "$DOCS/ARCHITECTURE.md" \
-    "The map. Thirty-four modules" \
-    "The map. Thirty-two modules"
+    "The map. Thirty-five modules" \
+    "The map. Thirty-three modules"
 
 # ⚠️ AN IMPORT THAT NEVER REACHES THE TABLE grows this game's dependency on the engine without
 # anybody deciding that it should. The table is where that decision is made visible.
