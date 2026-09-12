@@ -774,6 +774,18 @@ export function boot(deps: BootDeps): RunningGame {
     torndown = true;
     life.abort();
     unmount();
+    /**
+     * 🔴 THE PAGE'S BAR IS GIVEN BACK BEFORE THE HUD IS DESTROYED, and a gate found this the hour it
+     * was written. `a11yBar` belongs to the PAGE (ADR-0117 §2: one per page, filled by `createGame`);
+     * this game only decides WHERE it sits, which is `ui/hud`'s last column entry. So removing the
+     * HUD took the page's accessibility bar with it — and in a platform that means every cartridge
+     * after the first has no bar at all, with nothing anywhere saying why.
+     *
+     * ⚠️ DETACHED AND NOT DELETED. It leaves the document because between cartridges there is no
+     * game to say where it goes, and the shell keeps the reference; the next `boot()` places it
+     * again. Borrowing a node somebody else owns means handing it back, not destroying it.
+     */
+    a11yBar.remove();
     for (let i = planted.length - 1; i >= 0; i--) planted[i]!.parentNode?.removeChild(planted[i]!);
     planted.length = 0;
   }

@@ -1226,6 +1226,40 @@ add "the shell never tears anything down at all" \
     "window.addEventListener('pagehide', teardown);" \
     "void teardown;"
 
+# ========================= ADR-0139 GATE 2: THE CARTRIDGE NEVER CALLS THE HOST =========================
+# ⚠️ THE DEFECT IS INVISIBLE WHERE THE TESTS RUN, which is the whole reason the gate is a source
+# read. A standalone build calls `createGame` once and behaves perfectly; the damage only exists
+# where a SECOND cartridge is on the page, and then it is six accessibility bars and six keyboard
+# runtimes -- with a bundler reporting no extra bytes at all, because it is one module either way.
+add "the game reaches for the host entry point again" \
+    "$BOOT/main.ts" \
+    "import type { Engine } from '@the-inclusionist/engine';" \
+    "import { type Engine, createGame } from '@the-inclusionist/engine';"
+
+# ⚠️ AND THE GATE'S OWN VACUITY GUARD, because it is a NEGATIVE rule with one exception named by
+# path: a shell that moves house turns every other module into a false positive, and a shell that
+# stops calling `createGame` at all satisfies every negative rule this repository has.
+add "the boundary gate stops knowing which file is the shell" \
+    "$TESTS/cartridge-boundary.node.test.ts" \
+    "const SHELL = 'boot/standalone.ts';" \
+    "const SHELL = 'boot/casca.ts';"
+
+# ========================= ADR-0139 GATE 3: ONE PAGE, MANY CARTRIDGES =========================
+# 🔴 THE PAGE'S ACCESSIBILITY BAR IS PLACED BY THE GAME AND OWNED BY THE PAGE, which is the exact
+# shape of a borrowed thing. `ui/hud` puts it last in the game's own column, so removing the HUD
+# destroys it -- and in a platform every cartridge after the first would have no bar at all.
+add "the cartridge takes the page bar down with it when it leaves" \
+    "$BOOT/main.ts" \
+    "    a11yBar.remove();" \
+    "    "
+
+# ⚠️ AND THE OTHER DIRECTION: never placing it. A bar that exists and is in no column is a bar no
+# child can reach, and it counts as one in any check that counts elements rather than connected ones.
+add "the page bar is never placed in the column, so nobody can reach it" \
+    "$UI/hud.ts" \
+    "  root.append(deps.options, live, help, deps.icons);" \
+    "  root.append(deps.options, live, help);"
+
 add "the frame stops being handed over, so the shell drives nothing" \
     "$BOOT/main.ts" \
     "  return api;" \
