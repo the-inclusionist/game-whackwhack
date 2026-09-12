@@ -16,9 +16,37 @@ import { playwright } from '@vitest/browser-playwright';
 // `exclude` stays: the engine is ESM that needs no pre-bundling, and excluding it keeps the
 // dependency graph honest at dev time. Its ORIGINAL reason is gone, and saying so here is cheaper
 // than the next reader inferring a symlink that no longer exists.
+// ============================ TWO TARGETS, ONE TREE (ADR-0140) ============================
+// ⚠️ A GAME IS A STANDALONE PWA *AND* A CARTRIDGE, and both are built from this file. What differs
+// is not the game — it is who calls it and what travels with it:
+//
+//   app (default)  `app/index.html` -> `boot/standalone.ts`, engine and Zdog BUNDLED, `dist/`
+//   lib (--mode lib)  `app/js/index.ts`, engine and Zdog EXTERNAL, `dist-lib/`, no HTML
+//
+// 📌 EXTERNAL IS THE WHOLE POINT OF THE SECOND ONE. ADR-0117: «a cartridge declares no delivery».
+// Bundling the engine into the lib would put one copy per cartridge into a platform that already
+// ships it once — and a bundler would report it as this game's weight, six times over.
+//
+// ⚠️ AND THE GATE THAT KEEPS THIS TRUE IS CI BUILDING BOTH. A target nobody builds breaks quietly
+// and stays broken until the platform tries to install it, which is the worst moment to find out.
+const LIB = process.env.npm_lifecycle_event === 'build:lib';
+
 export default defineConfig({
   root: 'app',
-  build: { outDir: '../dist', emptyOutDir: true, target: 'es2022' },
+  build: LIB
+    ? {
+      outDir: '../dist-lib',
+      emptyOutDir: true,
+      target: 'es2022',
+      lib: { entry: 'js/index.ts', formats: ['es'], fileName: () => 'index.js' },
+      rollupOptions: {
+        // ⚠️ A PREFIX MATCH, not the bare name: this game imports `@the-inclusionist/engine`,
+        // `.../core/rng.js`, `.../render/viz-axes.js` and five more deep paths. Listing only the
+        // root would externalise one of nine and bundle the rest without a word.
+        external: [/^@the-inclusionist\/engine/, 'zdog'],
+      },
+    }
+    : { outDir: '../dist', emptyOutDir: true, target: 'es2022' },
   optimizeDeps: {
     exclude: ['@the-inclusionist/engine'],
     // Zdog is CommonJS, so it must be pre-bundled. Naming it here stops Vitest's browser mode

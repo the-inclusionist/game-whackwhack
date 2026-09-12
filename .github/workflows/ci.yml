@@ -62,3 +62,31 @@ jobs:
       # VISIBLE line in the caller instead of an absence — and this game answers `tick: 'clock'`,
       # which is the field that puts WCAG 2.2.1 in play. It is the last one that should skip it.
       a11y: true
+
+  # ========================= THE SECOND BUILD TARGET (ADR-0140) =========================
+  # ⚠️ A GAME IS A STANDALONE PWA *AND* A CARTRIDGE, and the reusable workflow above builds only the
+  # first: 📏 measured, it runs `npm ci`, `npm run typecheck`, `npm test`, `npm run build` — and
+  # `build` is the app target. A target nobody builds breaks quietly and stays broken until the
+  # platform tries to install it, which is the worst possible moment to find out.
+  #
+  # 📌 ITS HOME IS NOT HERE, and the reasoning is the same as the RNG gate's: ADR-0068 §4 puts
+  # cross-repository gates in the reusable workflow so six games INHERIT them instead of five
+  # copying them. Adding an input there is the engine repository's call, not this one's. Until it
+  # exists, the gate lives in the repository the record named as the first cartridge.
+  cartridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      # Both artefacts from one tree, which is the claim ADR-0140 makes and this is what checks it.
+      - name: Build the lib target
+        run: npm run build:lib
+      # ⚠️ AND THE PACK IS PART OF THE GATE, not a flourish. `files` and `exports` can name paths
+      # that do not exist and nothing notices until a consumer installs; `npm pack --dry-run` walks
+      # exactly what would be published. It spends nothing and publishes nothing.
+      - name: Prove the package is packable
+        run: npm pack --dry-run

@@ -1,0 +1,27 @@
+{
+  "//": [
+    "TYPES FOR THE LIB TARGET, and only types. Vite builds the JavaScript (see vite.config.ts,",
+    "`--mode lib`); this emits the .d.ts beside it, because a cartridge a platform cannot type",
+    "against is a cartridge whose contract is a comment.",
+    "",
+    "⚠️ `rewriteRelativeImportExtensions` IS WHAT MAKES THIS POSSIBLE AT ALL. This tree imports",
+    "with explicit `.ts` extensions — the bundler-resolution style the whole repository uses — and",
+    "a declaration file emitted verbatim would tell a consumer to import `./boot/main.ts`, which",
+    "resolves to nothing in a published package. TypeScript 5.7 rewrites those to `.js` on emit.",
+    "",
+    "📌 SEPARATE FILE RATHER THAN A FLAG ON THE MAIN ONE, because `tsconfig.json` says `noEmit`",
+    "and covers `tests/` and `vite.config.ts` as well. Those belong in the typecheck and not in a",
+    "consumer's node_modules."
+  ],
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "declaration": true,
+    "declarationMap": true,
+    "rewriteRelativeImportExtensions": true,
+    "outDir": "dist-lib/types",
+    "rootDir": "app/js"
+  },
+  "include": ["app/js"]
+}

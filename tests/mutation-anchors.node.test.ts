@@ -73,10 +73,22 @@ function mutations(): Mutation[] {
 function unquote(line: string): string {
   const trimmed = line.trim().replace(/\s*\\$/, '');
   const inner = trimmed.replace(/^"/, '').replace(/"$/, '');
-  return inner
-    .replace(/\\"/g, '"')
-    .replace(/\\`/g, '`')
-    .replace(/\\\$/g, '$');
+  /**
+   * 🔴 FOUR CHARACTERS AND NOT THREE, AND THE MISSING ONE WAS THE BACKSLASH ITSELF. This ran as
+   * three separate passes — over `"`, over `` ` `` and over `$` — and called a live anchor rotten
+   * the first time one carried \`\\/\` from a regex literal in `vite.config.ts`. The shell
+   * unescapes all FOUR inside double quotes, so `mutate.cjs` saw the right text and only this file
+   * disagreed — and a checker that cries rot where there is none gets switched off exactly as fast
+   * as one that misses it. It has to model the shell exactly rather than nearly.
+   *
+   * ⚠️ ONE PASS AND NOT FOUR. Chained passes re-process what an earlier one produced, so a
+   * doubled backslash before a quote would be unescaped twice. A single alternation cannot.
+   *
+   * 📌 \`\\n\` IS DELIBERATELY LEFT ALONE: the shell passes it through as two characters and
+   * `mutate.cjs` is what turns it into a newline. Unescaping it here would make this file
+   * disagree with the tool it exists to check.
+   */
+  return inner.replace(/\\(["`$\\])/g, '$1');
 }
 
 /** `$RULES/round.ts` → `app/js/rules/round.ts`. A root the script never set is left alone. */
@@ -106,6 +118,46 @@ const ALL = mutations();
 const MUTATING = process.env.INCL_MUTATING === '1';
 
 describe('[Interface] every mutation still points at something', () => {
+  it('the everyday --changed run can reach the config files too', () => {
+    /**
+     * 🔴 IT COULD NOT, FOR EIGHT MUTATIONS. `CFG=.`, so `"$CFG/package.json"` expands at declaration
+     * time to `./package.json`, while `git status --porcelain` prints `package.json` — and the
+     * substring match between them never fired. The everyday command said «proved what you touched»
+     * while silently touching nothing in the manifest, the build config or the workflow, which are
+     * exactly the three files whose defects reach a CONSUMER and nobody else.
+     *
+     * 📌 Held as a text check on the script because the alternative is running the harness, and a
+     * gate that costs twenty minutes is a gate nobody runs. Found by noticing that a changed
+     * `vite.config.ts` ran zero of its two mutations.
+     */
+    const script = read('tests/mutation-check.sh');
+    expect(
+      script,
+      'the --changed matcher no longer strips ./, so every $CFG mutation is invisible to it',
+    ).toContain('${FILES[$i]#./}');
+  });
+
+  it('the anchors travel in a file, because argv is not safe on this machine', () => {
+    /**
+     * 🔴 GIT BASH HANDS argv TO A WINDOWS COMMAND LINE, and the Windows parser then reads shell
+     * metacharacters out of the middle of an argument. An anchor carrying `&&` arrived truncated
+     * and its tail RAN as a second command; the harness reported the mutation as escaped, which is
+     * honest and still wrong — a gate that cannot be exercised is not a gate that does not bite.
+     *
+     * The replacement side learned this first, through newlines. This is the same rule reaching the
+     * anchor side: on this machine, anything a shell might read travels in a FILE.
+     */
+    /**
+     * 🔴 AND THE FIRST VERSION OF THIS ASSERTION READ THE COMMENT. It asked the script to contain
+     * `--from-file`, which the paragraph explaining the rule contains too — so removing the flag
+     * from the CALL left it green. Proven by hand and found by that: it matches the invocation now,
+     * which is the only occurrence that does anything.
+     */
+    const script = read('tests/mutation-check.sh');
+    expect(script, 'the anchor is passed through argv again')
+      .toMatch(/node tests\/mutate\.cjs "\$f" --from-file/);
+  });
+
   it('finds the whole set, so a clean sweep is not a sweep over nothing', () => {
     // ⚠️ THE VACUITY CHECK FOR THIS FILE. A parser that matched no `add` line would report every
     // anchor live, in a fraction of a second, and look exactly like a pass.

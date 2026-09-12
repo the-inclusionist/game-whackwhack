@@ -1,6 +1,6 @@
 # Architecture
 
-The map. Thirty-four modules, four layers, and one boundary that is worth more than the other
+The map. Thirty-five modules, four layers, and one boundary that is worth more than the other
 three put together.
 
 ⚠️ **This document does not repeat the others.** The rules of the game are in
@@ -23,7 +23,13 @@ ui/           the DOM: the mirror, the HUD, the screens, the options
   ↑
 boot/main.ts  the composition root, and the only place that knows all of them
 boot/standalone.ts  the shell: the only thing that CALLS it
+js/index.ts   the LIB target's entry: what a platform shell imports, and nothing else
 ```
+
+⚠️ **`js/index.ts` is not a fifth layer, it is a second front door.** ADR-0140: one tree, two
+artefacts — `app/index.html` loads the shell and bundles the engine (`dist/`), and this module is
+imported by somebody else's shell with the engine left EXTERNAL (`dist-lib/`). 📏 Measured: 155 kB
+for the app build against 42.9 kB for the lib, and the difference is exactly the engine and Zdog.
 
 ⚠️ **`boot/main.ts` exports `boot()` and starts nothing on import**, since 2026-09-11. It used to
 end with a bare `boot()`, and ADR-0139 §2 forbids that for a cartridge: a module that boots when it

@@ -8,3 +8,4 @@ test-results/
 .claude/launch.json
 .vitest-attachments/
 tests/__screenshots__/
+dist-lib/

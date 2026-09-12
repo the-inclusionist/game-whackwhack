@@ -47,7 +47,8 @@ function code(source: string): string {
 const SPIKE = read('docs', 'spike-0-symbol-legibility.md');
 const RULES = read('docs', 'GAME-RULES.md');
 const PACKAGE = JSON.parse(read('package.json')) as {
-  dependencies: Record<string, string>;
+  dependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
   devDependencies: Record<string, string>;
 };
 
@@ -88,7 +89,10 @@ describe('[Right] the claim that PixiJS is gone is true', () => {
   it('is not a dependency of any kind', () => {
     // The spike's table says the glyph rides "in the Pixi pass". The supersession notice says the
     // library was removed; this is what makes that a fact rather than a recollection.
-    for (const field of ['dependencies', 'devDependencies'] as const) {
+    // ⚠️ THREE SECTIONS SINCE THE PACKAGE BECAME PUBLISHABLE, and `peerDependencies` is the one
+    // that would matter most: a peer is what a consumer is ASKED to install, so a stray `pixi.js`
+    // there would put 465 KB into a platform on this game's word.
+    for (const field of ['dependencies', 'devDependencies', 'peerDependencies'] as const) {
       expect(Object.keys(PACKAGE[field] ?? {}), field).not.toContain('pixi.js');
     }
   });
@@ -228,8 +232,10 @@ describe('[Interface] the engine imports nothing it has not declared', () => {
     // dropped PixiJS entirely (465 KB raw, measured). Installed is not shipped: nothing in this
     // game's import graph reaches it, and the built bundle carries none of it.
     expect(ENGINE.peerDependencies ?? {}).toHaveProperty('pixi.js');
-    const own = JSON.parse(read('package.json')) as { dependencies: Record<string, string> };
-    expect(own.dependencies).not.toHaveProperty('pixi.js');
+    expect(PACKAGE.dependencies ?? {}).not.toHaveProperty('pixi.js');
+    // ⚠️ AND NOT PASSED ON EITHER. A peer of a peer is not automatic, so a game that copied the
+    // engine's list «to be safe» would be asking a platform for a library it never touches.
+    expect(PACKAGE.peerDependencies ?? {}).not.toHaveProperty('pixi.js');
   });
 });
 
@@ -246,9 +252,15 @@ describe('[Right] no comment names an engine version the manifest does not', () 
    * "pinned ... VERSION" in the repository's own prose and requires each to be the version
    * `package.json` actually pins, whatever that is.
    */
+  /**
+   * ⚠️ READ FROM `peerDependencies` SINCE THE PACKAGE BECAME PUBLISHABLE, and this gate broke on
+   * the move — which is the gate working. The engine left `dependencies` because a cartridge asks
+   * the CONSUMER to bring one copy (ADR-0117); the pin the prose must agree with is that one, not
+   * the development copy beside it, and `tests/package.node.test.ts` holds the two together.
+   */
   const PIN = (JSON.parse(read('package.json')) as {
-    dependencies: Record<string, string>;
-  }).dependencies['@the-inclusionist/engine'];
+    peerDependencies: Record<string, string>;
+  }).peerDependencies['@the-inclusionist/engine'];
 
   // ⚠️ THIS FILE IS NOT IN THE LIST, and excluding it is not convenience. It is the scanner:
   // its own regex source contains the very phrase it looks for, so it would always report a

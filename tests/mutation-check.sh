@@ -1084,6 +1084,26 @@ add "the time control leaves the panel" \
 # and checks every anchor still matches its file -- the failure that actually happens, five times in
 # one afternoon. A parser that quietly matched FEWER entries would report a clean sweep over a subset,
 # which is the same shape as the rot it exists to find.
+# ========================= TWO FIXES THIS HARNESS CANNOT MUTATE =========================
+# 🔴 BOTH WERE TRIED AS MUTATIONS AND BOTH HAD TO BE WITHDRAWN, which is worth writing down
+# rather than leaving as an absence. On 2026-09-11 this script gained two repairs:
+#
+#   1. `--changed` strips a leading `./`. Without it, `CFG=.` made those files `./package.json`
+#      while `git status` said `package.json`, and the everyday command was blind to EIGHT
+#      mutations -- in the manifest, the build config and the workflow, which are precisely the
+#      three files whose defects reach a CONSUMER and nobody else.
+#   2. The anchor travels through `--from-file`. Git Bash hands argv to a Windows command line,
+#      so an `&&` inside an anchor was read as a command separator and its tail RAN.
+#
+# ⚠️ NEITHER CAN BE PROVEN FROM HERE. Mutating them edits the control flow of the script that is
+# executing, and the two attempts produced `ho: command not found` and a syntax error rather
+# than a verdict -- a harness cannot hold a mirror to its own running loop.
+#
+# 📌 SO THEY ARE GATED IN `tests/mutation-anchors.node.test.ts` INSTEAD, as text assertions, and
+# proven by hand the way the engine-gap gates were: edit, watch red, restore. That is a weaker
+# proof and saying so is the point -- an unprovable gate recorded as provable is worse than one
+# recorded as what it is.
+
 add "the anchor reader silently stops seeing most of the mutations" \
     "$TESTS/mutation-anchors.node.test.ts" \
     "    if (!lines[i].startsWith('add \"')) continue;" \
@@ -1225,6 +1245,49 @@ add "the shell never tears anything down at all" \
     "$BOOT/standalone.ts" \
     "window.addEventListener('pagehide', teardown);" \
     "void teardown;"
+
+# ========================= THE PACKAGE A PLATFORM INSTALLS (F4, F5) =========================
+# ⚠️ EVERY DEFECT BELOW FAILS AT SOMEBODY ELSE'S `npm install` AND NOWHERE ELSE, which is the
+# whole reason these gates exist: the manifest is the one file whose mistakes are invisible from
+# inside a green repository.
+add "the lib target bundles the engine into every cartridge" \
+    "$CFG/vite.config.ts" \
+    "external: [/^@the-inclusionist\\/engine/, 'zdog']," \
+    "external: ['zdog'],"
+
+# ⚠️ `dist-lib` IS BUILD OUTPUT AND GITIGNORED. Without the hook, a publish from a clean clone
+# ships a manifest whose every path points at nothing -- and npm reports success.
+add "nothing builds the lib before the tarball is made" \
+    "$CFG/package.json" \
+    "\"prepack\": \"npm run build:lib\"" \
+    "\"prepack\": \"echo packing\""
+
+# ⚠️ THE TYPES ARE HALF THE LIB TARGET. A cartridge a platform cannot type against is a cartridge
+# whose contract is a comment, and Vite emits no declarations of its own.
+add "the lib ships JavaScript with no types beside it" \
+    "$CFG/package.json" \
+    "\"build:lib\": \"vite build && tsc -p tsconfig.pkg.json\"" \
+    "\"build:lib\": \"vite build\""
+
+# ⚠️ A PEER INSTALLS NOTHING, which is the point: the CONSUMER brings one engine for six games.
+# Losing the section ships a copy per cartridge into a platform that already has one.
+add "the engine stops being a peer, so every consumer ships a second copy" \
+    "$CFG/package.json" \
+    "  \"peerDependencies\": {" \
+    "  \"unusedPeers\": {"
+
+# ⚠️ THE ONE-WORD REFUSAL OF STEP 3 OF ADR-0068 §6's SIX.
+add "the package goes back to refusing to be published" \
+    "$CFG/package.json" \
+    "  \"type\": \"module\"," \
+    "  \"private\": true,\\n  \"type\": \"module\","
+
+# ⚠️ THE REUSABLE WORKFLOW BUILDS ONLY THE APP TARGET (measured in the engine's game-ci.yml), so a
+# broken lib target reaches nobody until the platform installs it.
+add "the CI stops building the second target" \
+    "$CFG/.github/workflows/ci.yml" \
+    "        run: npm run build:lib" \
+    "        run: echo skip"
 
 # ========================= ADR-0139 GATE 2: THE CARTRIDGE NEVER CALLS THE HOST =========================
 # ⚠️ THE DEFECT IS INVISIBLE WHERE THE TESTS RUN, which is the whole reason the gate is a source
@@ -1453,7 +1516,7 @@ add "a contrast figure on the page drifts from the one palette.ts measured" \
 # trusts it precisely where it is least examined.
 add "the architecture map miscounts the modules in the tree" \
     "$DOCS/ARCHITECTURE.md" \
-    "The map. Thirty-four modules" \
+    "The map. Thirty-five modules" \
     "The map. Thirty-three modules"
 
 # ⚠️ AN IMPORT THAT NEVER REACHES THE TABLE grows this game's dependency on the engine without
@@ -1493,6 +1556,7 @@ add "GAME-RULES forgets that the segment layout was replaced" \
     "### The number is set in a typeface"
 
 TO_FILE="$(mktemp)"
+FROM_FILE="$(mktemp)"
 
 # ========================= AN INTERRUPTED RUN MUST NOT LEAVE MUTATED SOURCE =========================
 # ⚠️ THIS TRAP USED TO CLEAN UP THE TEMP FILE AND NOTHING ELSE, and the omission bit three times in
@@ -1512,7 +1576,7 @@ restore() {
     echo "interrupted - restored $MUTATING"
   fi
   MUTATING=""
-  rm -f "$TO_FILE"
+  rm -f "$TO_FILE" "$FROM_FILE"
 }
 trap 'restore' EXIT
 trap 'restore; exit 130' INT
@@ -1622,8 +1686,16 @@ for i in "${!NAMES[@]}"; do
   fi
   if [ -n "$CHANGED" ]; then
     # The mutation runs only if the file it edits is one of the changed ones.
+    #
+    # 🔴 THE `./` IS STRIPPED, AND WITHOUT THAT THIS FILTER WAS BLIND TO EIGHT MUTATIONS. `CFG=.`,
+    # so `"$CFG/package.json"` expands at declaration time to `./package.json`, while
+    # `git status --porcelain` says `package.json` — and the two never matched. The everyday
+    # command reported «proved what you touched» while touching nothing in the manifest, the build
+    # config or the workflow, which are exactly the files whose defects reach a consumer and nobody
+    # else. Found by noticing that a changed `vite.config.ts` ran zero of its two.
+    changed_target="${FILES[$i]#./}"
     case "$CHANGED" in
-      *"${FILES[$i]}"*) ;;
+      *"$changed_target"*) ;;
       *) skipped=$((skipped + 1)); continue ;;
     esac
   fi
@@ -1633,12 +1705,17 @@ for i in "${!NAMES[@]}"; do
   # `.bak` that does not exist yet. `restore` checks for the file anyway, and both guards are cheap.
   MUTATING="$f"
 
-  # The replacement goes through a FILE, never through argv: a multi-line argument is truncated
-  # at the first newline on the way to a Windows node process, and when the surviving line equals
-  # the anchor the mutation silently does nothing while the harness reports it as escaped.
+  # ⚠️ BOTH SIDES GO THROUGH A FILE, NEVER THROUGH argv, and each half was learned the hard way.
+  # A multi-line argument is truncated at the first newline on the way to a Windows node process,
+  # and when the surviving line equals the anchor the mutation silently does nothing while this
+  # script reports it as escaped. Then the ANCHOR side turned out to have a second failure: Git
+  # Bash hands argv to a Windows command line, so an `&&` inside an anchor is read as a command
+  # separator and the tail of the anchor RUNS. Both are the same rule -- on this machine, anything
+  # a shell might read travels in a file.
   printf '%s' "${TOS[$i]}" > "$TO_FILE"
+  printf '%s' "${FROMS[$i]}" > "$FROM_FILE"
 
-  if ! node tests/mutate.cjs "$f" "${FROMS[$i]}" --to-file "$TO_FILE"; then
+  if ! node tests/mutate.cjs "$f" --from-file "$FROM_FILE" --to-file "$TO_FILE"; then
     echo "SKIP  (anchor drifted) - ${NAMES[$i]}"
     mv "$f.bak" "$f"
     MUTATING=""
