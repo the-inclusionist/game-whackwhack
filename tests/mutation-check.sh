@@ -1289,6 +1289,52 @@ add "the CI stops building the second target" \
     "        run: npm run build:lib" \
     "        run: echo skip"
 
+# ⚠️ NOTHING IN THIS REPOSITORY IMPORTS THE LIB ENTRY, so an export can be deleted with every test,
+# every build and the whole standalone page staying green. The failure would arrive weeks later as
+# a compile error in somebody else's repository. F7: a platform registers a cartridge's words, and
+# it can only do that if the raw catalogues travel.
+add "the cartridge stops handing over its dictionaries" \
+    "$BOOT/../index.ts" \
+    "export { pt } from './i18n/pt.ts';" \
+    ""
+
+# ⚠️ ADR-0082 §1: repository, package and slug are ONE string, because a manifest picks a cartridge
+# by it and two spellings are two games.
+add "the slug stops agreeing with the package name" \
+    "$BOOT/../index.ts" \
+    "export const SLUG = 'game-whackwhack';" \
+    "export const SLUG = 'whackwhack';"
+
+# ========================= THE STANDALONE PWA, AND ONLY THE STANDALONE (ADR-0140) =========================
+# 🔴 A SERVICE WORKER IN THE CARTRIDGE CLAIMS AN ORIGIN THAT IS NOT ITS. ADR-0117 gives the origin
+# to the platform; a cartridge that installed one would take it, and nothing in a platform build
+# would say where the second worker came from.
+add "the cartridge starts shipping a service worker of its own" \
+    "$CFG/vite.config.ts" \
+    "const PWA = LIB ? [] : [VitePWA({" \
+    "const PWA = [VitePWA({"
+
+# ⚠️ ABSENCE IS NOT SILENCE: the plugin writes `\"lang\":\"en\"` when a manifest omits it, and a screen
+# reader then says «Colete: numeros pares» with English phonemes to a child learning to read.
+add "the manifest goes back to letting the plugin choose the language" \
+    "$CFG/vite.config.ts" \
+    "    lang: 'pt-BR'," \
+    "    "
+
+# ⚠️ AND THE PAIR THAT HAS TO POINT THE SAME WAY: a relative scope with an absolute start_url opens
+# a URL outside the scope it was just given, and `/` claims the whole origin either way.
+add "the standalone build claims the whole origin again" \
+    "$CFG/vite.config.ts" \
+    "    start_url: './'," \
+    "    "
+
+# 📏 The install screen must be the ground the palette was measured against, not a colour chosen
+# here -- otherwise the browser flashes something this game does not contain.
+add "the install screen flashes a colour the game does not use" \
+    "$CFG/vite.config.ts" \
+    "    background_color: '#1C041B'," \
+    "    background_color: '#000000',"
+
 # ========================= ADR-0139 GATE 2: THE CARTRIDGE NEVER CALLS THE HOST =========================
 # ⚠️ THE DEFECT IS INVISIBLE WHERE THE TESTS RUN, which is the whole reason the gate is a source
 # read. A standalone build calls `createGame` once and behaves perfectly; the damage only exists

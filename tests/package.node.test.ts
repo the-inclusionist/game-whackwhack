@@ -142,6 +142,104 @@ describe('[Interface] the package can be installed by somebody else', () => {
     expect(config, 'zdog would be bundled into the cartridge').toMatch(/'zdog'/);
   });
 
+  it('the lib entry hands over the dictionaries, and the slug (F7, ADR-0082 §1)', () => {
+    /**
+     * ⚠️ NOTHING IN THIS REPOSITORY IMPORTS `app/js/index.ts`, which is exactly why it needs a gate.
+     * It exists for a consumer that does not exist yet, so an export could be deleted and every
+     * test, every build and the whole standalone page would stay green — the failure would arrive
+     * as a platform's compile error, weeks later, in somebody else's repository.
+     *
+     * 📌 THE DICTIONARIES ARE THE POINT OF F7. A platform registers a cartridge's words into
+     * whatever catalogue it keeps, and it can only do that if the raw objects travel. `createI18n`
+     * travels beside them so a shell may instead take the whole instance — «either of the two», as
+     * the plan puts it, and the choice is the shell's rather than this game's.
+     *
+     * 📏 The names are PARSED rather than pattern-matched. The first version used a regex over the
+     * whole file and matched `pt` inside the word «puts» in the prose above — a gate that reads a
+     * comment is a gate that passes for the wrong reason, which this file has already been bitten
+     * by once today.
+     */
+    const entry = read('app', 'js', 'index.ts');
+    const exported = new Set<string>();
+    for (const block of entry.matchAll(/export\s*\{([^}]*)\}/g)) {
+      for (const part of block[1]!.split(',')) {
+        const name = part.trim().replace(/^type\s+/, '').split(/\s+as\s+/).pop()!.trim();
+        if (name) exported.add(name);
+      }
+    }
+    for (const decl of entry.matchAll(/export\s+(?:const|function|class)\s+(\w+)/g)) {
+      exported.add(decl[1]!);
+    }
+
+    for (const name of ['pt', 'en', 'es', 'createI18n', 'boot', 'SLUG', 'createWhackDeclaration']) {
+      expect([...exported], `the lib entry no longer exports ${name}`).toContain(name);
+    }
+
+    // ⚠️ AND THE SLUG HAS TO BE THE PACKAGE'S OWN NAME (ADR-0082 §1): repository, package and slug
+    // are one string, because a manifest picks a cartridge by it and two spellings are two games.
+    const slug = /SLUG\s*=\s*'([^']+)'/.exec(entry)?.[1];
+    expect(slug, 'the slug and the package name disagree').toBe(PKG.name.split('/')[1]);
+  });
+
+  it('the standalone build is a PWA, and the cartridge is not (ADR-0140)', () => {
+    /**
+     * ⚠️ TWO STATEMENTS, AND THE SECOND IS THE ONE THAT WOULD GO WRONG QUIETLY. ADR-0117 wrote «A
+     * GAME IS A CARTRIDGE, NOT A PWA»; ADR-0140 supersedes exactly that clause and nothing else,
+     * because a standalone build that exists for whoever works on this repository is not a unit of
+     * installation for anybody — while a standalone build DEPLOYED FOR CHILDREN would be, and every
+     * word of ADR-0117 would apply to it again.
+     *
+     * 📌 So the app target gets a service worker and the LIB TARGET MUST NOT. A cartridge that
+     * installed one would be claiming an origin that belongs to the platform, and nothing in a
+     * platform's build would say where the second service worker came from.
+     */
+    const config = read('vite.config.ts');
+    expect(config, 'the standalone build is no longer a PWA').toContain('VitePWA(');
+    expect(config, 'the service worker is not switched off for the cartridge')
+      .toMatch(/const PWA = LIB \? \[\]/);
+  });
+
+  it('declares the four manifest fields whose defaults are wrong here', () => {
+    /**
+     * ⚠️ ABSENCE IS NOT SILENCE — the plugin fills what a manifest omits, and 📏 the platformer
+     * measured what with: `"lang":"en"` and `"scope":"/"`. Both are wrong for this game and the
+     * second is wrong for every game.
+     *
+     *   `lang`       assistive technology reads it to pick a voice. With `en` a screen reader says
+     *                «Colete: números pares» with English phonemes to a child learning to read.
+     *   `scope`      `/` claims the WHOLE ORIGIN, which under ADR-0117 belongs to the platform.
+     *   `start_url`  the plugin left it at `/` even with a relative scope — measured in the
+     *                generated manifest, and the pair pointing two different ways is worse than
+     *                either alone.
+     *   `id`         without it the identity IS the `start_url`, so changing that one day puts a
+     *                second installation beside the one a child already had, with her scores on
+     *                the other side of it.
+     */
+    const config = read('vite.config.ts');
+    expect(config, 'lang is left to the plugin, which writes en').toMatch(/lang: 'pt-BR'/);
+    expect(config, 'scope is left to the plugin, which claims the origin').toMatch(/scope: '\.\/'/);
+    expect(config, 'start_url is left to the plugin, which points at the origin root')
+      .toMatch(/start_url: '\.\/'/);
+    expect(config, 'the application has no stable identity').toMatch(/id: '\.\/'/);
+  });
+
+  it('paints the install screen in the colour the palette was measured against', () => {
+    /**
+     * 📏 THE GROUND, AND NOT A COLOUR CHOSEN HERE. `render/palette.ts` measured every contrast in
+     * this game against `--ground`; the browser paints `background_color` behind the game while it
+     * loads, so any other value is a flash of a colour this game does not contain.
+     *
+     * ⚠️ HELD TO THE STYLESHEET RATHER THAN TO A LITERAL, because two hand-copied hex strings agree
+     * only until somebody edits one — and the one that would be edited is the CSS.
+     */
+    const ground = /--ground:\s*(#[0-9A-Fa-f]{6})/.exec(read('app', 'css', 'style.css'))?.[1];
+    expect(ground, 'the stylesheet no longer names a ground colour').toBeTruthy();
+    const config = read('vite.config.ts');
+    expect(config, 'the install screen flashes a colour this game does not use')
+      .toContain(`background_color: '${ground}'`);
+    expect(config).toContain(`theme_color: '${ground}'`);
+  });
+
   it('the CI builds the target the reusable workflow does not', () => {
     /**
      * 📏 MEASURED IN THE ENGINE'S `game-ci.yml`: it runs `npm ci`, `npm run typecheck`, `npm test`

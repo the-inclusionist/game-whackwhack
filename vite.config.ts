@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config'; // not 'vite': vitest/config is what types the `test` field
 import { playwright } from '@vitest/browser-playwright';
+import { VitePWA } from 'vite-plugin-pwa';
 
 // ============================ THE ENGINE COMES FROM THE REGISTRY ============================
 // ⚠️ IT WAS `file:../SP-the-inclusionist-tracer` — a symlink into a sibling working tree — until the
@@ -31,8 +32,81 @@ import { playwright } from '@vitest/browser-playwright';
 // and stays broken until the platform tries to install it, which is the worst moment to find out.
 const LIB = process.env.npm_lifecycle_event === 'build:lib';
 
+/*
+ * ========================= THE STANDALONE PWA (ADR-0140) =========================
+ * ⚠️ THE RECORD DECIDED THIS AND THE DEV SAID IT PLAINLY on 2026-09-11: «the games have to work as
+ * their own PWA». ADR-0117 had written «A GAME IS A CARTRIDGE, NOT A PWA» and ADR-0140 supersedes
+ * exactly that clause and nothing else — because the two are answering different questions. A
+ * standalone build DEPLOYED FOR CHILDREN would be a second origin, a second service worker and a
+ * second set of preferences, and every word of ADR-0117 would apply to it. A standalone build that
+ * exists for whoever works on this repository is not a unit of installation for anybody.
+ *
+ * 📌 SO IT IS A DEVELOPMENT, TEST, AUDIT AND DEMONSTRATION ROUTE, and it still has to work offline:
+ * ADR-0010 pillar 1 is weak school hardware and the network that comes with it, and a demonstration
+ * that needs the network is a demonstration that fails in the room it was built for.
+ *
+ * ⚠️ AND IT IS ABSENT FROM THE LIB TARGET, which is the other half of the same decision: «no HTML,
+ * no service worker». A cartridge that installed a service worker would be claiming an origin that
+ * belongs to the platform.
+ */
+const PWA = LIB ? [] : [VitePWA({
+  registerType: 'autoUpdate',
+  workbox: { globPatterns: ['**/*.{js,css,html,woff2}'] },
+  /*
+   * ⚠️ EVERY FIELD BELOW IS DECLARED BECAUSE ABSENCE IS NOT SILENCE. The plugin fills what a
+   * manifest omits, and the platformer measured what it fills with: `"lang":"en"` and `"scope":"/"`.
+   * Not declaring is letting somebody else decide, and both of those defaults are wrong here.
+   */
+  manifest: {
+    name: 'WhackWhack Schoolution',
+    short_name: 'WhackWhack',
+    /*
+     * THE PRODUCT IS IN BRAZILIAN PORTUGUESE, and this is the field assistive technology reads to
+     * pick a voice. With `en` a screen reader announces «Colete: números pares» with English
+     * phonemes to a child who is learning to read — which is this game's child exactly.
+     */
+    lang: 'pt-BR',
+    dir: 'ltr',
+    /*
+     * RELATIVE, never `/`. The plugin's default claims the WHOLE ORIGIN, so anything else served on
+     * the same domain falls under this service worker. Under ADR-0117 the origin belongs to the
+     * platform and not to one of six games, so claiming it is the wrong statement even while
+     * nothing else is there. `./` resolves against the manifest and follows wherever it is served.
+     */
+    scope: './',
+    /*
+     * THE IDENTITY, so the browser knows a fresh install is the SAME application. Without it the
+     * identity is the `start_url`, and changing that one day would put a second installation beside
+     * the one a child already had, with her scores on the other side of it.
+     */
+    id: './',
+    /*
+     * ⚠️ AND `start_url` TOO, WHICH THE PLUGIN LEFT AT `/` — measured in the generated manifest, not
+     * assumed. It is the same claim on the whole origin that `scope` was talked out of two fields
+     * up, and leaving one of the pair pointing at the root while the other is relative is worse
+     * than either alone: the browser would open a URL outside the scope it was just given.
+     */
+    start_url: './',
+    /*
+     * IN PORTUGUESE FOR THE SAME REASON AS `lang`. It comes from `package.json`'s `description`
+     * otherwise — English, as the convention for ARTEFACTS requires — and it shows up in the
+     * device's application list, which is PRODUCT and not artefact.
+     */
+    description: 'Um jogo de martelar em que a criança colhe só o que está CERTO entre as lajes '
+      + 'acesas: pares, múltiplos de 3, múltiplos de 4. Feito para quem joga com leitor de tela, '
+      + 'só com o teclado, ou com o tempo que precisar.',
+    display: 'standalone',
+    // 📏 The ground the whole palette was measured against (`render/palette.ts`), not a colour
+    // chosen here: the browser paints this behind the game while it loads, and any other value
+    // would be a flash of a colour this game does not use.
+    background_color: '#1C041B',
+    theme_color: '#1C041B',
+  },
+})];
+
 export default defineConfig({
   root: 'app',
+  plugins: PWA,
   build: LIB
     ? {
       outDir: '../dist-lib',
